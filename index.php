@@ -12,37 +12,7 @@ $is_logged_in = isset($_SESSION['user_id']);
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <header id="main-header">
-      <div class="nav-center">
-        <div class="nav-links-left">
-          <a href="#">Trouver un talent</a>
-          <a href="#">Poster un projet</a>
-        </div>
-
-        <img src="img/logo.png" class="logo-img" alt="ChicBook" />
-
-        <div class="nav-links-right">
-          <a href="#">Créer un casting</a>
-          <a href="#">À propos</a>
-        </div>
-      </div>
-
-      <div class="nav-right">
-        <?php if ($is_logged_in): ?>
-          <a href="profil.php" class="profile-avatar" title="Mon Profil">
-            <span>👤</span>
-          </a>
-        <?php else: ?>
-          <a class="btn-auth" href="connexion.php">S'identifier</a>
-        <?php endif; ?>
-
-        <div class="navicon" id="navicon">
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
-      </div>
-    </header>
+    <?php include 'includes/header.php'; ?>
 
     <section class="hero"></section>
 

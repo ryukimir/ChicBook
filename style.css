@@ -636,3 +636,147 @@ header.nav-hidden {
 @media (max-width: 500px) {
     .masonry-grid { column-count: 1; }
 }
+
+/* a propos */
+
+/* =========================================
+   PAGE À PROPOS
+   ========================================= */
+
+.about-page {
+    color: #ffffff;
+    line-height: 1.6;
+}
+
+/* Hero Section */
+.about-hero {
+    background-image: linear-gradient(rgba(26, 26, 26, 0.8), rgba(26, 26, 26, 0.9)), url('https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=2000&q=80');
+    background-size: cover;
+    background-position: center;
+    padding: 150px 20px 100px;
+    text-align: center;
+}
+
+.about-hero-content {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.about-hero h1 {
+    font-size: 42px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    line-height: 1.2;
+}
+
+.about-hero p {
+    font-size: 18px;
+    color: #ccc;
+}
+
+/* Intro Section */
+.about-intro {
+    padding: 80px 20px;
+}
+
+.intro-text-center {
+    max-width: 800px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.intro-text-center h3 {
+    font-size: 28px;
+    margin-bottom: 30px;
+}
+
+.intro-text-center p {
+    color: #bbb;
+    margin-bottom: 15px;
+    font-size: 16px;
+}
+
+/* Pilier Layout (Z-Pattern) */
+.about-pillars {
+    padding: 40px 20px 80px;
+}
+
+.pillar-row {
+    display: flex;
+    align-items: center;
+    gap: 60px;
+    margin-bottom: 100px;
+}
+
+.pillar-row.reverse {
+    flex-direction: row-reverse;
+}
+
+.pillar-image {
+    flex: 1;
+}
+
+.pillar-image img {
+    width: 100%;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    transition: transform 0.3s ease;
+}
+
+.pillar-image img:hover {
+    transform: translateY(-5px);
+}
+
+.pillar-text {
+    flex: 1;
+}
+
+.pillar-text h2 {
+    font-size: 32px;
+    color: #d4a5d4;
+    margin-bottom: 20px;
+}
+
+.pillar-text p {
+    color: #bbb;
+    font-size: 16px;
+}
+
+/* CTA Section */
+.about-cta-section {
+    background-color: #222;
+    padding: 80px 20px;
+    border-top: 1px solid #333;
+}
+
+.about-cta-section .text-center {
+    max-width: 800px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.cta-box {
+    background-color: #1a1a1a;
+    padding: 50px;
+    border-radius: 15px;
+    margin-top: 50px;
+    border: 1px solid #333;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+.cta-box h2 {
+    font-size: 36px;
+    margin-bottom: 15px;
+}
+
+/* Responsive pour mobiles */
+@media (max-width: 900px) {
+    .pillar-row, .pillar-row.reverse {
+        flex-direction: column;
+        gap: 30px;
+        text-align: center;
+    }
+    .about-hero h1 {
+        font-size: 32px;
+    }
+}

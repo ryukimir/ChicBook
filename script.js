@@ -17,7 +17,7 @@ navicon.addEventListener("click", () => {
 });
 
 const interactiveElements = document.querySelectorAll(
-  ".tag, .btn-post, .btn-auth",
+  ".tag, .btn-post, .btn-auth, .btn-small, .btn-follow, .btn-contact",
 );
 
 interactiveElements.forEach((item) => {

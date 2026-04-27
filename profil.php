@@ -2,6 +2,7 @@
 session_start();
 require_once 'config/Database.php';
 require_once 'models/User.php';
+require_once 'models/Portfolio.php';
 
 $is_logged_in = isset($_SESSION['user_id']);
 
@@ -36,32 +37,13 @@ $is_own_profile = ($is_logged_in && $_SESSION['user_id'] == $profile_id);
 </head>
 
 <body>
-    <header id="main-header">
-        <div class="nav-center">
-            <div class="nav-links-left">
-                <a href="#">Trouver un talent</a>
-                <a href="#">Poster un projet</a>
-            </div>
-            <a href="index.php"><img src="img/logo.png" class="logo-img" alt="ChicBook" /></a>
-            <div class="nav-links-right">
-                <a href="#">Créer un casting</a>
-                <a href="#">À propos</a>
-            </div>
-        </div>
-        <div class="nav-right">
-            <?php if ($is_logged_in): ?>
-                <a href="profil.php" class="profile-avatar" title="Mon Profil"><span>👤</span></a>
-            <?php else: ?>
-                <a class="btn-auth" href="connexion.php">S'identifier</a>
-            <?php endif; ?>
-        </div>
-    </header>
+    <?php include 'includes/header.php'; ?>
 
     <main class="profile-container">
 
         <aside class="profile-sidebar">
             <h2 class="profile-profession"><?= htmlspecialchars($profile_data['profession_name'] ?? 'Talent') ?></h2>
-            <p class="profile-location">📍 <?= htmlspecialchars($profile_data['city']) ?>, <?= htmlspecialchars($profile_data['country']) ?></p>
+            <p class="profile-location"> <?= htmlspecialchars($profile_data['city']) ?>, <?= htmlspecialchars($profile_data['country']) ?></p>
 
             <div class="profile-bio">
                 <?php if (!empty($profile_data['bio'])): ?>
@@ -70,14 +52,14 @@ $is_own_profile = ($is_logged_in && $_SESSION['user_id'] == $profile_id);
                     <?php if ($is_own_profile): ?>
                         <div class="add-bio-prompt">
                             <p>Votre biographie est vide.</p>
-                            <button class="btn-small">Ajouter une biographie ✏️</button>
+                            <a href="edit_profil.php#section-bio" class="btn-small" style="text-decoration: none; display: inline-block;">Ajouter une biographie</a>
                         </div>
                     <?php endif; ?>
                 <?php endif; ?>
             </div>
 
             <div class="profile-share">
-                <a href="#" style="color: #888; text-decoration: none; font-size: 14px;">🔗 Partager le profil</a>
+                <a href="#" style="color: #888; text-decoration: none; font-size: 14px;"> Partager le profil</a>
             </div>
         </aside>
 
@@ -90,19 +72,26 @@ $is_own_profile = ($is_logged_in && $_SESSION['user_id'] == $profile_id);
                         <button class="btn-follow">Suivre</button>
                         <button class="btn-contact">Contacter</button>
                     <?php else: ?>
-                        <button class="btn-follow">Modifier le profil</button>
-                        <button class="btn-contact">Ajouter des photos</button>
+                        <a href="edit_profil.php#section-infos" class="btn-follow" style="text-decoration: none;">Modifier le profil</a>
+                        <a href="edit_profil.php#section-portfolio" class="btn-contact" style="text-decoration: none;">Ajouter des photos</a>
                     <?php endif; ?>
                 </div>
             </div>
 
             <div class="masonry-grid">
-                <div class="masonry-item"><img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80" alt="Portfolio"></div>
-                <div class="masonry-item"><img src="https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=500&q=80" alt="Portfolio"></div>
-                <div class="masonry-item"><img src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=500&q=80" alt="Portfolio"></div>
-                <div class="masonry-item"><img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=500&q=80" alt="Portfolio"></div>
-                <div class="masonry-item"><img src="https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=500&q=80" alt="Portfolio"></div>
-                <div class="masonry-item"><img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=500&q=80" alt="Portfolio"></div>
+                <?php
+                $portfolioModel = new Portfolio($db);
+                $photos = $portfolioModel->getPhotos($profile_id);
+
+                if (empty($photos)): ?>
+                    <p style="color: #888;">Aucune photo dans le book pour le moment.</p>
+                    <?php else:
+                    foreach ($photos as $photo): ?>
+                        <div class="masonry-item">
+                            <img src="<?= htmlspecialchars($photo['image_url']) ?>" alt="Photo de portfolio">
+                        </div>
+                <?php endforeach;
+                endif; ?>
             </div>
         </section>
 

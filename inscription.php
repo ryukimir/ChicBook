@@ -42,27 +42,7 @@ function get_post_value($key)
 </head>
 
 <body>
-  <header id="main-header">
-    <div class="nav-center">
-      <div class="nav-links-left">
-        <a href="#">Trouver un talent</a>
-        <a href="#">Poster un projet</a>
-      </div>
-      <a href="index.php"><img src="img/logo.png" class="logo-img" alt="ChicBook" /></a>
-      <div class="nav-links-right">
-        <a href="#">Créer un casting</a>
-        <a href="#">À propos</a>
-      </div>
-    </div>
-    <div class="nav-right">
-      <a class="btn-auth" href="inscription.php">S'inscrire</a>
-      <div class="navicon" id="navicon">
-        <span></span>
-        <span></span>
-        <span></span>
-      </div>
-    </div>
-  </header>
+  <?php include 'includes/header.php'; ?>
 
   <main class="auth-main">
     <div class="auth-header-text">

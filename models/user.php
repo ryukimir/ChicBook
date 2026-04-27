@@ -20,7 +20,8 @@ class User
         return $stmt->rowCount() > 0;
     }
 
-        public function verifyCredentials($email, $password) {
+    public function verifyCredentials($email, $password)
+    {
         $query = "SELECT id, password_hash, full_name, role FROM " . $this->table_name . " WHERE email = :email LIMIT 1";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(":email", $email);
@@ -30,15 +31,14 @@ class User
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (password_verify($password, $row['password_hash'])) {
-                return $row; 
-
+                return $row;
             }
         }
-        return false; 
-
+        return false;
     }
 
-    public function saveLoginCode($user_id, $code) {
+    public function saveLoginCode($user_id, $code)
+    {
         $query = "UPDATE " . $this->table_name . " SET login_code = :code WHERE id = :id";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(":code", $code);
@@ -46,7 +46,8 @@ class User
         return $stmt->execute();
     }
 
-        public function verifyLoginCode($user_id, $code) {
+    public function verifyLoginCode($user_id, $code)
+    {
         $query = "SELECT id FROM " . $this->table_name . " WHERE id = :id AND login_code = :code LIMIT 1";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(":id", $user_id);
@@ -56,15 +57,24 @@ class User
         return $stmt->rowCount() > 0;
     }
 
-    public function clearLoginCode($user_id) {
+    public function clearLoginCode($user_id)
+    {
         $query = "UPDATE " . $this->table_name . " SET login_code = NULL WHERE id = :id";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(":id", $user_id);
         return $stmt->execute();
     }
-        public function getUserProfile($user_id) {
+    public function updateProfilePicture($user_id, $image_url) {
+    $query = "UPDATE " . $this->table_name . " SET profile_picture_url = :url WHERE id = :id";
+    $stmt = $this->conn->prepare($query);
+    $stmt->bindParam(":url", $image_url);
+    $stmt->bindParam(":id", $user_id);
+    return $stmt->execute();
+}
+    public function getUserProfile($user_id)
+    {
 
-        $query = "SELECT u.id, u.full_name, u.city, u.country, u.bio, u.profile_picture_url, p.name as profession_name
+        $query = "SELECT u.id, u.full_name, u.email, u.city, u.country, u.bio, u.profile_picture_url, p.name as profession_name
                   FROM " . $this->table_name . " u
                   LEFT JOIN user_professions up ON u.id = up.user_id
                   LEFT JOIN professions p ON up.profession_id = p.id
@@ -75,6 +85,53 @@ class User
         $stmt->execute();
 
         return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+    public function updateInfo($user_id, $bio, $profile_picture = null)
+    {
+        $sql = "UPDATE users SET bio = :bio";
+        if ($profile_picture) {
+            $sql .= ", profile_picture_url = :pic";
+        }
+        $sql .= " WHERE id = :id";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bindParam(':bio', $bio);
+        $stmt->bindParam(':id', $user_id);
+        if ($profile_picture) {
+            $stmt->bindParam(':pic', $profile_picture);
+        }
+        return $stmt->execute();
+    }
+
+        public function updateGeneralInfo($user_id, $full_name, $city, $country) {
+        $query = "UPDATE " . $this->table_name . " SET full_name = :name, city = :city, country = :country WHERE id = :id";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(":name", $full_name);
+        $stmt->bindParam(":city", $city);
+        $stmt->bindParam(":country", $country);
+        $stmt->bindParam(":id", $user_id);
+        return $stmt->execute();
+    }
+
+    public function updatePassword($user_id, $current_password, $new_password) {
+
+        $query = "SELECT password_hash FROM " . $this->table_name . " WHERE id = :id LIMIT 1";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(":id", $user_id);
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (password_verify($current_password, $row['password_hash'])) {
+
+            $new_hash = password_hash($new_password, PASSWORD_DEFAULT);
+            $update_query = "UPDATE " . $this->table_name . " SET password_hash = :hash WHERE id = :id";
+            $update_stmt = $this->conn->prepare($update_query);
+            $update_stmt->bindParam(":hash", $new_hash);
+            $update_stmt->bindParam(":id", $user_id);
+            return $update_stmt->execute();
+        }
+        return false; 
+
     }
     public function create($data)
     {
