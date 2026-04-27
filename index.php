@@ -23,7 +23,7 @@
       </div>
 
       <div class="nav-right">
-        <button class="btn-auth">S'identifier</button>
+        <a class="btn-auth" href="inscription.php">S'inscrire</a>
         <div class="navicon" id="navicon">
           <span></span>
           <span></span>
