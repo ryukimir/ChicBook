@@ -18,13 +18,15 @@ CREATE TABLE
         id SERIAL PRIMARY KEY,
         role VARCHAR(50) NOT NULL,
         gender VARCHAR(50),
-        -- NOUVELLE COLONNE AJOUTÉE ICI
         full_name VARCHAR(255) NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
         city VARCHAR(100),
         country VARCHAR(100),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        login_code VARCHAR(10),
+        profile_picture_url VARCHAR(255),
+        bio TEXT
     );
 
 CREATE TABLE

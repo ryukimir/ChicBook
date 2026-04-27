@@ -226,6 +226,9 @@ function get_post_value($key)
           </div>
 
           <button type="submit" class="btn-submit-auth">Créer mon compte</button>
+          <p class="auth-footer-link">
+            Déjà un compte ? <a href="connexion.php">Se connecter</a>
+          </p>
         </form>
 
       <?php endif; ?>

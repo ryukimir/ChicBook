@@ -20,6 +20,62 @@ class User
         return $stmt->rowCount() > 0;
     }
 
+        public function verifyCredentials($email, $password) {
+        $query = "SELECT id, password_hash, full_name, role FROM " . $this->table_name . " WHERE email = :email LIMIT 1";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(":email", $email);
+        $stmt->execute();
+
+        if ($stmt->rowCount() > 0) {
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (password_verify($password, $row['password_hash'])) {
+                return $row; 
+
+            }
+        }
+        return false; 
+
+    }
+
+    public function saveLoginCode($user_id, $code) {
+        $query = "UPDATE " . $this->table_name . " SET login_code = :code WHERE id = :id";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(":code", $code);
+        $stmt->bindParam(":id", $user_id);
+        return $stmt->execute();
+    }
+
+        public function verifyLoginCode($user_id, $code) {
+        $query = "SELECT id FROM " . $this->table_name . " WHERE id = :id AND login_code = :code LIMIT 1";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(":id", $user_id);
+        $stmt->bindParam(":code", $code);
+        $stmt->execute();
+
+        return $stmt->rowCount() > 0;
+    }
+
+    public function clearLoginCode($user_id) {
+        $query = "UPDATE " . $this->table_name . " SET login_code = NULL WHERE id = :id";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(":id", $user_id);
+        return $stmt->execute();
+    }
+        public function getUserProfile($user_id) {
+
+        $query = "SELECT u.id, u.full_name, u.city, u.country, u.bio, u.profile_picture_url, p.name as profession_name
+                  FROM " . $this->table_name . " u
+                  LEFT JOIN user_professions up ON u.id = up.user_id
+                  LEFT JOIN professions p ON up.profession_id = p.id
+                  WHERE u.id = :id LIMIT 1";
+
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(":id", $user_id);
+        $stmt->execute();
+
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
     public function create($data)
     {
         try {
