@@ -14,7 +14,7 @@ $user_avatar = $_SESSION['user_avatar'] ?? null;
         </a>
 
         <div class="nav-links-right">
-            <a href="#">Créer un casting</a>
+            <a href="castings.php">Accéder aux castings</a>
             <a href="apropos.php">À propos</a>
         </div>
     </div>

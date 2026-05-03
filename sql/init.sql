@@ -106,6 +106,8 @@ CREATE TABLE
         company_name VARCHAR(255),
         country VARCHAR(100),
         city VARCHAR(100),
+        role_sought VARCHAR(100),
+        duration VARCHAR(50),
         performance_date DATE,
         casting_date DATE,
         location VARCHAR(255),
