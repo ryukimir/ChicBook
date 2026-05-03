@@ -1,0 +1,96 @@
+.edit-container {
+    max-width: 800px;
+    margin: 100px auto 40px;
+    background: #1a1a1a;
+    color: white;
+    border-radius: 12px;
+    display: flex;
+    overflow: hidden;
+}
+
+.settings-menu {
+    width: 250px;
+    background: #222;
+    padding: 30px 20px;
+}
+
+.settings-menu a {
+    display: block;
+    color: #aaa;
+    text-decoration: none;
+    padding: 12px;
+    margin-bottom: 5px;
+    border-radius: 6px;
+    transition: 0.3s;
+}
+
+.settings-menu a:hover {
+    background: #333;
+    color: white;
+}
+
+.settings-content {
+    flex-grow: 1;
+    padding: 40px;
+}
+
+.settings-section {
+    margin-bottom: 50px;
+    padding-bottom: 30px;
+    border-bottom: 1px solid #333;
+}
+
+.settings-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #ccc;
+    font-size: 14px;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid #444;
+    background: #111;
+    color: white;
+}
+
+.form-group input:disabled {
+    background: #222;
+    color: #666;
+    cursor: not-allowed;
+}
+
+textarea {
+    height: 120px;
+    resize: vertical;
+}
+
+.alert {
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+}
+
+.alert-success {
+    background: rgba(46, 125, 50, 0.2);
+    color: #81c784;
+    border: 1px solid #2e7d32;
+}
+
+.alert-error {
+    background: rgba(198, 40, 40, 0.2);
+    color: #e57373;
+    border: 1px solid #c62828;
+}

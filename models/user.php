@@ -64,17 +64,28 @@ class User
         $stmt->bindParam(":id", $user_id);
         return $stmt->execute();
     }
-    public function updateProfilePicture($user_id, $image_url) {
-    $query = "UPDATE " . $this->table_name . " SET profile_picture_url = :url WHERE id = :id";
-    $stmt = $this->conn->prepare($query);
-    $stmt->bindParam(":url", $image_url);
-    $stmt->bindParam(":id", $user_id);
-    return $stmt->execute();
-}
+
+    public function updateExpertise($user_id, $profession, $tags)
+    {
+        $query = "UPDATE " . $this->table_name . " SET specific_profession = :prof, expertise_tags = :tags WHERE id = :id";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(":prof", $profession);
+        $stmt->bindParam(":tags", $tags);
+        $stmt->bindParam(":id", $user_id);
+        return $stmt->execute();
+    }
+    public function updateProfilePicture($user_id, $image_url)
+    {
+        $query = "UPDATE " . $this->table_name . " SET profile_picture_url = :url WHERE id = :id";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(":url", $image_url);
+        $stmt->bindParam(":id", $user_id);
+        return $stmt->execute();
+    }
     public function getUserProfile($user_id)
     {
 
-        $query = "SELECT u.id, u.full_name, u.email, u.city, u.country, u.bio, u.profile_picture_url, p.name as profession_name
+        $query = "SELECT u.id, u.full_name, u.email, u.specific_profession, u.expertise_tags, u.city, u.country, u.bio, u.profile_picture_url, p.name as profession_name
                   FROM " . $this->table_name . " u
                   LEFT JOIN user_professions up ON u.id = up.user_id
                   LEFT JOIN professions p ON up.profession_id = p.id
@@ -103,7 +114,8 @@ class User
         return $stmt->execute();
     }
 
-        public function updateGeneralInfo($user_id, $full_name, $city, $country) {
+    public function updateGeneralInfo($user_id, $full_name, $city, $country)
+    {
         $query = "UPDATE " . $this->table_name . " SET full_name = :name, city = :city, country = :country WHERE id = :id";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(":name", $full_name);
@@ -113,7 +125,8 @@ class User
         return $stmt->execute();
     }
 
-    public function updatePassword($user_id, $current_password, $new_password) {
+    public function updatePassword($user_id, $current_password, $new_password)
+    {
 
         $query = "SELECT password_hash FROM " . $this->table_name . " WHERE id = :id LIMIT 1";
         $stmt = $this->conn->prepare($query);
@@ -130,8 +143,7 @@ class User
             $update_stmt->bindParam(":id", $user_id);
             return $update_stmt->execute();
         }
-        return false; 
-
+        return false;
     }
     public function create($data)
     {

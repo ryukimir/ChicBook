@@ -9,7 +9,7 @@ $is_logged_in = isset($_SESSION['user_id']);
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>À propos - ChicBook</title>
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="src/style.css" />
 </head>
 <body>
 

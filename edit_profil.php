@@ -41,6 +41,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
 
+    if (isset($_POST['update_expertise'])) {
+        $profession = $_POST['profession'] ?? '';
+        $tags = $_POST['tags'] ?? [];
+        $custom_tag = trim($_POST['custom_tag'] ?? '');
+
+        if (!empty($custom_tag)) {
+            $tags[] = $custom_tag;
+        }
+        $tags_string = implode(', ', $tags);
+
+        if ($userModel->updateExpertise($_SESSION['user_id'], $profession, $tags_string)) {
+            $message = "Expertise et mots-clés mis à jour !";
+        } else {
+            $error = "Erreur lors de la mise à jour de l'expertise.";
+        }
+
+        $user = $userModel->getUserProfile($_SESSION['user_id']);
+    }
+
     if (isset($_POST['update_password'])) {
         if ($_POST['new_password'] === $_POST['confirm_password']) {
             if ($userModel->updatePassword($_SESSION['user_id'], $_POST['current_password'], $_POST['new_password'])) {
@@ -79,109 +98,8 @@ $user = $userModel->getUserProfile($_SESSION['user_id']);
 
 <head>
     <title>Paramètres du Profil - ChicBook</title>
-    <link rel="stylesheet" href="style.css">
-    <style>
-        .edit-container {
-            max-width: 800px;
-            margin: 100px auto 40px;
-            background: #1a1a1a;
-            color: white;
-            border-radius: 12px;
-            display: flex;
-            overflow: hidden;
-        }
-
-        /* Menu latéral des paramètres */
-        .settings-menu {
-            width: 250px;
-            background: #222;
-            padding: 30px 20px;
-        }
-
-        .settings-menu a {
-            display: block;
-            color: #aaa;
-            text-decoration: none;
-            padding: 12px;
-            margin-bottom: 5px;
-            border-radius: 6px;
-            transition: 0.3s;
-        }
-
-        .settings-menu a:hover {
-            background: #333;
-            color: white;
-        }
-
-        /* Zone de contenu */
-        .settings-content {
-            flex-grow: 1;
-            padding: 40px;
-        }
-
-        .settings-section {
-            margin-bottom: 50px;
-            padding-bottom: 30px;
-            border-bottom: 1px solid #333;
-        }
-
-        .settings-section:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-        }
-
-        /* Champs de formulaire */
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #ccc;
-            font-size: 14px;
-        }
-
-        .form-group input,
-        .form-group textarea {
-            width: 100%;
-            padding: 12px;
-            border-radius: 6px;
-            border: 1px solid #444;
-            background: #111;
-            color: white;
-        }
-
-        .form-group input:disabled {
-            background: #222;
-            color: #666;
-            cursor: not-allowed;
-        }
-
-        textarea {
-            height: 120px;
-            resize: vertical;
-        }
-
-        /* Messages flash */
-        .alert {
-            padding: 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-        }
-
-        .alert-success {
-            background: rgba(46, 125, 50, 0.2);
-            color: #81c784;
-            border: 1px solid #2e7d32;
-        }
-
-        .alert-error {
-            background: rgba(198, 40, 40, 0.2);
-            color: #e57373;
-            border: 1px solid #c62828;
-        }
-    </style>
+    <link rel="stylesheet" href="src/style.css">
+    <link rel="stylesheet" href="src/edit_profil.css">
 </head>
 
 <body>
@@ -192,10 +110,16 @@ $user = $userModel->getUserProfile($_SESSION['user_id']);
         <aside class="settings-menu">
             <h3 style="margin-bottom: 20px; padding-left: 10px;">Paramètres</h3>
             <a href="#section-infos">Informations générales</a>
+            <a href="#section-expertise">Expertise & Mots-clés</a>
             <a href="#section-bio">Biographie</a>
             <a href="#section-portfolio">Photos du Book</a>
             <a href="#section-securite">Sécurité</a>
-            <a href="profil.php" style="margin-top: 30px; color: #d4a5d4;">← Retour au profil</a>
+            
+
+            <div style="margin-top: 30px; border-top: 1px solid #333; padding-top: 20px;">
+                <a href="profil.php" style="color: #d4a5d4;">Retour au profil</a>
+                <a href="logout.php" style="color: #e57373; margin-top: 5px;">Se déconnecter</a>
+            </div>
         </aside>
 
         <section class="settings-content">
@@ -246,6 +170,61 @@ $user = $userModel->getUserProfile($_SESSION['user_id']);
                         </div>
                     </div>
                     <button type="submit" name="update_general" class="btn-auth">Mettre à jour</button>
+                </form>
+            </div>
+
+            <div id="section-expertise" class="settings-section">
+                <h2>Expertise & Mots-clés</h2>
+                <form action="edit_profil.php#section-expertise" method="POST">
+                    
+                    <div class="expertise-panel" style="display: flex; gap: 20px; background: #222; padding: 25px; border-radius: 8px; border: 1px solid #333;">
+                        
+                        <div class="expertise-left" style="width: 35%; border-right: 1px solid #444; padding-right: 20px;">
+                            <h4 style="color: #d4a5d4; margin-bottom: 15px;">Image & Production</h4>
+                            <div class="radio-group" style="display: flex; flex-direction: column; gap: 10px;">
+                                <label><input type="radio" name="profession" value="Photographe" onclick="showTags('tags-photo')" <?= ($user['specific_profession'] == 'Photographe') ? 'checked' : '' ?>> Photographe</label>
+                                <label><input type="radio" name="profession" value="Vidéaste" onclick="showTags('tags-video')" <?= ($user['specific_profession'] == 'Vidéaste') ? 'checked' : '' ?>> Vidéaste</label>
+                                <label><input type="radio" name="profession" value="Mannequin" onclick="showTags('tags-mannequin')" <?= ($user['specific_profession'] == 'Mannequin') ? 'checked' : '' ?>> Mannequin</label>
+                                </div>
+                        </div>
+
+                        <div class="expertise-right" style="width: 65%;">
+                            <h4 style="margin-bottom: 15px;">Mots-clés <span style="float: right; font-size: 12px; color: #888;">Choix multiple</span></h4>
+                            
+                            <?php 
+                            $saved_tags = explode(', ', $user['expertise_tags'] ?? ''); 
+                            $isChecked = function($tag) use ($saved_tags) { return in_array($tag, $saved_tags) ? 'checked' : ''; };
+                            ?>
+
+                            <div id="tags-photo" class="tags-grid" style="display: none; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <label><input type="checkbox" name="tags[]" value="mode" <?= $isChecked('mode') ?>> mode</label>
+                                <label><input type="checkbox" name="tags[]" value="shooting éditorial" <?= $isChecked('shooting éditorial') ?>> shooting éditorial</label>
+                                <label><input type="checkbox" name="tags[]" value="campagne" <?= $isChecked('campagne') ?>> campagne</label>
+                                <label><input type="checkbox" name="tags[]" value="e-commerce" <?= $isChecked('e-commerce') ?>> e-commerce</label>
+                                <label><input type="checkbox" name="tags[]" value="studio" <?= $isChecked('studio') ?>> studio</label>
+                            </div>
+
+                            <div id="tags-video" class="tags-grid" style="display: none; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <label><input type="checkbox" name="tags[]" value="fashion film" <?= $isChecked('fashion film') ?>> fashion film</label>
+                                <label><input type="checkbox" name="tags[]" value="vidéo de campagne" <?= $isChecked('vidéo de campagne') ?>> vidéo de campagne</label>
+                                <label><input type="checkbox" name="tags[]" value="storytelling" <?= $isChecked('storytelling') ?>> storytelling</label>
+                                <label><input type="checkbox" name="tags[]" value="montage vidéo" <?= $isChecked('montage vidéo') ?>> montage vidéo</label>
+                            </div>
+
+                            <div id="tags-mannequin" class="tags-grid" style="display: none; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <label><input type="checkbox" name="tags[]" value="éditorial" <?= $isChecked('éditorial') ?>> éditorial</label>
+                                <label><input type="checkbox" name="tags[]" value="runway" <?= $isChecked('runway') ?>> runway</label>
+                                <label><input type="checkbox" name="tags[]" value="commercial" <?= $isChecked('commercial') ?>> commercial</label>
+                            </div>
+
+                            <hr style="border-color: #444; margin: 20px 0;">
+                            
+                            <label style="font-size: 12px; color: #aaa;">Autre mot-clé personnalisé</label>
+                            <input type="text" name="custom_tag" placeholder="Ajouter un mot-clé..." style="width: 100%; background: transparent; border: 1px solid #d4a5d4; border-radius: 5px; padding: 10px; color: white; margin-top: 5px;">
+                        </div>
+                    </div>
+                    
+                    <button type="submit" name="update_expertise" class="btn-auth" style="margin-top: 20px;">Sauvegarder l'expertise</button>
                 </form>
             </div>
 

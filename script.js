@@ -26,8 +26,6 @@ interactiveElements.forEach((item) => {
   });
 });
 
-// inscription
-
 document.addEventListener('DOMContentLoaded', function () {
   const metierSelect = document.getElementById('metier-select');
   const mensurationsBloc = document.getElementById('mensurations-bloc');
@@ -52,83 +50,148 @@ document.addEventListener('DOMContentLoaded', function () {
   toggleMeasurements();
 });
 
-document.addEventListener('DOMContentLoaded', function() {
-    const paysSelect = document.getElementById('pays-select');
-    const villeInput = document.getElementById('ville-input');
-    const suggestionsList = document.getElementById('ville-suggestions');
+document.addEventListener('DOMContentLoaded', function () {
+  const paysSelect = document.getElementById('pays-select');
+  const villeInput = document.getElementById('ville-input');
+  const suggestionsList = document.getElementById('ville-suggestions');
 
-    fetch('https://restcountries.com/v3.1/all?fields=name,translations')
+  fetch('https://restcountries.com/v3.1/all?fields=name,translations')
+    .then(response => response.json())
+    .then(data => {
+
+      const countries = data.map(country => {
+        return country.translations && country.translations.fra
+          ? country.translations.fra.common
+          : country.name.common;
+      }).sort();
+
+      countries.forEach(countryName => {
+        const option = document.createElement('option');
+        option.value = countryName;
+        option.textContent = countryName;
+        paysSelect.appendChild(option);
+      });
+    })
+    .catch(error => console.error("Erreur lors du chargement des pays:", error));
+
+  let timeoutId;
+
+  villeInput.addEventListener('input', function () {
+    clearTimeout(timeoutId);
+    const query = this.value;
+
+    if (query.length < 3) {
+      suggestionsList.style.display = 'none';
+      return;
+    }
+
+    timeoutId = setTimeout(() => {
+
+      fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${query}&count=5&language=fr`)
         .then(response => response.json())
         .then(data => {
+          suggestionsList.innerHTML = '';
 
-            const countries = data.map(country => {
-                return country.translations && country.translations.fra 
-                    ? country.translations.fra.common 
-                    : country.name.common;
-            }).sort();
+          if (data.results && data.results.length > 0) {
+            data.results.forEach(city => {
+              const li = document.createElement('li');
 
-            countries.forEach(countryName => {
-                const option = document.createElement('option');
-                option.value = countryName;
-                option.textContent = countryName;
-                paysSelect.appendChild(option);
+              const region = city.admin1 ? `${city.admin1}, ` : '';
+              li.textContent = `${city.name} (${region}${city.country})`;
+
+              li.addEventListener('click', () => {
+
+                villeInput.value = city.name;
+
+                const options = Array.from(paysSelect.options);
+                const countryOption = options.find(opt => opt.value === city.country);
+                if (countryOption) {
+                  countryOption.selected = true;
+                }
+
+                suggestionsList.style.display = 'none';
+
+              });
+
+              suggestionsList.appendChild(li);
             });
+            suggestionsList.style.display = 'block';
+          } else {
+            suggestionsList.style.display = 'none';
+          }
         })
-        .catch(error => console.error("Erreur lors du chargement des pays:", error));
+        .catch(error => console.error("Erreur Geocoding:", error));
+    }, 300);
+  });
 
-    let timeoutId; 
+  document.addEventListener('click', function (e) {
+    if (e.target !== villeInput) {
+      suggestionsList.style.display = 'none';
+    }
+  });
+});
 
-    villeInput.addEventListener('input', function() {
-        clearTimeout(timeoutId);
-        const query = this.value;
+function showTags(id) {
+  document.querySelectorAll('.tags-grid').forEach(el => el.style.display = 'none');
+  if (document.getElementById(id)) {
+    document.getElementById(id).style.display = 'grid';
+  }
+}
 
-        if (query.length < 3) {
-            suggestionsList.style.display = 'none';
-            return;
-        }
+window.onload = function () {
+  const checkedRadio = document.querySelector('input[name="profession"]:checked');
+  if (checkedRadio) { checkedRadio.click(); }
+}
 
-        timeoutId = setTimeout(() => {
+document.addEventListener("DOMContentLoaded", function () {
 
-            fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${query}&count=5&language=fr`)
-                .then(response => response.json())
-                .then(data => {
-                    suggestionsList.innerHTML = ''; 
+  function initInfiniteCarousel(trackId, btnPrevId, btnNextId) {
+    const track = document.getElementById(trackId);
+    const btnPrev = document.getElementById(btnPrevId);
+    const btnNext = document.getElementById(btnNextId);
 
-                    if (data.results && data.results.length > 0) {
-                        data.results.forEach(city => {
-                            const li = document.createElement('li');
+    if (!track || !btnPrev || !btnNext) return;
 
-                            const region = city.admin1 ? `${city.admin1}, ` : '';
-                            li.textContent = `${city.name} (${region}${city.country})`;
+    const scrollAmount = 340;
 
-                            li.addEventListener('click', () => {
+    let isScrolling = false;
 
-                                villeInput.value = city.name;
+    btnNext.addEventListener('click', () => {
+      if (isScrolling) return;
+      isScrolling = true;
 
-                                const options = Array.from(paysSelect.options);
-                                const countryOption = options.find(opt => opt.value === city.country);
-                                if (countryOption) {
-                                    countryOption.selected = true;
-                                }
+      track.style.scrollBehavior = 'smooth';
+      track.scrollBy({ left: scrollAmount });
 
-                                suggestionsList.style.display = 'none'; 
-
-                            });
-
-                            suggestionsList.appendChild(li);
-                        });
-                        suggestionsList.style.display = 'block';
-                    } else {
-                        suggestionsList.style.display = 'none';
-                    }
-                })
-                .catch(error => console.error("Erreur Geocoding:", error));
-        }, 300); 
+      setTimeout(() => {
+        track.style.scrollBehavior = 'auto';
+        track.appendChild(track.firstElementChild);
+        track.scrollLeft -= scrollAmount;
+        isScrolling = false;
+      }, 350);
     });
 
-    document.addEventListener('click', function(e) {
-        if (e.target !== villeInput) {
-            suggestionsList.style.display = 'none';
-        }
+    btnPrev.addEventListener('click', () => {
+      if (isScrolling) return;
+      isScrolling = true;
+
+      track.style.scrollBehavior = 'auto';
+      track.prepend(track.lastElementChild);
+      track.scrollLeft += scrollAmount;
+
+      setTimeout(() => {
+        track.style.scrollBehavior = 'smooth';
+        track.scrollBy({ left: -scrollAmount });
+      }, 10);
+
+      setTimeout(() => {
+        isScrolling = false;
+      }, 350);
     });
+  }
+
+  initInfiniteCarousel('talent-track', 'btn-prev', 'btn-next');
+
+  initInfiniteCarousel('image-track', 'btn-prev-image', 'btn-next-image');
+
 });

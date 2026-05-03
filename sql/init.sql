@@ -19,6 +19,7 @@ CREATE TABLE
         role VARCHAR(50) NOT NULL,
         gender VARCHAR(50),
         full_name VARCHAR(255) NOT NULL,
+        first_name VARCHAR(50),
         email VARCHAR(255) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
         city VARCHAR(100),
@@ -26,6 +27,8 @@ CREATE TABLE
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         login_code VARCHAR(10),
         profile_picture_url VARCHAR(255),
+        specific_profession VARCHAR(255),
+        expertise_tags TEXT,
         bio TEXT
     );
 
@@ -221,3 +224,27 @@ VALUES
     ('Allemand'),
     ('Arabe'),
     ('Mandarin');
+
+ALTER TABLE projects 
+ADD COLUMN project_type VARCHAR(100),
+ADD COLUMN searched_profiles VARCHAR(255);
+
+CREATE TABLE project_moodboards (
+    id SERIAL PRIMARY KEY,
+    project_id INT NOT NULL,
+    image_url VARCHAR(255) NOT NULL,
+    FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
+);
+
+CREATE TABLE project_team (
+    id SERIAL PRIMARY KEY,
+    project_id INT NOT NULL,
+    role VARCHAR(100),
+    linked_user_id INT, 
+
+    manual_name VARCHAR(100), 
+
+    manual_measurements VARCHAR(255),
+    FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE,
+    FOREIGN KEY (linked_user_id) REFERENCES users (id) ON DELETE SET NULL
+);

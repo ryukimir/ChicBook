@@ -1,0 +1,153 @@
+.casting-container {
+    max-width: 900px;
+    margin: 80px auto;
+    display: flex;
+    gap: 40px;
+    color: white;
+}
+
+.casting-main {
+    flex: 2;
+    background: #1a1a1a;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.casting-sidebar {
+    flex: 1;
+}
+
+.casting-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.casting-header h1 {
+    text-transform: uppercase;
+    font-size: 24px;
+    margin-bottom: 10px;
+    letter-spacing: 1px;
+}
+
+.casting-header p {
+    color: #aaa;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #ddd;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.form-control {
+    width: 100%;
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid #333;
+    background: #111;
+    color: white;
+    font-size: 14px;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #d4a5d4;
+}
+
+textarea.form-control {
+    height: 120px;
+    resize: vertical;
+}
+
+/* Style des boutons radio / checkbox en ligne */
+.radio-group {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.radio-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #ccc;
+    cursor: pointer;
+}
+
+.radio-label input[type="radio"],
+.radio-label input[type="checkbox"] {
+    accent-color: #d4a5d4;
+    cursor: pointer;
+}
+
+.collaboration-box {
+    background: #222;
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid #333;
+    margin-top: 30px;
+}
+
+.collaboration-box h4 {
+    margin-bottom: 15px;
+    color: white;
+}
+
+.collaboration-box .radio-group {
+    justify-content: center;
+}
+
+.btn-submit {
+    width: 100%;
+    padding: 15px;
+    background-color: #cfa935;
+    color: #111;
+    font-weight: bold;
+    font-size: 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.3s;
+    text-transform: uppercase;
+    margin-top: 30px;
+}
+
+.btn-submit:hover {
+    background-color: #b8952c;
+    transform: translateY(-2px);
+}
+
+/* Encart latéral (Image & Production) */
+.info-card {
+    background: #1a1a1a;
+    padding: 30px;
+    border-radius: 12px;
+    text-align: center;
+    border: 1px solid #333;
+    position: sticky;
+    top: 100px;
+}
+
+.info-card h3 {
+    color: #d4a5d4;
+    font-size: 18px;
+    margin-bottom: 15px;
+}
+
+.info-card p {
+    color: #aaa;
+    font-size: 14px;
+    line-height: 1.6;
+}

@@ -1,10 +1,8 @@
 <?php
-// Fichier : verifier_code.php
 session_start();
 require_once 'config/Database.php';
 require_once 'models/User.php';
 
-// Si on n'a pas d'ID utilisateur temporaire en session, on renvoie à la connexion
 if (!isset($_SESSION['temp_user_id'])) {
     header("Location: connexion.php");
     exit();
@@ -14,8 +12,7 @@ $errors = [];
 $dev_code = isset($_GET['dev_code']) ? $_GET['dev_code'] : '';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // On récupère les 6 chiffres et on les colle ensemble
-    $code_saisi = implode('', $_POST['code']); 
+    $code_saisi = implode('', $_POST['code']);
 
     if (strlen($code_saisi) < 6) {
         $errors[] = "Veuillez saisir le code complet à 6 chiffres.";
@@ -23,17 +20,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $db = Database::getInstance()->getConnection();
         $userModel = new User($db);
 
-        // On vérifie le code en base
         if ($userModel->verifyLoginCode($_SESSION['temp_user_id'], $code_saisi)) {
-            // SUCCESS ! On connecte officiellement l'utilisateur
             $_SESSION['user_id'] = $_SESSION['temp_user_id'];
+
+            $userData = $userModel->getUserProfile($_SESSION['user_id']);
+            $_SESSION['user_avatar'] = $userData['profile_picture_url'];
             
-            // On nettoie la base et la session temporaire
             $userModel->clearLoginCode($_SESSION['user_id']);
             unset($_SESSION['temp_user_id']);
-            
-            // Redirection vers l'index (ou un futur dashboard)
-            header("Location: index.php"); 
+
+            header("Location: index.php");
             exit();
         } else {
             $errors[] = "Code de vérification invalide.";
@@ -43,21 +39,49 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 ?>
 <!doctype html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vérification - ChicBook</title>
     <link rel="stylesheet" href="style.css" />
     <style>
-        .code-inputs { display: flex; gap: 10px; justify-content: center; margin: 30px 0; }
-        .code-inputs input {
-            width: 45px; height: 55px; text-align: center; font-size: 24px; font-weight: bold;
-            border-radius: 8px; border: 2px solid #ddd; background: white; color: #1a1a1a;
+        .code-inputs {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 30px 0;
         }
-        .code-inputs input:focus { border-color: #d4a5d4; outline: none; }
-        .dev-box { background: #333; color: #d4a5d4; padding: 10px; border-radius: 5px; margin-bottom: 20px; font-family: monospace; font-size: 12px; }
+
+        .code-inputs input {
+            width: 45px;
+            height: 55px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            border-radius: 8px;
+            border: 2px solid #ddd;
+            background: white;
+            color: #1a1a1a;
+        }
+
+        .code-inputs input:focus {
+            border-color: #d4a5d4;
+            outline: none;
+        }
+
+        .dev-box {
+            background: #333;
+            color: #d4a5d4;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-family: monospace;
+            font-size: 12px;
+        }
     </style>
 </head>
+
 <body>
     <header id="main-header">
         <div class="nav-center">
@@ -84,13 +108,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             <form action="verifier_code.php" method="POST">
                 <div class="code-inputs">
-                    <?php for($i=0; $i<6; $i++): ?>
+                    <?php for ($i = 0; $i < 6; $i++): ?>
                         <input type="text" name="code[]" maxlength="1" pattern="\d" required oninput="moveNext(this, <?php echo $i; ?>)">
                     <?php endfor; ?>
                 </div>
 
                 <button type="submit" class="btn-submit-auth">Vérifier le code</button>
-                
+
                 <p class="auth-footer-link" style="margin-top:20px; text-align:center;">
                     <a href="connexion.php" style="color:#888;">Retour à la connexion</a>
                 </p>
@@ -109,4 +133,5 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         window.onload = () => document.getElementsByName('code[]')[0].focus();
     </script>
 </body>
+
 </html>

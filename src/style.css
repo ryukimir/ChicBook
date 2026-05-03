@@ -780,3 +780,175 @@ header.nav-hidden {
         font-size: 32px;
     }
 }
+
+/* liste déroulant Profile */
+
+.dropdown-manage {
+    position: relative;
+    display: inline-block;
+}
+
+.dropdown-content {
+    display: none; 
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: 10px;
+    background-color: #1a1a1a;
+    min-width: 220px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5);
+    border: 1px solid #333;
+    border-radius: 8px;
+    overflow: hidden;
+    z-index: 100;
+}
+
+.dropdown-manage:hover .dropdown-content {
+    display: block;
+    animation: fadeIn 0.2s ease-in-out;
+}
+
+.dropdown-content a {
+    color: #ffffff;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    font-size: 14px;
+    transition: background 0.2s;
+    border-bottom: 1px solid #222;
+}
+
+.dropdown-content a:last-child {
+    border-bottom: none;
+}
+
+.dropdown-content a:hover {
+    background-color: #333;
+    color: #d4a5d4; 
+}
+
+.dropdown-content a.delete-link:hover {
+    color: #e57373; 
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* =========================================
+   CARROUSEL TALENTS (Page d'accueil)
+   ========================================= */
+
+.talents-carousel-section {
+  margin: 0px auto;
+  position: relative;
+}
+
+.carousel-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* La piste qui défile */
+.carousel-track {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory; /* Aimantation fluide */
+  /* scroll-behavior: smooth;
+  scrollbar-width: none; */
+  -ms-overflow-style: none; /* Cache la scrollbar sur IE */
+  padding: 15px 5px; /* Laisse de la place pour l'ombre portée */
+}
+
+/* Cache la scrollbar sur Chrome/Safari */
+.carousel-track::-webkit-scrollbar {
+  display: none; 
+}
+
+/* Les cartes (design identique à ta maquette) */
+.carousel-card {
+  flex: 0 0 auto;
+  width: 320px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  overflow: hidden;
+  scroll-snap-align: start; /* Point d'aimantation */
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.carousel-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+}
+
+.carousel-card img {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  display: block;
+}
+
+.card-content {
+  padding: 20px;
+}
+
+.card-content h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  color: #1a1a1a;
+}
+
+.card-content p {
+  font-size: 14px;
+  color: #666;
+  line-height: 1.6;
+}
+
+.tags-container a {
+  height: 40px;
+}
+
+/* Boutons Précédent/Suivant */
+.carousel-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 50px;
+  height: 50px;
+  background-color: #ffffff;
+  color: #1a1a1a;
+  border: 1px solid #ddd;
+  border-radius: 50%;
+  font-size: 28px;
+  cursor: pointer;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  transition: all 0.3s;
+}
+
+.carousel-btn:hover {
+  background-color: #d4a5d4; /* Ton violet signature */
+  color: white;
+  border-color: #d4a5d4;
+  box-shadow: 0 4px 15px rgba(212, 165, 212, 0.4);
+}
+
+/* Positionnement des boutons */
+.carousel-btn.left { left: -25px; }
+.carousel-btn.right { right: -25px; }
+
+/* Responsive : On cache les boutons sur mobile car on peut scroller au doigt */
+@media (max-width: 768px) {
+  .carousel-btn { display: none; }
+  .carousel-card { width: 280px; }
+}
+

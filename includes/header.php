@@ -5,8 +5,8 @@ $user_avatar = $_SESSION['user_avatar'] ?? null;
 <header id="main-header">
     <div class="nav-center">
         <div class="nav-links-left">
-            <a href="#">Trouver un talent</a>
-            <a href="#">Poster un projet</a>
+            <a href="trouver_talent.php">Trouver un talent</a>
+            <a href="poster_projet.php">Poster un projet</a>
         </div>
 
         <a href="index.php">
