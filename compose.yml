@@ -16,7 +16,6 @@ services:
       - db_data:/var/lib/postgresql/data
       - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
 
-  # L'outil d'administration (celui qui manquait !)
   adminer:
     image: adminer
     container_name: chicbook_adminer

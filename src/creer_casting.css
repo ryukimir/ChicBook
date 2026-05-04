@@ -68,7 +68,98 @@ textarea.form-control {
     resize: vertical;
 }
 
-/* Style des boutons radio / checkbox en ligne */
+select.form-control {
+    appearance: none;
+    background-image: url('data:image/svg+xml;utf8,<svg fill="white" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
+    background-repeat: no-repeat;
+    background-position-x: 98%;
+    background-position-y: 50%;
+}
+
+/* =======================================
+           STYLES DES BLOCS DE PROFILS DYNAMIQUES
+           ======================================= */
+#profiles-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.profile-card {
+    background: #222;
+    padding: 25px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    position: relative;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.profile-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 10px;
+}
+
+.profile-card-header h4 {
+    color: #d4a5d4;
+    margin: 0;
+    font-size: 16px;
+}
+
+.btn-remove-profile {
+    background: #e57373;
+    color: #111;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.mensurations-grid {
+    display: none;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px dashed #444;
+}
+
+.btn-add-profile {
+    width: 100%;
+    padding: 15px;
+    background-color: transparent;
+    color: #d4a5d4;
+    border: 2px dashed #d4a5d4;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 14px;
+    transition: 0.3s;
+    margin-top: 10px;
+}
+
+.btn-add-profile:hover {
+    background-color: rgba(212, 165, 212, 0.1);
+}
+
+/* Styles de base */
 .radio-group {
     display: flex;
     gap: 20px;
@@ -85,8 +176,7 @@ textarea.form-control {
     cursor: pointer;
 }
 
-.radio-label input[type="radio"],
-.radio-label input[type="checkbox"] {
+.radio-label input[type="radio"] {
     accent-color: #d4a5d4;
     cursor: pointer;
 }
@@ -98,15 +188,6 @@ textarea.form-control {
     text-align: center;
     border: 1px solid #333;
     margin-top: 30px;
-}
-
-.collaboration-box h4 {
-    margin-bottom: 15px;
-    color: white;
-}
-
-.collaboration-box .radio-group {
-    justify-content: center;
 }
 
 .btn-submit {
@@ -129,7 +210,6 @@ textarea.form-control {
     transform: translateY(-2px);
 }
 
-/* Encart latéral (Image & Production) */
 .info-card {
     background: #1a1a1a;
     padding: 30px;
@@ -144,10 +224,4 @@ textarea.form-control {
     color: #d4a5d4;
     font-size: 18px;
     margin-bottom: 15px;
-}
-
-.info-card p {
-    color: #aaa;
-    font-size: 14px;
-    line-height: 1.6;
 }

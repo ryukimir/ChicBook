@@ -137,7 +137,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     </main>
 
     <script>
-        // Petit script pour basculer entre la recherche et l'ajout manuel
         function switchTeamMode(mode) {
             document.getElementById('btn-search').classList.remove('active');
             document.getElementById('btn-manual').classList.remove('active');

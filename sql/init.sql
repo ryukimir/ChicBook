@@ -107,6 +107,7 @@ CREATE TABLE
         country VARCHAR(100),
         city VARCHAR(100),
         role_sought VARCHAR(100),
+        cover_image VARCHAR(255),
         duration VARCHAR(50),
         performance_date DATE,
         casting_date DATE,
@@ -158,6 +159,29 @@ CREATE TABLE
         hair_color_id INT,
         ethnicity_id INT,
         FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE,
+        FOREIGN KEY (eye_color_id) REFERENCES eye_colors (id) ON DELETE SET NULL,
+        FOREIGN KEY (hair_color_id) REFERENCES hair_colors (id) ON DELETE SET NULL,
+        FOREIGN KEY (ethnicity_id) REFERENCES ethnicities (id) ON DELETE SET NULL
+    );
+
+CREATE TABLE
+    casting_profiles (
+        id SERIAL PRIMARY KEY,
+        casting_id INT NOT NULL,
+        role_name VARCHAR(100) NOT NULL,
+        quantity INT DEFAULT 1,
+        age_range VARCHAR(50),
+        gender VARCHAR(50),
+        eye_color_id INT,
+        hair_color_id INT,
+        ethnicity_id INT,
+        height VARCHAR(50),
+        shoe_size VARCHAR(50),
+        waist_size VARCHAR(50),
+        hip_size VARCHAR(50),
+        chest_size VARCHAR(50),
+        cup_size VARCHAR(10),
+        FOREIGN KEY (casting_id) REFERENCES castings (id) ON DELETE CASCADE,
         FOREIGN KEY (eye_color_id) REFERENCES eye_colors (id) ON DELETE SET NULL,
         FOREIGN KEY (hair_color_id) REFERENCES hair_colors (id) ON DELETE SET NULL,
         FOREIGN KEY (ethnicity_id) REFERENCES ethnicities (id) ON DELETE SET NULL
@@ -227,26 +251,26 @@ VALUES
     ('Arabe'),
     ('Mandarin');
 
-ALTER TABLE projects 
+ALTER TABLE projects
 ADD COLUMN project_type VARCHAR(100),
 ADD COLUMN searched_profiles VARCHAR(255);
 
-CREATE TABLE project_moodboards (
-    id SERIAL PRIMARY KEY,
-    project_id INT NOT NULL,
-    image_url VARCHAR(255) NOT NULL,
-    FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
-);
+CREATE TABLE
+    project_moodboards (
+        id SERIAL PRIMARY KEY,
+        project_id INT NOT NULL,
+        image_url VARCHAR(255) NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
+    );
 
-CREATE TABLE project_team (
-    id SERIAL PRIMARY KEY,
-    project_id INT NOT NULL,
-    role VARCHAR(100),
-    linked_user_id INT, 
-
-    manual_name VARCHAR(100), 
-
-    manual_measurements VARCHAR(255),
-    FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE,
-    FOREIGN KEY (linked_user_id) REFERENCES users (id) ON DELETE SET NULL
-);
+CREATE TABLE
+    project_team (
+        id SERIAL PRIMARY KEY,
+        project_id INT NOT NULL,
+        role VARCHAR(100),
+        linked_user_id INT,
+        manual_name VARCHAR(100),
+        manual_measurements VARCHAR(255),
+        FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE,
+        FOREIGN KEY (linked_user_id) REFERENCES users (id) ON DELETE SET NULL
+    );

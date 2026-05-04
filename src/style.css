@@ -439,7 +439,7 @@ header.nav-hidden {
 .suggestions-list li {
   padding: 12px 20px;
   cursor: pointer;
-  color: #1a1a1a;
+  color: #f0f0f0;
   font-size: 14px;
   border-bottom: 1px solid #f0f0f0;
   transition: background-color 0.2s;
