@@ -1,0 +1,131 @@
+.post-project-container {
+    max-width: 800px;
+    margin: 80px auto;
+    padding: 40px;
+    background: #1a1a1a;
+    border-radius: 12px;
+    color: white;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.post-project-container h1 {
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+}
+
+.post-project-container p.subtitle {
+    text-align: center;
+    color: #aaa;
+    margin-bottom: 40px;
+    font-style: italic;
+}
+
+.form-group {
+    margin-bottom: 25px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #ddd;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.form-control {
+    width: 100%;
+    padding: 14px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    background: #111;
+    color: white;
+    font-size: 15px;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #d4a5d4;
+}
+
+textarea.form-control {
+    height: 150px;
+    resize: vertical;
+}
+
+select.form-control {
+    appearance: none;
+    background-image: url('data:image/svg+xml;utf8,<svg fill="white" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
+    background-repeat: no-repeat;
+    background-position-x: 98%;
+    background-position-y: 50%;
+}
+
+.team-section {
+    background: #222;
+    padding: 25px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    border: 1px dashed #444;
+}
+
+.team-section h3 {
+    margin-bottom: 15px;
+    color: #d4a5d4;
+    font-size: 18px;
+}
+
+.toggle-btn-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.toggle-btn {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 6px;
+    cursor: pointer;
+    color: #888;
+    transition: 0.3s;
+}
+
+.toggle-btn.active {
+    background: #d4a5d4;
+    color: #111;
+    border-color: #d4a5d4;
+    font-weight: bold;
+}
+
+.team-manual,
+.team-search {
+    display: none;
+}
+
+.team-active {
+    display: block;
+}
+
+.btn-submit {
+    width: 100%;
+    padding: 16px;
+    background-color: #d4a5d4;
+    color: #111;
+    font-weight: bold;
+    font-size: 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.3s;
+    text-transform: uppercase;
+    margin-top: 20px;
+}
+
+.btn-submit:hover {
+    background-color: #c08bc0;
+    transform: translateY(-2px);
+}
