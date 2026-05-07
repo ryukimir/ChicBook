@@ -255,6 +255,9 @@ ALTER TABLE projects
 ADD COLUMN project_type VARCHAR(100),
 ADD COLUMN searched_profiles VARCHAR(255);
 
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS birth_date DATE;
+
 CREATE TABLE
     project_moodboards (
         id SERIAL PRIMARY KEY,
@@ -274,3 +277,11 @@ CREATE TABLE
         FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE,
         FOREIGN KEY (linked_user_id) REFERENCES users (id) ON DELETE SET NULL
     );
+
+CREATE TABLE IF NOT EXISTS casting_favorites (
+    user_id INT,
+    casting_id INT,
+    PRIMARY KEY (user_id, casting_id),
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    FOREIGN KEY (casting_id) REFERENCES castings (id) ON DELETE CASCADE
+);

@@ -85,7 +85,7 @@ class User
     public function getUserProfile($user_id)
     {
 
-        $query = "SELECT u.id, u.full_name, u.email, u.specific_profession, u.expertise_tags, u.city, u.country, u.bio, u.profile_picture_url, p.name as profession_name
+        $query = "SELECT u.id, u.full_name, u.email, u.specific_profession, u.expertise_tags, u.city, u.country, u.bio, u.profile_picture_url, u.birth_date, p.name as profession_name
                   FROM " . $this->table_name . " u
                   LEFT JOIN user_professions up ON u.id = up.user_id
                   LEFT JOIN professions p ON up.profession_id = p.id
@@ -151,19 +151,22 @@ class User
 
             $this->conn->beginTransaction();
 
-            $query = "INSERT INTO " . $this->table_name . " 
-                      (role, gender, full_name, email, password_hash, city, country) 
-                      VALUES ('talent', :gender, :full_name, :email, :password_hash, :city, :country)";
+            $query = "INSERT INTO " . $this->table_name . "
+                      (role, gender, full_name, email, password_hash, city, country, birth_date)
+                      VALUES ('talent', :gender, :full_name, :email, :password_hash, :city, :country, :birth_date)";
 
             $stmt = $this->conn->prepare($query);
             $hashed_password = password_hash($data['password'], PASSWORD_DEFAULT);
+            $birth_date_user = !empty($data['birth_date']) ? $data['birth_date'] : null;
 
             $stmt->bindParam(":gender", $data['gender']);
-            $stmt->bindParam(":full_name", $data['nom_complet']);
+            $full_name = trim($data['prenom']) . ' ' . trim($data['nom']);
+            $stmt->bindParam(":full_name", $full_name);
             $stmt->bindParam(":email", $data['email']);
             $stmt->bindParam(":password_hash", $hashed_password);
             $stmt->bindParam(":city", $data['ville']);
             $stmt->bindParam(":country", $data['pays']);
+            $stmt->bindParam(":birth_date", $birth_date_user);
             $stmt->execute();
 
             $user_id = $this->conn->lastInsertId();
@@ -219,10 +222,8 @@ class User
             $this->conn->commit();
             return true;
         } catch (PDOException $e) {
-
             $this->conn->rollBack();
-
-            return false;
+            throw $e;
         }
     }
 }

@@ -19,25 +19,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         if ($user) {
             $verification_code = sprintf("%06d", mt_rand(1, 999999));
-
             $userModel->saveLoginCode($user['id'], $verification_code);
 
             $sujet = "Votre code de connexion ChicBook";
-
             $message = "Bonjour " . $user['full_name'] . ",\n\n";
             $message .= "Voici votre code de vérification à 6 chiffres : " . $verification_code . "\n\n";
-            $message .= "Ce code est personnel, ne le partagez avec personne.\n\n";
-            $message .= "À très vite,\nL'équipe ChicBook.";
-
-            $headers = "From: contact@chicbook.com\r\n";
-            $headers .= "Reply-To: contact@chicbook.com\r\n";
-            $headers .= "X-Mailer: PHP/" . phpversion();
-
+            $message .= "Ce code est personnel, ne le partagez avec personne.\n\nÀ très vite,\nL'équipe ChicBook.";
+            $headers = "From: contact@chicbook.com\r\nReply-To: contact@chicbook.com\r\nX-Mailer: PHP/" . phpversion();
             mail($email, $sujet, $message, $headers);
 
             $_SESSION['temp_user_id'] = $user['id'];
             $_SESSION['temp_email'] = $email;
-
             header("Location: verifier_code.php");
             exit();
         } else {
@@ -48,64 +40,49 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 ?>
 <!doctype html>
 <html lang="fr">
-
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Connexion - ChicBook</title>
-    <link rel="stylesheet" href="src/style.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: { extend: { colors: { brand: '#d4a5d4', dark: '#1a1a1a' } } }
+      }
+    </script>
+    <link rel="stylesheet" href="assets/css/custom.css" />
     <style>
-        .alert {
-            padding: 15px;
-            margin-bottom: 20px;
-            border-radius: 8px;
-            font-size: 14px;
-            text-align: center;
-        }
-
-        .alert-error {
-            background-color: #ffebee;
-            color: #c62828;
-            border: 1px solid #ef9a9a;
-        }
+      .input-field { width:100%; padding:15px 20px; border-radius:8px; border:none; background:#fff; font-size:15px; font-family:inherit; color:#1a1a1a; outline:none; }
+      .input-field::placeholder { color:#999; }
     </style>
 </head>
-
-<body>
+<body class="bg-white font-['Arial',sans-serif]">
     <?php include 'includes/header.php'; ?>
 
-    <main class="auth-main">
-        <div class="auth-header-text">
-            <h1>Bon retour parmi nous</h1>
-            <p>Connectez-vous pour accéder à votre espace talent ou recruteur.</p>
+    <main class="pt-36 pb-20 min-h-screen flex flex-col items-center bg-white">
+        <div class="text-center mb-10 text-[#1a1a1a]">
+            <h1 class="text-4xl mb-2.5 font-bold">Bon retour parmi nous</h1>
+            <p class="text-sm text-[#666]">Connectez-vous pour accéder à votre espace talent ou recruteur.</p>
         </div>
 
-        <div class="auth-card">
-            <h3>Connexion</h3>
+        <div class="bg-[#1a1a1a] w-full max-w-[550px] rounded-xl p-10 shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
+            <h3 class="text-white text-center text-xl mb-8 font-medium">Connexion</h3>
 
             <?php if (!empty($errors)): ?>
-                <div class="alert alert-error">
+                <div class="bg-[#ffebee] text-[#c62828] border border-[#ef9a9a] p-4 mb-5 rounded-lg text-sm text-center">
                     <?php foreach ($errors as $error) echo htmlspecialchars($error) . "<br>"; ?>
                 </div>
             <?php endif; ?>
 
-            <form class="auth-form" action="connexion.php" method="POST">
-                <div class="form-group">
-                    <input type="email" name="email" placeholder="Adresse email" required>
-                </div>
-
-                <div class="form-group">
-                    <input type="password" name="password" placeholder="Mot de passe" required>
-                </div>
-
-                <button type="submit" class="btn-submit-auth">Se connecter</button>
-
-                <p class="auth-footer-link">
-                    Pas encore de compte ? <a href="inscription.php">S'inscrire</a>
+            <form class="flex flex-col gap-5" action="connexion.php" method="POST">
+                <div><input type="email" name="email" placeholder="Adresse email" required class="input-field"></div>
+                <div><input type="password" name="password" placeholder="Mot de passe" required class="input-field"></div>
+                <button type="submit" class="bg-[#d4a5d4] text-[#1a1a1a] py-4 rounded-full text-base font-bold mt-2.5 hover:opacity-90 transition-opacity cursor-pointer border-none">Se connecter</button>
+                <p class="text-center text-[#888] text-sm mt-4">
+                    Pas encore de compte ? <a href="inscription.php" class="text-[#888] underline hover:text-[#d4a5d4] transition-colors">S'inscrire</a>
                 </p>
             </form>
         </div>
     </main>
 </body>
-
 </html>
