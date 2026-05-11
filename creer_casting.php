@@ -91,7 +91,7 @@ function buildRange($min, $max) {
       .range-sep { color:#888; font-size:12px; white-space:nowrap; }
     </style>
 </head>
-<body class="bg-[#111] text-white font-['Arial',sans-serif]">
+<body class="bg-black text-white font-['Arial',sans-serif]">
     <?php include 'includes/header.php'; ?>
 
     <?php if ($message === 'success'): ?>
@@ -106,7 +106,7 @@ function buildRange($min, $max) {
     </div>
     <?php else: ?>
 
-    <div class="max-w-[1100px] mx-auto mt-24 mb-10 flex gap-8 px-5">
+    <div class="max-w-[1400px] mx-auto mt-10 mb-10 flex gap-10 px-8">
         <!-- Formulaire -->
         <main class="flex-[2] bg-[#1a1a1a] p-8 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
             <div class="text-center mb-8">
@@ -277,3 +277,4 @@ function buildRange($min, $max) {
     <script src="assets/js/creer_casting.js"></script>
 </body>
 </html>
+

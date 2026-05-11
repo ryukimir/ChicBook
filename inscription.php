@@ -58,17 +58,17 @@ function get_post_value($key)
     }
   </style>
 </head>
-<body class="bg-white font-['Arial',sans-serif]">
+<body class="bg-black text-white font-['Arial',sans-serif]">
   <?php include 'includes/header.php'; ?>
 
-  <main class="pt-36 pb-20 min-h-screen flex flex-col items-center bg-white">
-    <div class="text-center mb-10 text-[#1a1a1a]">
-      <h1 class="text-4xl mb-2.5 font-bold">Rejoindre ChicBook</h1>
+  <main class="pt-16 pb-20 min-h-screen flex flex-col items-center bg-black">
+    <div class="text-center mb-10 text-white">
+      <h1 class="text-5xl mb-3 font-bold">Rejoindre ChicBook</h1>
       <h2 class="text-lg font-normal mb-2.5">Créez votre profil talent et rejoignez le réseau</h2>
-      <p class="text-sm text-[#666]">Commencez simplement avec vos informations essentielles.</p>
+      <p class="text-sm text-[#aaa]">Commencez simplement avec vos informations essentielles.</p>
     </div>
 
-    <div class="bg-[#1a1a1a] w-full max-w-[550px] rounded-xl p-10 shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
+    <div class="bg-[#1a1a1a] w-full max-w-[620px] rounded-xl p-10 shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
       <h3 class="text-white text-center text-xl mb-8 font-medium">Inscription Talent</h3>
 
       <?php if (!empty($errors)): ?>
@@ -225,3 +225,4 @@ function get_post_value($key)
   <script src="assets/js/script.js"></script>
 </body>
 </html>
+

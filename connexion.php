@@ -56,17 +56,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       .input-field::placeholder { color:#999; }
     </style>
 </head>
-<body class="bg-white font-['Arial',sans-serif]">
+<body class="bg-black text-white font-['Arial',sans-serif]">
     <?php include 'includes/header.php'; ?>
 
-    <main class="pt-36 pb-20 min-h-screen flex flex-col items-center bg-white">
-        <div class="text-center mb-10 text-[#1a1a1a]">
-            <h1 class="text-4xl mb-2.5 font-bold">Bon retour parmi nous</h1>
-            <p class="text-sm text-[#666]">Connectez-vous pour accéder à votre espace talent ou recruteur.</p>
+    <main class="pt-16 pb-20 min-h-screen flex flex-col items-center bg-black">
+        <div class="text-center mb-10 text-white">
+            <h1 class="text-5xl mb-3 font-bold">Bon retour parmi nous</h1>
+            <p class="text-base text-[#aaa]">Connectez-vous pour accéder à votre espace talent ou recruteur.</p>
         </div>
 
-        <div class="bg-[#1a1a1a] w-full max-w-[550px] rounded-xl p-10 shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
-            <h3 class="text-white text-center text-xl mb-8 font-medium">Connexion</h3>
+        <div class="bg-[#1a1a1a] w-full max-w-[620px] rounded-xl p-10 shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
+            <h3 class="text-white text-center text-2xl mb-8 font-semibold">Connexion</h3>
 
             <?php if (!empty($errors)): ?>
                 <div class="bg-[#ffebee] text-[#c62828] border border-[#ef9a9a] p-4 mb-5 rounded-lg text-sm text-center">
@@ -86,3 +86,4 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </main>
 </body>
 </html>
+

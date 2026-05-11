@@ -50,14 +50,14 @@ if (!empty($profile_data['birth_date'])) {
     </script>
     <link rel="stylesheet" href="assets/css/custom.css" />
 </head>
-<body class="bg-white font-['Arial',sans-serif]">
+<body class="bg-black text-white font-['Arial',sans-serif]">
     <?php include 'includes/header.php'; ?>
 
-    <main class="max-w-[1200px] mx-auto mt-[120px] mb-10 px-5 flex gap-[50px]">
+    <main class="max-w-[1400px] mx-auto mt-10 mb-10 px-8 flex gap-[50px]">
 
         <!-- Sidebar -->
         <aside class="w-[250px] flex-shrink-0">
-            <h2 class="text-2xl text-[#1a1a1a] mb-1">
+            <h2 class="text-2xl text-white mb-1">
                 <?= htmlspecialchars($profile_data['specific_profession'] ?? $profile_data['profession_name'] ?? 'Talent') ?>
             </h2>
 
@@ -167,3 +167,4 @@ if (!empty($profile_data['birth_date'])) {
     </script>
 </body>
 </html>
+

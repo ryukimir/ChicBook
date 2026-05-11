@@ -48,18 +48,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </script>
     <link rel="stylesheet" href="assets/css/custom.css" />
 </head>
-<body class="bg-white font-['Arial',sans-serif]">
+<body class="bg-black text-white font-['Arial',sans-serif]">
+    <?php include 'includes/header.php'; ?>
 
-    <header id="main-header" class="bg-[#1a1a1a] h-20 flex items-center justify-center fixed top-0 w-full z-[1000] transition-transform duration-300">
-        <a href="index.php">
-            <img src="assets/img/logo.png" class="h-10 w-auto" style="filter: brightness(0) invert(1) sepia(1) saturate(1000%) hue-rotate(250deg);" alt="ChicBook" />
-        </a>
-    </header>
-
-    <main class="pt-36 pb-20 min-h-screen flex flex-col items-center bg-white">
-        <div class="text-center mb-10 text-[#1a1a1a]">
+    <main class="pt-16 pb-20 min-h-screen flex flex-col items-center bg-black">
+        <div class="text-center mb-10 text-white">
             <h1 class="text-4xl mb-2.5 font-bold">Vérification par email</h1>
-            <p class="text-sm text-[#666]">Nous avons envoyé un code à 6 chiffres à <strong><?= htmlspecialchars($_SESSION['temp_email']) ?></strong></p>
+            <p class="text-sm text-[#aaa]">Nous avons envoyé un code à 6 chiffres à <strong class="text-white"><?= htmlspecialchars($_SESSION['temp_email']) ?></strong></p>
         </div>
 
         <div class="bg-[#1a1a1a] w-full max-w-[450px] rounded-xl p-10 shadow-[0_10px_30px_rgba(0,0,0,0.1)]">

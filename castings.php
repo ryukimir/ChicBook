@@ -128,89 +128,29 @@ foreach ($locRows as $r) {
     <script>tailwind.config = { theme: { extend: { colors: { brand:'#d4a5d4', dark:'#1a1a1a' } } } }</script>
     <link rel="stylesheet" href="assets/css/custom.css" />
 </head>
-<body class="bg-[#111] font-['Arial',sans-serif] text-white">
+<body class="bg-black font-['Arial',sans-serif] text-white">
     <?php include 'includes/header.php'; ?>
 
-    <div class="max-w-[1300px] mx-auto mt-[100px] mb-10 px-5 flex gap-8">
+    <div class="max-w-[1400px] mx-auto mt-10 mb-10 px-8 flex gap-10">
 
-        <!-- Sidebar filtres -->
-        <aside class="w-[260px] flex-shrink-0">
-            <form method="GET" action="castings.php" id="filter-form">
-                <input type="hidden" name="view" value="<?= htmlspecialchars($view) ?>">
-                <div class="bg-[#1a1a1a] p-5 rounded-xl border border-[#333] sticky top-[100px] flex flex-col gap-4">
-                    <h2 class="text-lg font-bold">Filtres</h2>
-
-                    <!-- Pays -->
-                    <div>
-                        <label class="block text-[#aaa] text-xs mb-1.5 font-bold uppercase tracking-wider">Pays</label>
-                        <select name="country" id="filter-country" class="w-full p-2.5 rounded-lg border border-[#444] bg-[#111] text-white text-sm outline-none focus:border-[#d4a5d4]" onchange="updateCities()">
-                            <option value="">Tous les pays</option>
-                            <?php foreach ($countries as $c): ?>
-                                <option value="<?= htmlspecialchars($c) ?>" <?= $filter_country === $c ? 'selected' : '' ?>><?= htmlspecialchars($c) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-
-                    <!-- Ville -->
-                    <div>
-                        <label class="block text-[#aaa] text-xs mb-1.5 font-bold uppercase tracking-wider">Ville</label>
-                        <select name="city" id="filter-city" class="w-full p-2.5 rounded-lg border border-[#444] bg-[#111] text-white text-sm outline-none focus:border-[#d4a5d4]">
-                            <option value="">Toutes les villes</option>
-                            <?php
-                            $cityPool = $filter_country && isset($citiesByCountry[$filter_country])
-                                ? $citiesByCountry[$filter_country]
-                                : array_unique(array_column($locRows, 'city'));
-                            sort($cityPool);
-                            foreach ($cityPool as $city): ?>
-                                <option value="<?= htmlspecialchars($city) ?>" <?= $filter_city === $city ? 'selected' : '' ?>><?= htmlspecialchars($city) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-
-                    <!-- Date de prestation -->
-                    <div>
-                        <label class="block text-[#aaa] text-xs mb-1.5 font-bold uppercase tracking-wider">Date de prestation</label>
-                        <div class="flex flex-col gap-2">
-                            <div>
-                                <span class="text-[#888] text-xs mb-1 block">Du</span>
-                                <input type="date" name="date_from" value="<?= htmlspecialchars($filter_date_from) ?>"
-                                    class="w-full p-2.5 rounded-lg border border-[#444] bg-[#111] text-white text-sm outline-none focus:border-[#d4a5d4]">
-                            </div>
-                            <div>
-                                <span class="text-[#888] text-xs mb-1 block">Au</span>
-                                <input type="date" name="date_to" value="<?= htmlspecialchars($filter_date_to) ?>"
-                                    class="w-full p-2.5 rounded-lg border border-[#444] bg-[#111] text-white text-sm outline-none focus:border-[#d4a5d4]">
-                            </div>
-                        </div>
-                    </div>
-
-                    <button type="submit" class="w-full py-2.5 bg-[#d4a5d4] text-[#111] rounded-lg font-bold text-sm border-none cursor-pointer hover:opacity-90 transition-opacity">Appliquer</button>
-                    <?php if ($filter_country || $filter_city || $filter_date_from || $filter_date_to): ?>
-                        <a href="castings.php?view=<?= $view ?>" class="text-center text-[#888] text-xs hover:text-[#d4a5d4] transition-colors">✕ Effacer les filtres</a>
-                    <?php endif; ?>
-                </div>
-            </form>
-        </aside>
-
-        <!-- Contenu principal -->
         <main class="flex-grow min-w-0">
             <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
                 <div class="flex gap-2 flex-wrap">
                     <a href="castings.php?view=offres<?= $filter_country ? '&country='.urlencode($filter_country) : '' ?><?= $filter_city ? '&city='.urlencode($filter_city) : '' ?><?= $filter_date_from ? '&date_from='.urlencode($filter_date_from) : '' ?><?= $filter_date_to ? '&date_to='.urlencode($filter_date_to) : '' ?>"
-                       class="px-4 py-2 rounded-2xl font-bold text-sm border transition-all <?= $view === 'offres' ? 'bg-[#d4a5d4] text-[#1a1a1a] border-[#d4a5d4]' : 'text-[#aaa] border-[#444] hover:bg-[#333] hover:text-white' ?>">
+                       class="px-6 py-2.5 rounded-2xl font-bold text-base border transition-all <?= $view === 'offres' ? 'bg-[#d4a5d4] text-[#1a1a1a] border-[#d4a5d4]' : 'text-[#aaa] border-[#444] hover:bg-[#333] hover:text-white' ?>">
                         Opportunités pour <?= htmlspecialchars($user_profession) ?>
                     </a>
                     <a href="castings.php?view=favoris<?= $filter_country ? '&country='.urlencode($filter_country) : '' ?><?= $filter_date_from ? '&date_from='.urlencode($filter_date_from) : '' ?><?= $filter_date_to ? '&date_to='.urlencode($filter_date_to) : '' ?>"
-                       class="px-4 py-2 rounded-2xl font-bold text-sm border transition-all <?= $view === 'favoris' ? 'bg-[#d4a5d4] text-[#1a1a1a] border-[#d4a5d4]' : 'text-[#aaa] border-[#444] hover:bg-[#333] hover:text-white' ?>">
+                       class="px-6 py-2.5 rounded-2xl font-bold text-base border transition-all <?= $view === 'favoris' ? 'bg-[#d4a5d4] text-[#1a1a1a] border-[#d4a5d4]' : 'text-[#aaa] border-[#444] hover:bg-[#333] hover:text-white' ?>">
                         ♡ Favoris <span class="text-xs">(<?= count($favoritedIds) ?>)</span>
                     </a>
                     <a href="castings.php?view=mes_castings<?= $filter_country ? '&country='.urlencode($filter_country) : '' ?><?= $filter_date_from ? '&date_from='.urlencode($filter_date_from) : '' ?><?= $filter_date_to ? '&date_to='.urlencode($filter_date_to) : '' ?>"
-                       class="px-4 py-2 rounded-2xl font-bold text-sm border transition-all <?= $view === 'mes_castings' ? 'bg-[#d4a5d4] text-[#1a1a1a] border-[#d4a5d4]' : 'text-[#aaa] border-[#444] hover:bg-[#333] hover:text-white' ?>">
+                       class="px-6 py-2.5 rounded-2xl font-bold text-base border transition-all <?= $view === 'mes_castings' ? 'bg-[#d4a5d4] text-[#1a1a1a] border-[#d4a5d4]' : 'text-[#aaa] border-[#444] hover:bg-[#333] hover:text-white' ?>">
                         Mes Castings créés
                     </a>
                 </div>
                 <?php if ($view !== 'mes_castings'): ?>
-                    <a href="creer_casting.php" class="inline-block bg-[#d4a5d4] text-[#111] px-5 py-2 rounded-lg font-bold text-xs no-underline uppercase hover:bg-[#c08bc0] hover:-translate-y-0.5 transition-all">+ Créer un casting</a>
+                    <a href="creer_casting.php" class="inline-block bg-[#d4a5d4] text-[#111] px-6 py-3 rounded-xl font-bold text-sm no-underline uppercase hover:bg-[#c08bc0] hover:-translate-y-0.5 transition-all">+ Créer un casting</a>
                 <?php endif; ?>
             </div>
 
@@ -229,7 +169,7 @@ foreach ($locRows as $r) {
                     <?php endif; ?>
                 </div>
             <?php else: ?>
-                <div class="grid gap-5" style="grid-template-columns: repeat(auto-fill, minmax(300px,1fr));">
+                <div class="grid gap-6" style="grid-template-columns: repeat(auto-fill, minmax(360px,1fr));">
                     <?php foreach ($castings as $c):
                         $isFav = in_array($c['id'], $favoritedIds);
                         $castingJson = htmlspecialchars(json_encode($c), ENT_QUOTES);
@@ -238,29 +178,29 @@ foreach ($locRows as $r) {
                              data-id="<?= $c['id'] ?>" data-casting='<?= $castingJson ?>'
                              onclick="openModal(this)">
                             <img src="<?= !empty($c['cover_image']) ? htmlspecialchars($c['cover_image']) : 'https://images.unsplash.com/photo-1542204165-65bf26472b9b?auto=format&fit=crop&w=600&q=80' ?>"
-                                 alt="Casting" class="w-full h-[150px] object-cover bg-[#333]">
-                            <div class="p-4 flex-grow flex flex-col">
-                                <div class="text-[#d4a5d4] text-xs font-bold mb-1.5">
+                                 alt="Casting" class="w-full h-[210px] object-cover bg-[#333]">
+                            <div class="p-5 flex-grow flex flex-col">
+                                <div class="text-[#d4a5d4] text-sm font-bold mb-2">
                                     <?= $c['performance_date'] ? 'Prestation le '.date('d/m/Y', strtotime($c['performance_date'])) : 'Date à définir' ?>
                                 </div>
-                                <h3 class="text-base font-bold text-white mb-1 leading-snug">
+                                <h3 class="text-lg font-bold text-white mb-1.5 leading-snug">
                                     Recherche <?= htmlspecialchars($c['role_sought'] ?? 'Talent') ?> — <?= htmlspecialchars($c['city'] ?? 'Lieu à définir') ?>
                                 </h3>
-                                <div class="text-[#888] text-xs mb-3"><?= htmlspecialchars($c['company_name'] ?? ($c['creator_name'] ?? 'ChicBook Member')) ?></div>
-                                <p class="text-[#bbb] text-xs leading-snug mb-3 flex-grow"><?= htmlspecialchars(mb_substr($c['description'] ?? '', 0, 90)) ?>...</p>
+                                <div class="text-[#888] text-sm mb-3"><?= htmlspecialchars($c['company_name'] ?? ($c['creator_name'] ?? 'ChicBook Member')) ?></div>
+                                <p class="text-[#bbb] text-sm leading-relaxed mb-4 flex-grow"><?= htmlspecialchars(mb_substr($c['description'] ?? '', 0, 120)) ?>...</p>
                                 <div class="flex gap-2 mt-auto pt-3" onclick="event.stopPropagation()">
                                     <?php if ($view === 'mes_castings'): ?>
-                                        <a href="edit_casting.php?id=<?= $c['id'] ?>" class="flex-grow text-center bg-[#444] text-white p-2.5 rounded-lg no-underline font-bold hover:bg-[#d4a5d4] hover:text-[#111] transition-colors text-xs">Éditer</a>
+                                        <a href="edit_casting.php?id=<?= $c['id'] ?>" class="flex-grow text-center bg-[#444] text-white p-3 rounded-lg no-underline font-bold hover:bg-[#d4a5d4] hover:text-[#111] transition-colors text-sm">Éditer</a>
                                         <form method="POST" onsubmit="return confirm('Supprimer ce casting ?')">
                                             <input type="hidden" name="delete_casting_id" value="<?= $c['id'] ?>">
                                             <button type="submit" class="p-2.5 bg-[#333] text-white border-none rounded-lg cursor-pointer hover:bg-[#555] transition-colors">🗑️</button>
                                         </form>
                                     <?php else: ?>
-                                        <button class="fav-btn flex-grow py-2.5 rounded-lg border-none font-bold cursor-pointer transition-colors text-xs <?= $isFav ? 'bg-[#d4a5d4] text-[#111]' : 'bg-[#333] text-white hover:bg-[#d4a5d4] hover:text-[#111]' ?>"
+                                        <button class="fav-btn flex-grow py-3 rounded-lg border-none font-bold cursor-pointer transition-colors text-sm <?= $isFav ? 'bg-[#d4a5d4] text-[#111]' : 'bg-[#333] text-white hover:bg-[#d4a5d4] hover:text-[#111]' ?>"
                                                 data-id="<?= $c['id'] ?>" data-fav="<?= $isFav ? '1' : '0' ?>">
                                             <?= $isFav ? '♥ Favori' : '♡ Favori' ?>
                                         </button>
-                                        <button class="px-3 py-2.5 bg-[#333] text-white border-none rounded-lg cursor-pointer hover:bg-[#555] transition-colors text-xs" onclick="openModal(this.closest('.casting-card'))">↗</button>
+                                        <button class="px-4 py-3 bg-[#333] text-white border-none rounded-lg cursor-pointer hover:bg-[#555] transition-colors text-sm" onclick="openModal(this.closest('.casting-card'))">↗</button>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -269,29 +209,88 @@ foreach ($locRows as $r) {
                 </div>
             <?php endif; ?>
         </main>
+
+        <!-- Sidebar filtres -->
+        <aside class="w-[300px] flex-shrink-0">
+            <form method="GET" action="castings.php" id="filter-form">
+                <input type="hidden" name="view" value="<?= htmlspecialchars($view) ?>">
+                <div class="bg-[#1a1a1a] p-6 rounded-2xl border border-[#333] sticky top-8 flex flex-col gap-5">
+                    <h2 class="text-xl font-bold">Filtres</h2>
+
+                    <!-- Pays -->
+                    <div>
+                        <label class="block text-[#aaa] text-sm mb-2 font-bold uppercase tracking-wider">Pays</label>
+                        <select name="country" id="filter-country" class="w-full rounded-lg border border-[#444] bg-black text-white text-base outline-none focus:border-[#d4a5d4] p-3" onchange="updateCities()">
+                            <option value="">Tous les pays</option>
+                            <?php foreach ($countries as $c): ?>
+                                <option value="<?= htmlspecialchars($c) ?>" <?= $filter_country === $c ? 'selected' : '' ?>><?= htmlspecialchars($c) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <!-- Ville -->
+                    <div>
+                        <label class="block text-[#aaa] text-sm mb-2 font-bold uppercase tracking-wider">Ville</label>
+                        <select name="city" id="filter-city" class="w-full rounded-lg border border-[#444] bg-black text-white text-base outline-none focus:border-[#d4a5d4] p-3">
+                            <option value="">Toutes les villes</option>
+                            <?php
+                            $cityPool = $filter_country && isset($citiesByCountry[$filter_country])
+                                ? $citiesByCountry[$filter_country]
+                                : array_unique(array_column($locRows, 'city'));
+                            sort($cityPool);
+                            foreach ($cityPool as $city): ?>
+                                <option value="<?= htmlspecialchars($city) ?>" <?= $filter_city === $city ? 'selected' : '' ?>><?= htmlspecialchars($city) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <!-- Date de prestation -->
+                    <div>
+                        <label class="block text-[#aaa] text-sm mb-2 font-bold uppercase tracking-wider">Date de prestation</label>
+                        <div class="flex flex-col gap-2">
+                            <div>
+                                <span class="text-[#888] text-sm mb-1 block">Du</span>
+                                <input type="date" name="date_from" value="<?= htmlspecialchars($filter_date_from) ?>"
+                                    class="w-full rounded-lg border border-[#444] bg-black text-white text-base outline-none focus:border-[#d4a5d4] p-3">
+                            </div>
+                            <div>
+                                <span class="text-[#888] text-sm mb-1 block">Au</span>
+                                <input type="date" name="date_to" value="<?= htmlspecialchars($filter_date_to) ?>"
+                                    class="w-full rounded-lg border border-[#444] bg-black text-white text-base outline-none focus:border-[#d4a5d4] p-3">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full py-3 bg-[#d4a5d4] text-[#111] rounded-xl font-bold text-base border-none cursor-pointer hover:opacity-90 transition-opacity">Appliquer</button>
+                    <?php if ($filter_country || $filter_city || $filter_date_from || $filter_date_to): ?>
+                        <a href="castings.php?view=<?= $view ?>" class="text-center text-[#888] text-sm hover:text-[#d4a5d4] transition-colors">✕ Effacer les filtres</a>
+                    <?php endif; ?>
+                </div>
+            </form>
+        </aside>
     </div>
 
     <!-- MODAL -->
     <div id="casting-modal" class="fixed inset-0 z-[2000] items-center justify-center bg-black/80 hidden" onclick="if(event.target===this)closeModal()">
-        <div class="bg-[#1a1a1a] rounded-xl w-full max-w-[700px] mx-4 max-h-[90vh] overflow-y-auto relative flex flex-col">
+        <div class="bg-[#1a1a1a] rounded-xl w-full max-w-[860px] mx-4 max-h-[90vh] overflow-y-auto relative flex flex-col">
             <button onclick="closeModal()" class="absolute top-3 right-3 z-10 w-8 h-8 bg-[#333] hover:bg-[#444] rounded-full text-white border-none cursor-pointer text-base leading-none">✕</button>
-            <img id="modal-img" src="" alt="" class="w-full h-[200px] object-cover rounded-t-xl bg-[#333]">
-            <div class="p-6">
+            <img id="modal-img" src="" alt="" class="w-full h-[280px] object-cover rounded-t-xl bg-[#333]">
+            <div class="p-8">
                 <!-- Badges -->
                 <div class="flex gap-2 flex-wrap mb-3" id="modal-badges"></div>
-                <h2 class="text-2xl font-bold mb-1" id="modal-title"></h2>
-                <div class="text-[#888] text-sm mb-1" id="modal-company"></div>
-                <div class="text-[#aaa] text-sm mb-4 flex gap-4 flex-wrap" id="modal-meta"></div>
+                <h2 class="text-3xl font-bold mb-2" id="modal-title"></h2>
+                <div class="text-[#888] text-base mb-1" id="modal-company"></div>
+                <div class="text-[#aaa] text-base mb-5 flex gap-4 flex-wrap" id="modal-meta"></div>
 
                 <!-- Description -->
                 <div class="bg-[#222] rounded-lg p-4 mb-4">
-                    <h4 class="text-[#d4a5d4] text-xs font-bold uppercase tracking-wider mb-2">Description</h4>
-                    <p class="text-[#bbb] text-sm leading-relaxed" id="modal-desc"></p>
+                    <h4 class="text-[#d4a5d4] text-sm font-bold uppercase tracking-wider mb-3">Description</h4>
+                    <p class="text-[#bbb] text-base leading-relaxed" id="modal-desc"></p>
                 </div>
 
                 <!-- Profils -->
                 <div id="modal-profiles-section">
-                    <h4 class="text-white font-bold mb-3 text-sm uppercase tracking-wider">👥 Profils recherchés</h4>
+                    <h4 class="text-white font-bold mb-4 text-base uppercase tracking-wider">👥 Profils recherchés</h4>
                     <div id="modal-profiles" class="flex flex-col gap-3"></div>
                 </div>
 
@@ -437,3 +436,4 @@ foreach ($locRows as $r) {
     <script src="assets/js/script.js"></script>
 </body>
 </html>
+

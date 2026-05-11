@@ -1,54 +1,83 @@
 <?php
 $current_user_id = $_SESSION['user_id'] ?? null;
 $user_avatar = $_SESSION['user_avatar'] ?? null;
+$current_page = basename($_SERVER['PHP_SELF']);
 ?>
-<script>
-  (function() {
-    if (localStorage.getItem('theme') === 'light') {
-      document.documentElement.classList.add('light');
-    }
-  })();
-</script>
-<header id="main-header" class="bg-[#1a1a1a] h-20 flex items-center justify-end px-10 fixed top-0 w-full z-[1000] transition-transform duration-300">
-    <div class="nav-center absolute left-1/2 -translate-x-1/2 flex items-center gap-10">
-        <div class="nav-links-left hidden lg:flex gap-8">
-            <a href="trouver_talent.php" class="text-white text-sm whitespace-nowrap hover:text-[#d4a5d4] transition-colors">Trouver un talent</a>
-            <a href="poster_projet.php" class="text-white text-sm whitespace-nowrap hover:text-[#d4a5d4] transition-colors">Poster un projet</a>
-        </div>
 
-        <a href="index.php">
-            <img src="assets/img/logo.png" class="logo-img h-10 w-auto" style="filter: brightness(0) invert(1) sepia(1) saturate(1000%) hue-rotate(250deg);" alt="ChicBook" />
+<nav id="sidebar">
+
+    <a href="index.php" class="sidebar-logo">
+        <img src="assets/img/logo.png" alt="ChicBook">
+        <span class="sidebar-logo-text">ChicBook</span>
+    </a>
+
+    <div class="sidebar-divider"></div>
+
+    <a href="index.php" class="sidebar-item <?= $current_page === 'index.php' ? 'active' : '' ?>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+        </svg>
+        <span class="sidebar-label">Accueil</span>
+    </a>
+
+    <a href="trouver_talent.php" class="sidebar-item <?= $current_page === 'trouver_talent.php' ? 'active' : '' ?>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        <span class="sidebar-label">Trouver un talent</span>
+    </a>
+
+    <a href="castings.php" class="sidebar-item <?= $current_page === 'castings.php' ? 'active' : '' ?>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M7 4v16M17 4v16M3 8h4m10 0h4M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/>
+        </svg>
+        <span class="sidebar-label">Castings</span>
+    </a>
+
+    <a href="poster_projet.php" class="sidebar-item <?= $current_page === 'poster_projet.php' ? 'active' : '' ?>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 8v8m-4-4h8"/>
+        </svg>
+        <span class="sidebar-label">Poster un projet</span>
+    </a>
+
+    <a href="apropos.php" class="sidebar-item <?= $current_page === 'apropos.php' ? 'active' : '' ?>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 16v-4m0-4h.01"/>
+        </svg>
+        <span class="sidebar-label">À propos</span>
+    </a>
+
+    <div class="sidebar-spacer"></div>
+    <div class="sidebar-divider"></div>
+
+    <?php if ($current_user_id): ?>
+        <a href="profil.php" class="sidebar-item <?= $current_page === 'profil.php' ? 'active' : '' ?>">
+            <?php if ($user_avatar): ?>
+                <img src="<?= htmlspecialchars($user_avatar) ?>" class="sidebar-avatar" alt="Profil">
+            <?php else: ?>
+                <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                </svg>
+            <?php endif; ?>
+            <span class="sidebar-label">Mon Profil</span>
         </a>
+        <a href="logout.php" class="sidebar-item sidebar-item-danger">
+            <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+            <span class="sidebar-label">Déconnexion</span>
+        </a>
+    <?php else: ?>
+        <a href="connexion.php" class="sidebar-item sidebar-item-accent">
+            <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+            </svg>
+            <span class="sidebar-label">S'identifier</span>
+        </a>
+    <?php endif; ?>
 
-        <div class="nav-links-right hidden lg:flex gap-8">
-            <a href="castings.php" class="text-white text-sm whitespace-nowrap hover:text-[#d4a5d4] transition-colors">Accéder aux castings</a>
-            <a href="apropos.php" class="text-white text-sm whitespace-nowrap hover:text-[#d4a5d4] transition-colors">À propos</a>
-        </div>
-    </div>
-
-    <div class="flex items-center gap-4">
-        <!-- Bouton thème -->
-        <button id="theme-toggle" title="Changer de thème"
-            class="w-9 h-9 flex items-center justify-center rounded-full bg-[#333] hover:bg-[#444] transition-colors border-none cursor-pointer text-base leading-none">
-            <span id="theme-icon">☀️</span>
-        </button>
-
-        <?php if ($current_user_id): ?>
-            <a href="profil.php" class="w-11 h-11 bg-[#d4a5d4] rounded-full flex justify-center items-center text-xl border-2 border-transparent hover:border-white hover:scale-105 hover:shadow-[0_0_15px_rgba(212,165,212,0.4)] transition-all overflow-hidden" title="Mon Profil">
-                <?php if ($user_avatar): ?>
-                    <img src="<?= htmlspecialchars($user_avatar) ?>" class="w-full h-full object-cover">
-                <?php else: ?>
-                    <span>👤</span>
-                <?php endif; ?>
-            </a>
-        <?php else: ?>
-            <a class="bg-[#d4a5d4] text-[#1a1a1a] px-6 py-2.5 rounded-full text-sm font-medium hover:opacity-90 transition-opacity" href="connexion.php">S'identifier</a>
-        <?php endif; ?>
-
-        <div class="navicon lg:hidden flex flex-col gap-[5px] cursor-pointer" id="navicon">
-            <span class="w-6 h-0.5 bg-white transition-all duration-300"></span>
-            <span class="w-6 h-0.5 bg-white transition-all duration-300"></span>
-            <span class="w-6 h-0.5 bg-white transition-all duration-300"></span>
-        </div>
-    </div>
-</header>
+</nav>

@@ -40,12 +40,19 @@ docker exec -it chicbook_db psql -U chicuser -d chicbook
 - Host: `db` (Docker service name)
 - DB: `chicbook`, User: `chicuser`, Password: `chicpassword`
 
-**First-time setup:** The `sql/init.sql` file is automatically executed by PostgreSQL on first container boot (via `docker-entrypoint-initdb.d`). If the database already exists, re-run it manually in Adminer or psql. Always append migrations at the bottom of `sql/init.sql` — never rewrite existing statements.
+**First-time setup:** The `sql/init.sql` file is automatically executed by PostgreSQL on first container boot. Always append migrations at the bottom of `sql/init.sql` — never rewrite existing statements.
 
 **Apply a migration to a running DB:**
 ```bash
 docker exec chicbook_db psql -U chicuser -d chicbook -c "ALTER TABLE ... "
 ```
+
+**PowerShell file edits:** When using PowerShell to edit PHP files, always write without BOM:
+```powershell
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($path, $content, $utf8NoBom)
+```
+Using `-Encoding UTF8` in PowerShell adds a BOM that breaks PHP `session_start()`.
 
 ---
 
@@ -64,10 +71,10 @@ docker exec chicbook_db psql -U chicuser -d chicbook -c "ALTER TABLE ... "
 ├── config/database.php  Singleton PDO connection
 ├── controllers/         Business logic (AuthController)
 ├── models/              Data access: User, Profession, Portfolio
-├── includes/header.php  Shared nav — included on every page, contains theme toggle
+├── includes/header.php  Left sidebar nav — included on every page
 ├── assets/
-│   ├── css/custom.css   Theme system + CSS selectors Tailwind can't handle inline
-│   ├── js/script.js     Shared JS: theme toggle, nav scroll, city autocomplete, carousels
+│   ├── css/custom.css   Sidebar styles + dark theme + global body offset
+│   ├── js/script.js     Shared JS: city autocomplete, carousels, measurements toggle
 │   └── js/creer_casting.js  Dynamic profile cards + live preview for casting creation
 ├── sql/init.sql         Full schema + seed data + migrations (append-only)
 └── docker/              Dockerfile + compose.yml
@@ -89,24 +96,34 @@ Login is two-factor: email/password → 6-digit code sent via `mail()` → verif
 
 Registration collects `prenom` + `nom` (combined into `full_name` in DB), `birth_date` (stored in `users` table, required for all). The mensurations sub-form (height, sizes, eye/hair color) is stored in `measurements` table and only shown for: Mannequin, Comédien, Danseur. Password validation: min 8 chars, at least one letter and one digit, all special characters allowed.
 
-### Theme system (dark/light)
+### Navigation — left sidebar (Instagram-style)
 
-A toggle button (☀️/🌙) in the header switches between dark (default) and light theme. The preference is persisted in `localStorage`. The theme is applied by adding/removing class `light` on `<html>`. The inline `<script>` at the top of `includes/header.php` runs immediately to apply the saved theme before the page renders (prevents flash).
+`includes/header.php` renders a fixed left sidebar (`#sidebar`). There is **no top navbar**.
 
-`assets/css/custom.css` overrides Tailwind's hardcoded arbitrary-value classes (e.g. `.bg-\[#1a1a1a\]`, `.text-white`) under `html.light { ... }`. Dark is the default; light overrides with `!important`.
+- **Collapsed:** 80px wide (icons only)
+- **Expanded:** 260px wide on hover — labels slide in with `translateX` + opacity transition
+- `body { padding-left: 260px }` is **always fixed** — the sidebar zone is permanently reserved so expanding never overlaps content
+- Active page detected via `basename($_SERVER['PHP_SELF'])` → `active` class on the matching item
+- No theme toggle — dark theme is permanent
+
+CSS class names that must exist in the HTML for the sidebar to work: `#sidebar`, `.sidebar-item`, `.sidebar-icon`, `.sidebar-label`, `.sidebar-logo`, `.sidebar-logo-text`, `.sidebar-divider`, `.sidebar-spacer`.
+
+### Dark theme (permanent)
+
+There is **no light/dark toggle**. The entire site is dark-only:
+- All pages use `<body class="bg-black text-white ...">` 
+- Card surfaces: `#111` (page bg), `#1a1a1a` (cards), `#222` (nested elements)
+- `assets/css/custom.css` sets `body { background-color: #000 }` as the global default
+- No `html.light` CSS overrides exist
 
 ### Tailwind usage
 
-No build step. Tailwind CDN is loaded on every page with a custom config block:
+No build step. Tailwind CDN is loaded on every page:
 ```html
 <script src="https://cdn.tailwindcss.com"></script>
-<script>
-  tailwind.config = {
-    theme: { extend: { colors: { brand: '#d4a5d4', dark: '#1a1a1a' } } }
-  }
-</script>
+<script>tailwind.config = { theme: { extend: { colors: { brand: '#d4a5d4' } } } }</script>
 ```
-Brand color: `#d4a5d4` (mauve/purple). Dark background: `#1a1a1a`. Secondary dark: `#111`. Card surface: `#222`.
+Brand color: `#d4a5d4` (mauve/purple). Page background: `#000`. Card surface: `#111`/`#1a1a1a`.
 
 ### Database schema key points
 
@@ -127,6 +144,7 @@ When adding a column/table, append at the bottom of `sql/init.sql` and run the m
 - Favorite toggle is AJAX (`fetch` POST to same page with `toggle_favorite=1`) — no page reload
 - Cards are clickable → modal overlay with full casting details including all profiles with their criteria
 - Modal is populated from `data-casting` JSON attribute embedded on each card by PHP (`json_agg` with LEFT JOINs to eye/hair/ethnicity tables)
+- Filter sidebar: `sticky top-8` (not `top-[100px]` — there is no top navbar)
 
 ### creer_casting.php — key behaviors
 
@@ -134,6 +152,13 @@ When adding a column/table, append at the bottom of `sql/init.sql` and run the m
 - Measurement inputs for Mannequin/Comédien/Danseur roles use **min → max range pairs** (stored as "165 - 175" strings in `VARCHAR` columns)
 - Two date fields: `casting_date` (audition) + `performance_date` (realization)
 - "Add profile" button clones the first `.profile-card` — relies on class names `profile-card`, `profile-card-header`, `role-selector`, `mensurations-grid`
+
+### index.php — feed
+
+The homepage is a professional feed (not carousels). Structure:
+- **Filter pills** at top: Tous / Mannequins / Photographes / Stylistes / Vidéastes / Coiffeurs / Maquilleurs / Modélistes — JS filtering via `data-filter` attribute on each `.feed-post`, no page reload
+- **Feed posts** (currently hardcoded fake data): each post has avatar, name, profession, location, image in **original format** (no crop — `height: auto`), professional tags, caption, "Voir le book" + "Contacter" buttons. Style is editorial/professional, not social (no likes, no comments).
+- **Right column**: static presentation text block — "Le réseau professionnel de la mode" — with CTAs that change based on login state (Rejoindre/Connexion vs Castings/Poster un projet)
 
 ### External APIs used
 
@@ -150,17 +175,17 @@ Uploaded files go to `uploads/` (gitignored). Path relative to webroot stored in
 
 | File | Purpose |
 |---|---|
-| `index.php` | Homepage: two talent carousels + expertise tag grid |
+| `index.php` | Homepage: professional feed with profession filters + presentation sidebar |
 | `inscription.php` | Registration: prenom+nom, birth_date, conditional mensurations for physical roles |
 | `connexion.php` | Login step 1 (email + password) |
-| `verifier_code.php` | Login step 2 (2FA code entry) |
+| `verifier_code.php` | Login step 2 (2FA code entry) — uses sidebar nav (not old top header) |
 | `profil.php` | Public talent profile — portfolio masonry, age calculated from `birth_date` |
 | `edit_profil.php` | Settings: avatar, general info, expertise tags, bio, portfolio upload, password |
 | `castings.php` | Browse/filter castings, favorites, own castings, modal detail view |
 | `creer_casting.php` | Create casting: multi-profile builder with ranges, two dates, live preview |
 | `edit_casting.php` | Edit existing casting — **not yet migrated to Tailwind** (still uses `src/` CSS) |
 | `poster_projet.php` | Post a longer-term creative project |
-| `apropos.php` | About page with Z-pattern pillar layout |
+| `apropos.php` | About page |
 | `logout.php` | Destroys session, redirects to index |
 
 > **Note:** `edit_casting.php` still references `src/style.css` and `src/edit_casting.css` — not yet migrated to Tailwind.

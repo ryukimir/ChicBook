@@ -35,10 +35,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
       .team-active { display:block; }
     </style>
 </head>
-<body class="bg-[#111] text-white font-['Arial',sans-serif]">
+<body class="bg-black text-white font-['Arial',sans-serif]">
     <?php include 'includes/header.php'; ?>
 
-    <main class="max-w-[800px] mx-auto mt-20 mb-10 p-10 bg-[#1a1a1a] rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+    <main class="max-w-[900px] mx-auto mt-10 mb-10 p-12 bg-[#1a1a1a] rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
         <h1 class="text-center uppercase tracking-[2px] mb-2.5 text-2xl font-bold">Poster un projet</h1>
         <p class="text-center text-[#aaa] italic mb-10">Vous avez un besoin créatif ? Trouvez les bons talents.<br>Un projet est une collaboration créative dans la durée.</p>
 
@@ -79,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <p class="text-xs text-[#888] mb-4">Avez-vous déjà un membre de l'équipe à créditer ?</p>
                 <div class="flex gap-2.5 mb-5">
                     <div id="btn-search" class="toggle-btn active flex-1 text-center py-2.5 bg-[#d4a5d4] text-[#111] border border-[#d4a5d4] rounded-md cursor-pointer font-bold text-sm" onclick="switchTeamMode('search')">🔍 Trouver sur ChicBook</div>
-                    <div id="btn-manual" class="toggle-btn flex-1 text-center py-2.5 bg-[#111] text-[#888] border border-[#333] rounded-md cursor-pointer text-sm hover:bg-[#222] transition-colors" onclick="switchTeamMode('manual')">✍️ Ajouter manuellement</div>
+                    <div id="btn-manual" class="toggle-btn flex-1 text-center py-2.5 bg-black text-[#888] border border-[#333] rounded-md cursor-pointer text-sm hover:bg-[#222] transition-colors" onclick="switchTeamMode('manual')">✍️ Ajouter manuellement</div>
                 </div>
                 <div id="mode-search" class="team-search team-active">
                     <div class="form-group" style="margin-bottom:0;"><input type="text" name="search_user" class="form-control" placeholder="Rechercher par nom (ex: Melvin...)"></div>
@@ -107,7 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <script>
         function switchTeamMode(mode) {
             ['search', 'manual'].forEach(m => {
-                document.getElementById('btn-' + m).className = 'toggle-btn flex-1 text-center py-2.5 bg-[#111] text-[#888] border border-[#333] rounded-md cursor-pointer text-sm';
+                document.getElementById('btn-' + m).className = 'toggle-btn flex-1 text-center py-2.5 bg-black text-[#888] border border-[#333] rounded-md cursor-pointer text-sm';
                 document.getElementById('mode-' + m).classList.remove('team-active');
             });
             document.getElementById('btn-' + mode).classList.add('active');
@@ -117,3 +117,4 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     </script>
 </body>
 </html>
+

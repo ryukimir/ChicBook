@@ -87,10 +87,10 @@ $user = $userModel->getUserProfile($_SESSION['user_id']);
       label { display:block; margin-bottom:8px; color:#ccc; font-size:14px; }
     </style>
 </head>
-<body class="bg-white font-['Arial',sans-serif]">
+<body class="bg-black text-white font-['Arial',sans-serif]">
     <?php include 'includes/header.php'; ?>
 
-    <main class="max-w-[800px] mx-auto mt-[100px] mb-10 bg-[#1a1a1a] text-white rounded-xl flex overflow-hidden">
+    <main class="max-w-[960px] mx-auto mt-10 mb-10 bg-[#1a1a1a] text-white rounded-xl flex overflow-hidden">
 
         <!-- Menu latéral -->
         <aside class="w-[250px] bg-[#222] p-8 flex-shrink-0">
@@ -220,3 +220,4 @@ $user = $userModel->getUserProfile($_SESSION['user_id']);
     <script src="assets/js/script.js"></script>
 </body>
 </html>
+

@@ -16,7 +16,7 @@ $is_logged_in = isset($_SESSION['user_id']);
     </script>
     <link rel="stylesheet" href="assets/css/custom.css" />
 </head>
-<body class="bg-[#1a1a1a] text-white font-['Arial',sans-serif] leading-relaxed">
+<body class="bg-black text-white font-['Arial',sans-serif] leading-relaxed">
 
     <?php include 'includes/header.php'; ?>
 
@@ -79,10 +79,11 @@ $is_logged_in = isset($_SESSION['user_id']);
         </div>
     </section>
 
-    <footer class="bg-[#111] py-10 text-center border-t border-[#333]">
+    <footer class="bg-black py-10 text-center border-t border-[#333]">
         <p class="text-[#666] text-sm">© 2026 ChicBook. Tous droits réservés.</p>
     </footer>
 
     <script src="assets/js/script.js"></script>
 </body>
 </html>
+
