@@ -34,12 +34,19 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <span class="sidebar-label">Castings</span>
     </a>
 
-    <a href="poster_projet.php" class="sidebar-item <?= $current_page === 'poster_projet.php' ? 'active' : '' ?>">
+    <a href="messagerie.php" class="sidebar-item <?= $current_page === 'messagerie.php' ? 'active' : '' ?>">
         <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M12 8v8m-4-4h8"/>
+            <path d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
         </svg>
-        <span class="sidebar-label">Poster un projet</span>
+        <span class="sidebar-label">Messagerie</span>
+    </a>
+
+    <a href="evenements.php" class="sidebar-item <?= $current_page === 'evenements.php' ? 'active' : '' ?>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <path d="M16 2v4M8 2v4M3 10h18"/>
+        </svg>
+        <span class="sidebar-label">Événements</span>
     </a>
 
     <a href="apropos.php" class="sidebar-item <?= $current_page === 'apropos.php' ? 'active' : '' ?>">
