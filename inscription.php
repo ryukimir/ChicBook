@@ -165,6 +165,24 @@ function get_post_value($key)
             </select>
           </div>
 
+          <!-- Tags expertise -->
+          <div>
+            <label class="block text-white mb-2.5 text-sm">Mots-clés qui vous décrivent <span class="text-[#666]">(sélectionnez ceux qui vous correspondent)</span></label>
+            <div id="tags-container" class="flex flex-wrap gap-2">
+              <?php
+              $all_tags = ['Brodeur','Haute couture','Luxe','Editorial','Créatif','Premium','Fashion week','Minimaliste','Streetwear','Avant-garde','Moderne','International','Haut de gamme','Commercial','Artistique','Perlage','Ornementation','Textile','Broderie','Couture','Défilé','Beauté','Hair stylist','Mode','Acteur','Campagne','Publicité','Fashion','Film','Contemporain','Performance','Mouvement','Designer','Sacs','Bijoux','Chaussures','Maroquinerie','Accessoires','Imprimés','Maille','Surface','Mannequin','Maquilleur','Modéliste','Patronage','Atelier','Photographe','Studio','Styliste','Créateur','Photo','Célébrité','Plateau','Vidéaste','Backstage','Réalisateur','Contenu','Coiffeur','Comédien','Danseur'];
+              $selected_tags = array_filter(array_map('trim', explode(',', get_post_value('expertise_tags'))));
+              foreach ($all_tags as $tag): $sel = in_array($tag, $selected_tags); ?>
+              <button type="button" onclick="toggleTag(this)"
+                data-tag="<?= htmlspecialchars($tag) ?>"
+                class="tag-pill px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150 cursor-pointer <?= $sel ? 'bg-[#d4a5d4] text-black border-[#d4a5d4]' : 'bg-transparent text-[#888] border-[#333] hover:border-[#d4a5d4] hover:text-[#d4a5d4]' ?>">
+                <?= htmlspecialchars($tag) ?>
+              </button>
+              <?php endforeach; ?>
+            </div>
+            <input type="hidden" name="expertise_tags" id="expertise_tags_input" value="<?= get_post_value('expertise_tags') ?>">
+          </div>
+
           <!-- Bloc mensurations (affiché seulement pour Mannequin/Comédien/Danseur) -->
           <div id="mensurations-bloc" style="display: none;" class="bg-[#2a2a2a] p-5 rounded-lg mt-2.5">
             <h4 class="text-[#d4a5d4] mb-4 font-medium">Vos mensurations</h4>
@@ -223,6 +241,36 @@ function get_post_value($key)
     #ville-suggestions li:hover { background-color: #f0f0f0; color: #d4a5d4; font-weight: bold; }
   </style>
   <script src="assets/js/script.js"></script>
+  <script>
+  function toggleTag(btn) {
+      const active = btn.dataset.selected === '1';
+      if (active) {
+          btn.dataset.selected = '0';
+          btn.style.background = '';
+          btn.style.color = '#888';
+          btn.style.borderColor = '#333';
+      } else {
+          btn.dataset.selected = '1';
+          btn.style.background = '#d4a5d4';
+          btn.style.color = '#000';
+          btn.style.borderColor = '#d4a5d4';
+      }
+      const selected = [...document.querySelectorAll('.tag-pill[data-selected="1"]')].map(b => b.dataset.tag);
+      document.getElementById('expertise_tags_input').value = selected.join(',');
+  }
+  // Init état des pills déjà sélectionnées (re-POST après erreur)
+  document.querySelectorAll('.tag-pill').forEach(btn => {
+      if (btn.classList.contains('bg-[#d4a5d4]')) {
+          btn.dataset.selected = '1';
+          btn.style.background = '#d4a5d4';
+          btn.style.color = '#000';
+          btn.style.borderColor = '#d4a5d4';
+          btn.classList.remove('bg-[#d4a5d4]','text-black','border-[#d4a5d4]');
+      } else {
+          btn.dataset.selected = '0';
+      }
+  });
+  </script>
 </body>
 </html>
 

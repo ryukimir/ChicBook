@@ -255,6 +255,8 @@ ALTER TABLE projects
 ADD COLUMN project_type VARCHAR(100),
 ADD COLUMN searched_profiles VARCHAR(255);
 
+ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_theme VARCHAR(50) DEFAULT 'classique';
+
 ALTER TABLE users
 ADD COLUMN IF NOT EXISTS birth_date DATE;
 
@@ -285,3 +287,39 @@ CREATE TABLE IF NOT EXISTS casting_favorites (
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
     FOREIGN KEY (casting_id) REFERENCES castings (id) ON DELETE CASCADE
 );
+
+ALTER TABLE portfolios ADD COLUMN IF NOT EXISTS position INT DEFAULT 0;
+
+-- Back office
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN DEFAULT FALSE;
+
+-- Événements
+CREATE TABLE IF NOT EXISTS events (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    type VARCHAR(100),
+    organizer VARCHAR(255),
+    city VARCHAR(100),
+    country VARCHAR(100),
+    event_date DATE,
+    cover_image VARCHAR(255),
+    description TEXT,
+    price VARCHAR(100),
+    capacity INT,
+    tags TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS event_registrations (
+    user_id INT,
+    event_id INT,
+    PRIMARY KEY (user_id, event_id),
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE
+);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS show_age BOOLEAN DEFAULT FALSE;
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(50);
