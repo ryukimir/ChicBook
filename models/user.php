@@ -85,10 +85,13 @@ class User
     public function getUserProfile($user_id)
     {
 
-        $query = "SELECT u.id, u.full_name, u.email, u.specific_profession, u.expertise_tags, u.city, u.country, u.bio, u.profile_picture_url, u.birth_date, p.name as profession_name
+        $query = "SELECT u.id, u.full_name, u.email, u.city, u.country, u.bio, u.profile_picture_url, u.expertise_tags,
+                         p.name as profession_name,
+                         m.birth_date, m.height, m.chest_size, m.waist_size, m.hip_size, m.shoe_size
                   FROM " . $this->table_name . " u
                   LEFT JOIN user_professions up ON u.id = up.user_id
                   LEFT JOIN professions p ON up.profession_id = p.id
+                  LEFT JOIN measurements m ON u.id = m.user_id
                   WHERE u.id = :id LIMIT 1";
 
         $stmt = $this->conn->prepare($query);
@@ -148,35 +151,44 @@ class User
     public function create($data)
     {
         try {
-
             $this->conn->beginTransaction();
 
+            // 1. On retire birth_date d'ici, ça n'existe pas dans 'users' !
             $query = "INSERT INTO " . $this->table_name . "
-                      (role, gender, full_name, email, password_hash, city, country, birth_date)
-                      VALUES ('talent', :gender, :full_name, :email, :password_hash, :city, :country, :birth_date)";
+                      (role, gender, full_name, email, password_hash, city, country)
+                      VALUES ('talent', :gender, :full_name, :email, :password_hash, :city, :country)";
 
             $stmt = $this->conn->prepare($query);
             $hashed_password = password_hash($data['password'], PASSWORD_DEFAULT);
-            $birth_date_user = !empty($data['birth_date']) ? $data['birth_date'] : null;
 
             $stmt->bindParam(":gender", $data['gender']);
-            $full_name = trim($data['prenom']) . ' ' . trim($data['nom']);
+            
+            // Petite sécurité au cas où tu utilises prenom+nom OU nom_complet
+            $full_name = '';
+            if (isset($data['prenom']) && isset($data['nom'])) {
+                $full_name = trim($data['prenom']) . ' ' . trim($data['nom']);
+            } else {
+                $full_name = trim($data['nom_complet'] ?? 'Talent');
+            }
+            
             $stmt->bindParam(":full_name", $full_name);
             $stmt->bindParam(":email", $data['email']);
             $stmt->bindParam(":password_hash", $hashed_password);
             $stmt->bindParam(":city", $data['ville']);
             $stmt->bindParam(":country", $data['pays']);
-            $stmt->bindParam(":birth_date", $birth_date_user);
             $stmt->execute();
 
+            // On récupère l'ID de ce nouvel utilisateur fraîchement créé
             $user_id = $this->conn->lastInsertId();
 
+            // 2. On ajoute son métier
             $query_prof = "INSERT INTO user_professions (user_id, profession_id) VALUES (:user_id, :profession_id)";
             $stmt_prof = $this->conn->prepare($query_prof);
             $stmt_prof->bindParam(":user_id", $user_id);
             $stmt_prof->bindParam(":profession_id", $data['metier']);
             $stmt_prof->execute();
 
+            // 3. On ajoute sa langue
             if (!empty($data['langues'])) {
                 $query_lang = "INSERT INTO user_languages (user_id, language_id) VALUES (:user_id, :language_id)";
                 $stmt_lang = $this->conn->prepare($query_lang);
@@ -185,8 +197,8 @@ class User
                 $stmt_lang->execute();
             }
 
+            // 4. C'EST LÀ QUE VA LA DATE DE NAISSANCE ! (Dans la table measurements)
             if (isset($data['has_measurements']) && $data['has_measurements'] == "1") {
-
                 $query_meas = "INSERT INTO measurements 
                               (user_id, birth_date, height, chest_size, waist_size, hip_size, shoe_size, eye_color_id, hair_color_id, ethnicity_id) 
                               VALUES (:user_id, :birth_date, :height, :chest_size, :waist_size, :hip_size, :shoe_size, :eye_color_id, :hair_color_id, :ethnicity_id)";
@@ -211,7 +223,6 @@ class User
                 $stmt_meas->bindParam(":waist_size", $waist);
                 $stmt_meas->bindParam(":hip_size", $hip);
                 $stmt_meas->bindParam(":shoe_size", $shoe);
-
                 $stmt_meas->bindParam(":eye_color_id", $eye_color_id);
                 $stmt_meas->bindParam(":hair_color_id", $hair_color_id);
                 $stmt_meas->bindParam(":ethnicity_id", $ethnicity_id);
@@ -221,6 +232,7 @@ class User
 
             $this->conn->commit();
             return true;
+            
         } catch (PDOException $e) {
             $this->conn->rollBack();
             throw $e;
