@@ -21,6 +21,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
   if (isset($result['success']) && $result['success'] === true) {
     $successMessage = "Votre compte a été créé avec succès !";
+    $triggerRedirect = true;
   } else {
     $errors = $result;
   }
@@ -79,6 +80,14 @@ function get_post_value($key)
 
       <?php if (!empty($successMessage)): ?>
         <div class="bg-[#e8f5e9] text-[#2e7d32] border border-[#a5d6a7] p-4 mb-5 rounded-lg text-sm text-center"><?= $successMessage ?></div>
+      <?php if (isset($triggerRedirect) && $triggerRedirect === true): ?>
+          <script>
+            setTimeout(function() {
+              window.location.href = 'connexion.php';
+            }, 2000);
+          </script>
+        <?php endif; ?>
+
       <?php else: ?>
 
         <form class="flex flex-col gap-5" action="inscription.php" method="POST" id="inscription-form">
