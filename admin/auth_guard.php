@@ -1,0 +1,7 @@
+<?php
+if (session_status() === PHP_SESSION_NONE) session_start();
+
+if (empty($_SESSION['user_id']) || empty($_SESSION['is_admin'])) {
+    header('Location: login.php');
+    exit;
+}

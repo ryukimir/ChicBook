@@ -85,9 +85,7 @@ class User
     public function getUserProfile($user_id)
     {
 
-        $query = "SELECT u.id, u.full_name, u.email, u.city, u.country, u.bio, u.profile_picture_url, u.expertise_tags,
-                         p.name as profession_name,
-                         m.birth_date, m.height, m.chest_size, m.waist_size, m.hip_size, m.shoe_size
+        $query = "SELECT u.id, u.full_name, u.email, u.specific_profession, u.expertise_tags, u.city, u.country, u.bio, u.profile_picture_url, u.birth_date, u.profile_theme, u.show_age, u.gender, p.name as profession_name
                   FROM " . $this->table_name . " u
                   LEFT JOIN user_professions up ON u.id = up.user_id
                   LEFT JOIN professions p ON up.profession_id = p.id
@@ -100,6 +98,13 @@ class User
 
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
+    public function updateTheme($user_id, $theme) {
+        $allowed = ['classique', 'editorial', 'luxe'];
+        $theme = in_array($theme, $allowed) ? $theme : 'classique';
+        $stmt = $this->conn->prepare("UPDATE users SET profile_theme = :theme WHERE id = :id");
+        return $stmt->execute(['theme' => $theme, 'id' => $user_id]);
+    }
+
     public function updateInfo($user_id, $bio, $profile_picture = null)
     {
         $sql = "UPDATE users SET bio = :bio";
@@ -117,15 +122,53 @@ class User
         return $stmt->execute();
     }
 
-    public function updateGeneralInfo($user_id, $full_name, $city, $country)
+    public function updateGeneralInfo($user_id, $full_name, $city, $country, $show_age = false, $gender = '', $birth_date = null)
     {
-        $query = "UPDATE " . $this->table_name . " SET full_name = :name, city = :city, country = :country WHERE id = :id";
+        $show_age_val = $show_age ? 'TRUE' : 'FALSE';
+        $query = "UPDATE " . $this->table_name . " SET full_name = :name, city = :city, country = :country, show_age = $show_age_val, gender = :gender, birth_date = :birth_date WHERE id = :id";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(":name", $full_name);
         $stmt->bindParam(":city", $city);
         $stmt->bindParam(":country", $country);
+        $stmt->bindParam(":gender", $gender);
+        $stmt->bindParam(":birth_date", $birth_date);
         $stmt->bindParam(":id", $user_id);
         return $stmt->execute();
+    }
+
+    public function getMeasurements($user_id)
+    {
+        $stmt = $this->conn->prepare("SELECT * FROM measurements WHERE user_id = :id LIMIT 1");
+        $stmt->execute(['id' => $user_id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    public function upsertMeasurements($user_id, $data)
+    {
+        $check = $this->conn->prepare("SELECT user_id FROM measurements WHERE user_id = :id");
+        $check->execute(['id' => $user_id]);
+        if ($check->rowCount() > 0) {
+            $stmt = $this->conn->prepare(
+                "UPDATE measurements SET height=:height, chest_size=:chest, waist_size=:waist, hip_size=:hip,
+                 shoe_size=:shoe, eye_color_id=:eye, hair_color_id=:hair, ethnicity_id=:eth WHERE user_id=:id"
+            );
+        } else {
+            $stmt = $this->conn->prepare(
+                "INSERT INTO measurements (user_id, height, chest_size, waist_size, hip_size, shoe_size, eye_color_id, hair_color_id, ethnicity_id)
+                 VALUES (:id, :height, :chest, :waist, :hip, :shoe, :eye, :hair, :eth)"
+            );
+        }
+        return $stmt->execute([
+            'id'     => $user_id,
+            'height' => $data['height'] ?: null,
+            'chest'  => $data['chest_size'] ?: null,
+            'waist'  => $data['waist_size'] ?: null,
+            'hip'    => $data['hip_size'] ?: null,
+            'shoe'   => $data['shoe_size'] ?: null,
+            'eye'    => $data['eye_color_id'] ?: null,
+            'hair'   => $data['hair_color_id'] ?: null,
+            'eth'    => $data['ethnicity_id'] ?: null,
+        ]);
     }
 
     public function updatePassword($user_id, $current_password, $new_password)

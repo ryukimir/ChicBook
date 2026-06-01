@@ -53,6 +53,18 @@ $profiles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $countries = $db->query("SELECT DISTINCT country FROM users WHERE country IS NOT NULL AND country != '' ORDER BY country")->fetchAll(PDO::FETCH_COLUMN);
 
+// Tous les tags distincts utilisés par les profils
+$raw_tags = $db->query("SELECT expertise_tags FROM users WHERE expertise_tags IS NOT NULL AND expertise_tags != ''")->fetchAll(PDO::FETCH_COLUMN);
+$all_tags = [];
+foreach ($raw_tags as $row) {
+    foreach (explode(',', $row) as $t) {
+        $t = trim($t);
+        if ($t) $all_tags[$t] = true;
+    }
+}
+ksort($all_tags);
+$all_tags = array_keys($all_tags);
+
 function buildUrl($params) {
     return 'trouver_talent.php?' . http_build_query(array_filter($params));
 }
@@ -88,18 +100,44 @@ function buildUrl($params) {
             <?php endforeach; ?>
         </div>
 
-        <!-- Tabs professions de la catégorie -->
-        <div class="flex gap-2 overflow-x-auto pb-1 flex-wrap">
-            <?php foreach ($cat['professions'] as $prof): ?>
-                <a href="<?= buildUrl(['category' => $category, 'profession' => $prof, 'city' => $filter_city, 'country' => $filter_country, 'tag' => $filter_tag]) ?>"
-                   class="px-4 py-1.5 rounded-full text-sm font-semibold border transition-all whitespace-nowrap
-                          <?= $prof === $profession
-                              ? 'bg-[#d4a5d4] text-black border-[#d4a5d4]'
-                              : 'text-[#888] border-[#2a2a2a] hover:border-[#555] hover:text-white' ?>">
-                    <?= htmlspecialchars($prof) ?>
-                </a>
-            <?php endforeach; ?>
+        <!-- Dropdown professions -->
+        <div class="relative" id="profession-dropdown-wrapper">
+            <button id="profession-toggle"
+                    class="flex items-center gap-3 px-5 py-3 bg-[#111] border border-[#2a2a2a] rounded-2xl text-white font-semibold text-sm hover:border-[#555] transition-colors justify-between"
+                    style="min-width:260px;">
+                <span>
+                    <span class="text-[#666] font-normal mr-2"><?= htmlspecialchars($cat['label']) ?> ·</span>
+                    <span id="profession-label"><?= htmlspecialchars($profession) ?></span>
+                </span>
+                <svg id="profession-chevron" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-[#666] transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div id="profession-menu" class="hidden absolute left-0 mt-2 bg-[#111] border border-[#2a2a2a] rounded-2xl overflow-hidden z-50 shadow-[0_8px_32px_rgba(0,0,0,0.6)]" style="min-width:260px;">
+                <?php foreach ($cat['professions'] as $prof): ?>
+                    <a href="<?= buildUrl(['category' => $category, 'profession' => $prof, 'city' => $filter_city, 'country' => $filter_country, 'tag' => $filter_tag]) ?>"
+                       class="block px-5 py-3.5 text-sm font-semibold transition-colors hover:bg-[#1e1e1e] <?= $prof === $profession ? 'text-white' : 'text-[#aaa] hover:text-white' ?>">
+                        <?= htmlspecialchars($prof) ?>
+                    </a>
+                <?php endforeach; ?>
+            </div>
         </div>
+
+        <script>
+        (function() {
+            const btn = document.getElementById('profession-toggle');
+            const menu = document.getElementById('profession-menu');
+            const chevron = document.getElementById('profession-chevron');
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                const open = !menu.classList.contains('hidden');
+                menu.classList.toggle('hidden', open);
+                chevron.style.transform = open ? '' : 'rotate(180deg)';
+            });
+            document.addEventListener('click', () => {
+                menu.classList.add('hidden');
+                chevron.style.transform = '';
+            });
+        })();
+        </script>
     </div>
 
     <div class="flex gap-8 items-start">
@@ -176,9 +214,12 @@ function buildUrl($params) {
 
                     <div>
                         <label class="block text-[#555] text-xs font-bold uppercase tracking-widest mb-2">Mot-clé</label>
-                        <input type="text" name="tag" value="<?= htmlspecialchars($filter_tag) ?>"
-                               placeholder="ex: éditorial, studio…"
-                               class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-[#d4a5d4] transition-colors placeholder:text-[#444]">
+                        <select name="tag" class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-[#d4a5d4] transition-colors">
+                            <option value="">Tous les tags</option>
+                            <?php foreach ($all_tags as $t): ?>
+                                <option value="<?= htmlspecialchars($t) ?>" <?= $filter_tag === $t ? 'selected' : '' ?>><?= htmlspecialchars($t) ?></option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
 
                     <div>

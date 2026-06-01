@@ -1,6 +1,9 @@
 <?php
 session_start();
 $is_logged_in = isset($_SESSION['user_id']);
+require_once 'config/database.php';
+$db = Database::getInstance()->getConnection();
+$upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM events WHERE event_date >= CURRENT_DATE ORDER BY event_date ASC LIMIT 4")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!doctype html>
 <html lang="fr">
@@ -59,163 +62,140 @@ $is_logged_in = isset($_SESSION['user_id']);
 
       <!-- Posts -->
       <?php
-      $posts = [
-        [
-          'user'       => 'lea_mannequin',
-          'name'       => 'Léa Mercier',
-          'profession' => 'Mannequin',
-          'location'   => 'Paris',
-          'filter'     => 'mannequin',
-          'avatar'     => 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=80&h=80&fit=crop',
-          'image'      => 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&w=700&q=80',
-          'caption'    => 'Shooting pour la collection printemps de Maison Vidal. Un projet sur la légèreté du vêtement en mouvement — direction artistique signée Inès Fontaine, photographie Noah Pelletier.',
-          'tags'       => ['Disponible', 'Mode', 'Éditorial'],
-          'time'       => 'il y a 2 h',
-        ],
-        [
-          'user'       => 'noah_ph',
-          'name'       => 'Noah Pelletier',
-          'profession' => 'Photographe',
-          'location'   => 'Lyon',
-          'filter'     => 'photographe',
-          'avatar'     => 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=80&h=80&fit=crop',
-          'image'      => 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&w=700&q=80',
-          'caption'    => 'Backstage du défilé Studio Nomade. Je travaille principalement sur des projets éditoriaux et des défilés — disponible pour des collaborations à partir de juin.',
-          'tags'       => ['Backstage', 'Défilé', 'Disponible juin'],
-          'time'       => 'il y a 5 h',
-        ],
-        [
-          'user'       => 'ines.styl',
-          'name'       => 'Inès Fontaine',
-          'profession' => 'Styliste',
-          'location'   => 'Paris',
-          'filter'     => 'styliste',
-          'avatar'     => 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=80&h=80&fit=crop',
-          'image'      => 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&w=700&q=80',
-          'caption'    => 'Recherche d\'un brodeur pour finaliser une pièce dans une collection capsule axée drapé et transparence. Si vous avez un profil à recommander ou si vous êtes intéressé, envoyez-moi un message.',
-          'tags'       => ['Recherche collaboration', 'Broderie', 'Capsule'],
-          'time'       => 'il y a 8 h',
-        ],
-        [
-          'user'       => 'camille_coiff',
-          'name'       => 'Camille Renaud',
-          'profession' => 'Coiffeuse',
-          'location'   => 'Bordeaux',
-          'filter'     => 'coiffeur',
-          'avatar'     => 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=80&h=80&fit=crop',
-          'image'      => 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&w=700&q=80',
-          'caption'    => 'Transformation complète pour un shooting éditorial — 4h de travail, une structure volumineuse construite sans extensions. Collaboration avec Sofia Martinez pour le maquillage.',
-          'tags'       => ['Éditorial', 'Coiffure haute', 'Transformation'],
-          'time'       => 'il y a 1 j',
-        ],
-        [
-          'user'       => 'julien_video',
-          'name'       => 'Julien Vasseur',
-          'profession' => 'Vidéaste',
-          'location'   => 'Paris',
-          'filter'     => 'videoaste',
-          'avatar'     => 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop',
-          'image'      => 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?auto=format&w=700&q=80',
-          'caption'    => 'Film de marque réalisé pour Collectif Roze — tourné en 16mm pour retrouver ce grain et cette chaleur propres à l\'argentique. Disponible pour de nouveaux projets ce mois-ci.',
-          'tags'       => ['Film de marque', '16mm', 'Disponible'],
-          'time'       => 'il y a 1 j',
-        ],
-        [
-          'user'       => 'sofia_makeup',
-          'name'       => 'Sofia Martinez',
-          'profession' => 'Maquilleuse',
-          'location'   => 'Paris',
-          'filter'     => 'maquilleur',
-          'avatar'     => 'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=80&h=80&fit=crop',
-          'image'      => 'https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?auto=format&w=700&q=80',
-          'caption'    => 'Résultat d\'un travail en lumière naturelle — maquillage éditorial pour un lookbook printemps. Je privilégie les textures peaux naturelles et les teintes travaillées.',
-          'tags'       => ['Éditorial', 'Lookbook', 'Naturel'],
-          'time'       => 'il y a 2 j',
-        ],
-        [
-          'user'       => 'mia_modeliste',
-          'name'       => 'Mia Colbert',
-          'profession' => 'Modéliste',
-          'location'   => 'Marseille',
-          'filter'     => 'modeliste',
-          'avatar'     => 'https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=80&h=80&fit=crop',
-          'image'      => 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&w=700&q=80',
-          'caption'    => 'Prototype final d\'une veste structurée en laine bouillie. Patronage construit à partir de toiles successives sur mesure. Recherche une styliste pour la collection complète.',
-          'tags'       => ['Modélisme', 'Prototype', 'Recherche styliste'],
-          'time'       => 'il y a 2 j',
-        ],
-      ];
+      // Dernière photo ajoutée par chaque utilisateur, triée par date décroissante
+      $feed_stmt = $db->query("
+          SELECT DISTINCT ON (po.user_id)
+              po.id AS photo_id, po.image_url, po.created_at,
+              u.id AS user_id, u.full_name, u.specific_profession,
+              u.city, u.expertise_tags, u.profile_picture_url
+          FROM portfolios po
+          JOIN users u ON u.id = po.user_id
+          WHERE po.image_url IS NOT NULL AND po.image_url != ''
+          ORDER BY po.user_id, po.created_at DESC
+      ");
+      $feed_raw = $feed_stmt->fetchAll(PDO::FETCH_ASSOC);
+      // Re-trier par date d'ajout décroissante
+      usort($feed_raw, fn($a,$b) => strtotime($b['created_at']) - strtotime($a['created_at']));
 
-      foreach ($posts as $p):
+      function timeAgo($datetime) {
+          $diff = time() - strtotime($datetime);
+          if ($diff < 3600)   return 'il y a ' . max(1, round($diff/60)) . ' min';
+          if ($diff < 86400)  return 'il y a ' . round($diff/3600) . ' h';
+          if ($diff < 604800) return 'il y a ' . round($diff/86400) . ' j';
+          return (new DateTime($datetime))->format('d/m/Y');
+      }
+
+      if (empty($feed_raw)): ?>
+        <div class="bg-[#111] border border-dashed border-[#2a2a2a] rounded-2xl py-20 text-center">
+          <p class="text-[#555] text-lg mb-2">Le fil est vide pour l'instant</p>
+          <p class="text-[#444] text-sm">Les photos ajoutées aux books apparaîtront ici.</p>
+        </div>
+      <?php else:
+      foreach ($feed_raw as $p):
+          $tags = array_filter(array_map('trim', explode(',', $p['expertise_tags'] ?? '')));
+          $profession_lc = mb_strtolower($p['specific_profession'] ?? '', 'UTF-8');
+          // normaliser pour data-filter (retirer accents, espaces)
+          $filter_key = preg_replace('/[^a-z]/', '', iconv('UTF-8','ASCII//TRANSLIT', $profession_lc));
       ?>
-      <article class="feed-post bg-[#111] rounded-2xl mb-5 overflow-hidden border border-[#1e1e1e]" data-filter="<?= $p['filter'] ?>">
+      <article class="feed-post bg-[#111] rounded-2xl mb-5 overflow-hidden border border-[#1e1e1e]" data-filter="<?= htmlspecialchars($filter_key) ?>">
 
         <!-- Header -->
         <div class="flex items-center justify-between px-5 py-4">
-          <div class="flex items-center gap-3">
-            <img src="<?= $p['avatar'] ?>" class="w-10 h-10 rounded-full object-cover flex-shrink-0" alt="<?= $p['name'] ?>">
+          <a href="profil.php?id=<?= $p['user_id'] ?>" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
+            <?php if (!empty($p['profile_picture_url'])): ?>
+              <img src="<?= htmlspecialchars($p['profile_picture_url']) ?>" class="w-10 h-10 rounded-full object-cover flex-shrink-0" alt="<?= htmlspecialchars($p['full_name']) ?>">
+            <?php else: ?>
+              <div class="w-10 h-10 rounded-full bg-[#2a2a2a] flex items-center justify-center flex-shrink-0 text-[#555]">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-5 h-5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </div>
+            <?php endif; ?>
             <div>
-              <div class="font-bold text-[15px] text-white leading-tight"><?= $p['name'] ?></div>
-              <div class="text-[#666] text-xs mt-0.5"><?= $p['profession'] ?> · <?= $p['location'] ?></div>
+              <div class="font-bold text-[15px] text-white leading-tight"><?= htmlspecialchars($p['full_name']) ?></div>
+              <div class="text-[#666] text-xs mt-0.5">
+                <?= htmlspecialchars($p['specific_profession'] ?? '') ?>
+                <?php if (!empty($p['city'])): ?> · <?= htmlspecialchars($p['city']) ?><?php endif; ?>
+              </div>
             </div>
-          </div>
-          <div class="flex items-center gap-3">
-            <span class="text-[#555] text-xs"><?= $p['time'] ?></span>
-            <a href="profil.php" class="text-[#d4a5d4] text-xs font-semibold border border-[#d4a5d4]/40 rounded-full px-3 py-1 hover:bg-[#d4a5d4]/10 transition-colors">Voir le profil</a>
-          </div>
+          </a>
+          <span class="text-[#555] text-xs"><?= timeAgo($p['created_at']) ?></span>
         </div>
 
         <!-- Image format original -->
-        <img src="<?= $p['image'] ?>" alt="Publication de <?= $p['name'] ?>" class="post-img">
+        <a href="profil.php?id=<?= $p['user_id'] ?>">
+          <img src="<?= htmlspecialchars($p['image_url']) ?>" alt="Photo de <?= htmlspecialchars($p['full_name']) ?>" class="post-img">
+        </a>
 
         <!-- Contenu -->
         <div class="px-5 pt-4 pb-5">
-          <!-- Tags -->
-          <div class="flex flex-wrap gap-1.5 mb-3">
-            <?php foreach ($p['tags'] as $tag): ?>
-              <span class="tag-badge bg-[#1e1e1e] text-[#aaa] border border-[#2a2a2a]"><?= $tag ?></span>
+          <!-- Tags + Like -->
+          <div class="flex flex-wrap items-center gap-1.5">
+            <?php foreach (array_slice($tags, 0, 5) as $tag): ?>
+              <span class="tag-badge bg-[#1e1e1e] text-[#aaa] border border-[#2a2a2a]"><?= htmlspecialchars($tag) ?></span>
             <?php endforeach; ?>
-          </div>
-
-          <!-- Caption -->
-          <p class="text-[#ccc] text-[14px] leading-relaxed"><?= $p['caption'] ?></p>
-
-          <!-- Action -->
-          <div class="mt-4 pt-4 border-t border-[#1e1e1e] flex gap-3">
-            <a href="profil.php" class="flex-1 text-center py-2.5 rounded-xl bg-[#1a1a1a] text-[#ccc] text-sm font-semibold hover:bg-[#222] transition-colors">Voir le book</a>
-            <button class="flex-1 py-2.5 rounded-xl bg-[#d4a5d4]/10 text-[#d4a5d4] text-sm font-semibold border border-[#d4a5d4]/20 hover:bg-[#d4a5d4]/20 transition-colors">Contacter</button>
+            <button class="like-btn flex items-center gap-1.5 text-[#555] hover:text-[#d4a5d4] transition-colors text-sm font-semibold ml-auto flex-shrink-0" onclick="toggleLike(this)">
+              <svg class="like-icon w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              </svg>
+              <span class="like-count">0</span>
+            </button>
           </div>
         </div>
 
       </article>
-      <?php endforeach; ?>
+      <?php endforeach; endif; ?>
 
     </div>
 
     <!-- Colonne droite -->
     <aside class="hidden lg:flex flex-col gap-6 w-[300px] flex-shrink-0">
 
-      <!-- Bloc 1 : S'inscrire (en haut) -->
-      <div class="rounded-3xl p-9 flex flex-col items-center text-center gap-5" style="background: linear-gradient(145deg,#1e1e1e,#111); box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 -2px 0 rgba(0,0,0,0.8), 0 12px 32px rgba(0,0,0,0.6);">
-        <span class="text-white text-xl font-black uppercase tracking-[0.2em]">Rejoindre ChicBook</span>
-        <p class="text-white text-base font-bold leading-snug">développer<br>votre image en ligne&nbsp;!</p>
-        <p class="text-[#777] text-[13px] leading-loose"></p>
-        <a href="inscription.php" class="mt-1 inline-block bg-[#d4a5d4] text-black px-7 py-2.5 rounded-full font-bold text-sm hover:opacity-90 transition-opacity">S'inscrire</a>
+      <?php if (!$is_logged_in): ?>
+      <!-- Bloc inscription (non connecté seulement) -->
+      <div class="rounded-3xl p-8 flex flex-col items-center text-center gap-4" style="background: linear-gradient(145deg,#1e1e1e,#111); box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 -2px 0 rgba(0,0,0,0.8), 0 12px 32px rgba(0,0,0,0.6);">
+        <span class="text-white text-lg font-black uppercase tracking-[0.2em]">Rejoindre ChicBook</span>
+        <p class="text-[#777] text-[13px] leading-relaxed">Créez votre book, trouvez des castings et connectez-vous aux talents de la mode.</p>
+        <a href="inscription.php" class="mt-1 inline-block bg-[#d4a5d4] text-black px-7 py-2.5 rounded-full font-bold text-sm hover:opacity-90 transition-opacity">S'inscrire gratuitement</a>
       </div>
+      <?php endif; ?>
 
-      <!-- Bloc 2 : La mode en mouvement -->
-      <div class="rounded-3xl p-9 flex flex-col items-center text-center gap-5" style="background: linear-gradient(145deg,#1e1e1e,#111); box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 -2px 0 rgba(0,0,0,0.8), 0 12px 32px rgba(0,0,0,0.6);">
-        <span class="text-white text-xl font-black uppercase tracking-[0.2em]">La mode en mouvement</span>
-        <h3 class="text-white text-base font-bold leading-tight">Suivez toute<br>l'actualité de la mode</h3>
-        <p class="text-[#777] text-[13px] leading-loose">et de ceux qui la font.<br>Créatifs, marques, agences…<br>ne manquez rien de la<br>communauté ChicBook.</p>
+      <?php if ($is_logged_in): ?>
+      <!-- Bloc événements à venir -->
+      <div class="rounded-3xl p-6 flex flex-col gap-4" style="background: linear-gradient(145deg,#1e1e1e,#111); box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 -2px 0 rgba(0,0,0,0.8), 0 12px 32px rgba(0,0,0,0.6);">
+        <div class="flex items-center justify-between">
+          <span class="text-white text-sm font-black uppercase tracking-[0.15em]">Événements</span>
+          <a href="evenements.php" class="text-[#d4a5d4] text-xs font-semibold hover:opacity-75 transition-opacity">Voir tout →</a>
+        </div>
+        <?php if (empty($upcoming_events)): ?>
+          <p class="text-[#555] text-sm text-center py-4">Aucun événement à venir.</p>
+        <?php else: ?>
+          <div class="flex flex-col gap-3">
+            <?php foreach ($upcoming_events as $ev):
+              $d = new DateTime($ev['event_date']);
+              $month = mb_strtoupper($d->format('M'), 'UTF-8');
+              $day   = $d->format('j');
+            ?>
+            <a href="evenements.php" class="flex items-center gap-3 group">
+              <div class="w-10 h-10 rounded-xl bg-[#2a2a2a] flex flex-col items-center justify-center flex-shrink-0">
+                <span class="text-[#d4a5d4] text-[9px] font-bold uppercase leading-none"><?= $month ?></span>
+                <span class="text-white text-sm font-bold leading-none"><?= $day ?></span>
+              </div>
+              <div class="min-w-0">
+                <p class="text-white text-[13px] font-semibold truncate group-hover:text-[#d4a5d4] transition-colors"><?= htmlspecialchars($ev['title']) ?></p>
+                <?php if (!empty($ev['city'])): ?>
+                  <p class="text-[#555] text-[11px] truncate"><?= htmlspecialchars($ev['city']) ?></p>
+                <?php endif; ?>
+              </div>
+            </a>
+            <?php endforeach; ?>
+          </div>
+        <?php endif; ?>
       </div>
+      <?php endif; ?>
 
-      <!-- Bloc 3 : Poster un projet (en bas) -->
-      <div class="rounded-3xl p-9 flex flex-col items-center text-center gap-5" style="background: linear-gradient(145deg,#1e1e1e,#111); box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 -2px 0 rgba(0,0,0,0.8), 0 12px 32px rgba(0,0,0,0.6);">
-        <span class="text-white text-xl font-black uppercase tracking-[0.2em]">ChicBook</span>
-        <h3 class="text-white text-base font-bold leading-tight">votre réseau<br>social mode</h3>
-        <p class="text-[#777] text-[13px] leading-loose">Pour créer un produit<br>et trouver les<br>talents nécessaires.</p>
-        <a href="poster_projet.php" class="mt-1 inline-block bg-[#d4a5d4] text-black px-7 py-2.5 rounded-full font-bold text-sm hover:opacity-90 transition-opacity">Poster un projet !</a>
+      <!-- Bloc La mode en mouvement -->
+      <div class="rounded-3xl p-8 flex flex-col items-center text-center gap-4" style="background: linear-gradient(145deg,#1e1e1e,#111); box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 -2px 0 rgba(0,0,0,0.8), 0 12px 32px rgba(0,0,0,0.6);">
+        <span class="text-white text-lg font-black uppercase tracking-[0.2em]">La mode en mouvement</span>
+        <p class="text-[#777] text-[13px] leading-relaxed">Créatifs, marques, agences… ne manquez rien de la communauté ChicBook.</p>
       </div>
 
     </aside>
@@ -299,6 +279,27 @@ $is_logged_in = isset($_SESSION['user_id']);
     function closeWelcome() {
       localStorage.setItem('chicbook_visited', '1');
       document.getElementById('welcome-modal').classList.add('hidden');
+    }
+
+    function toggleLike(btn) {
+      const icon = btn.querySelector('.like-icon');
+      const count = btn.querySelector('.like-count');
+      const liked = btn.dataset.liked === '1';
+      if (liked) {
+        btn.dataset.liked = '0';
+        icon.setAttribute('fill', 'none');
+        icon.setAttribute('stroke', 'currentColor');
+        btn.classList.remove('text-[#d4a5d4]');
+        btn.classList.add('text-[#555]');
+        count.textContent = Math.max(0, parseInt(count.textContent) - 1);
+      } else {
+        btn.dataset.liked = '1';
+        icon.setAttribute('fill', '#d4a5d4');
+        icon.setAttribute('stroke', '#d4a5d4');
+        btn.classList.remove('text-[#555]');
+        btn.classList.add('text-[#d4a5d4]');
+        count.textContent = parseInt(count.textContent) + 1;
+      }
     }
 
     document.getElementById('welcome-modal').addEventListener('click', function(e) {
