@@ -323,3 +323,21 @@ CREATE TABLE IF NOT EXISTS event_registrations (
 ALTER TABLE users ADD COLUMN IF NOT EXISTS show_age BOOLEAN DEFAULT FALSE;
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(50);
+
+-- Messagerie
+CREATE TABLE IF NOT EXISTS conversations (
+    id SERIAL PRIMARY KEY,
+    user1_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user2_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(user1_id, user2_id)
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+    id SERIAL PRIMARY KEY,
+    conversation_id INT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    sender_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW(),
+    is_read BOOLEAN DEFAULT FALSE
+);

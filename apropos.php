@@ -3,7 +3,7 @@ session_start();
 $is_logged_in = isset($_SESSION['user_id']);
 ?>
 <!doctype html>
-<html lang="fr">
+<html lang="fr" <?php if((($_COOKIE['chicbook_theme']??'dark')==='light'))echo' class="light"';?>>
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

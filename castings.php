@@ -120,7 +120,7 @@ foreach ($locRows as $r) {
 }
 ?>
 <!doctype html>
-<html lang="fr">
+<html lang="fr" <?php if((($_COOKIE['chicbook_theme']??'dark')==='light'))echo' class="light"';?>>
 <head>
     <meta charset="UTF-8">
     <title>Castings - ChicBook</title>

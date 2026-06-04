@@ -55,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $types = ['Soirée', 'Formation', 'Workshop', 'Salon', 'Défilé', 'Networking', 'Conférence', 'Casting', 'Autre'];
 ?>
 <!doctype html>
-<html lang="fr">
+<html lang="fr" <?php if((($_COOKIE['chicbook_theme']??'dark')==='light'))echo' class="light"';?>>
 <head>
 <meta charset="UTF-8">
 <title>Proposer un événement — ChicBook</title>

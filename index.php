@@ -6,7 +6,7 @@ $db = Database::getInstance()->getConnection();
 $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM events WHERE event_date >= CURRENT_DATE ORDER BY event_date ASC LIMIT 4")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!doctype html>
-<html lang="fr">
+<html lang="fr" <?php if((($_COOKIE['chicbook_theme']??'dark')==='light'))echo' class="light"';?>>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -67,7 +67,8 @@ $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM eve
           SELECT DISTINCT ON (po.user_id)
               po.id AS photo_id, po.image_url, po.created_at,
               u.id AS user_id, u.full_name, u.specific_profession,
-              u.city, u.expertise_tags, u.profile_picture_url
+              u.city, u.expertise_tags, u.profile_picture_url,
+              (SELECT image_url FROM portfolios WHERE user_id=u.id ORDER BY position ASC, created_at DESC LIMIT 1) AS fallback_avatar
           FROM portfolios po
           JOIN users u ON u.id = po.user_id
           WHERE po.image_url IS NOT NULL AND po.image_url != ''
@@ -102,8 +103,9 @@ $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM eve
         <!-- Header -->
         <div class="flex items-center justify-between px-5 py-4">
           <a href="profil.php?id=<?= $p['user_id'] ?>" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <?php if (!empty($p['profile_picture_url'])): ?>
-              <img src="<?= htmlspecialchars($p['profile_picture_url']) ?>" class="w-10 h-10 rounded-full object-cover flex-shrink-0" alt="<?= htmlspecialchars($p['full_name']) ?>">
+            <?php $avatar_url = $p['profile_picture_url'] ?: $p['fallback_avatar']; ?>
+            <?php if ($avatar_url): ?>
+              <img src="<?= htmlspecialchars($avatar_url) ?>" class="w-10 h-10 rounded-full object-cover flex-shrink-0" alt="<?= htmlspecialchars($p['full_name']) ?>">
             <?php else: ?>
               <div class="w-10 h-10 rounded-full bg-[#2a2a2a] flex items-center justify-center flex-shrink-0 text-[#555]">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-5 h-5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
