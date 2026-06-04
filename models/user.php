@@ -124,12 +124,12 @@ class User
 
     public function updateGeneralInfo($user_id, $full_name, $city, $country, $show_age = false, $gender = '', $birth_date = null)
     {
-        $show_age_val = $show_age ? 'TRUE' : 'FALSE';
-        $query = "UPDATE " . $this->table_name . " SET full_name = :name, city = :city, country = :country, show_age = $show_age_val, gender = :gender, birth_date = :birth_date WHERE id = :id";
+        $query = "UPDATE " . $this->table_name . " SET full_name = :name, city = :city, country = :country, show_age = :show_age, gender = :gender, birth_date = :birth_date WHERE id = :id";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(":name", $full_name);
         $stmt->bindParam(":city", $city);
         $stmt->bindParam(":country", $country);
+        $stmt->bindParam(":show_age", $show_age, PDO::PARAM_BOOL);
         $stmt->bindParam(":gender", $gender);
         $stmt->bindParam(":birth_date", $birth_date);
         $stmt->bindParam(":id", $user_id);

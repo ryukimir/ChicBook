@@ -32,6 +32,27 @@ $filter_city    = trim($_GET['city'] ?? '');
 $filter_country = trim($_GET['country'] ?? '');
 $filter_tag     = trim($_GET['tag'] ?? '');
 
+// Function to convert age to age range
+function getAgeRange($birthDate) {
+    if (!$birthDate) return null;
+    $birth = new DateTime($birthDate);
+    $today = new DateTime();
+    $age = $today->diff($birth)->y;
+    
+    $ranges = [
+        [18, 24], [25, 29], [30, 34], [35, 39], [40, 44], [45, 49], [50, 54], [55, 59]
+    ];
+    
+    foreach ($ranges as $range) {
+        if ($age >= $range[0] && $age <= $range[1]) {
+            return $range[0] . ' à ' . $range[1] . ' ans';
+        }
+    }
+    
+    if ($age >= 60) return '60 et plus';
+    return null;
+}
+
 // Query profiles
 $where = "(u.specific_profession ILIKE :p1 OR p.name ILIKE :p2)";
 $binds = ['p1' => $profession, 'p2' => $profession];
@@ -41,11 +62,17 @@ if ($filter_tag)     { $where .= " AND u.expertise_tags ILIKE :tag"; $binds['tag
 
 $stmt = $db->prepare("
     SELECT u.id, u.full_name, u.specific_profession, u.city, u.country,
-           u.profile_picture_url, u.expertise_tags, p.name AS profession_name,
-           (SELECT image_url FROM portfolios WHERE user_id=u.id ORDER BY position ASC, created_at DESC LIMIT 1) AS fallback_avatar
+           u.profile_picture_url, u.expertise_tags, u.birth_date, p.name AS profession_name,
+           (SELECT image_url FROM portfolios WHERE user_id=u.id ORDER BY position ASC, created_at DESC LIMIT 1) AS fallback_avatar,
+           m.height, m.chest_size, m.cup_size, m.waist_size, m.hip_size, m.shoe_size,
+           ec.name AS eye_color, hc.name AS hair_color, et.name AS ethnicity
     FROM users u
     LEFT JOIN user_professions up ON u.id = up.user_id
     LEFT JOIN professions p ON up.profession_id = p.id
+    LEFT JOIN measurements m ON u.id = m.user_id
+    LEFT JOIN eye_colors ec ON m.eye_color_id = ec.id
+    LEFT JOIN hair_colors hc ON m.hair_color_id = hc.id
+    LEFT JOIN ethnicities et ON m.ethnicity_id = et.id
     WHERE $where
     ORDER BY RANDOM()
 ");
@@ -143,7 +170,7 @@ function buildUrl($params) {
 
     <div class="flex gap-8 items-start">
 
-        <!-- Liste des profils -->
+        <!-- Grille des cartes profils -->
         <div class="flex-grow min-w-0">
             <?php if (empty($profiles)): ?>
                 <div class="bg-[#111] border border-dashed border-[#2a2a2a] rounded-2xl py-20 text-center">
@@ -152,44 +179,90 @@ function buildUrl($params) {
                 </div>
             <?php else: ?>
                 <p class="text-[#555] text-sm mb-5"><?= count($profiles) ?> profil<?= count($profiles) > 1 ? 's' : '' ?> · <?= htmlspecialchars($profession) ?></p>
-                <div class="flex flex-col gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     <?php foreach ($profiles as $p): ?>
+                        <?php 
+                            $is_talent_with_measurements = in_array($p['specific_profession'] ?? $p['profession_name'] ?? '', ['Mannequin', 'Danseur', 'Comédien']);
+                            $age_range = getAgeRange($p['birth_date']);
+                            $avatar_url = $p['profile_picture_url'] ?: $p['fallback_avatar'];
+                            $has_measurements = $is_talent_with_measurements && ($p['height'] || $p['chest_size'] || $p['waist_size'] || $p['hip_size'] || $p['shoe_size'] || $p['eye_color'] || $p['hair_color'] || $p['ethnicity']);
+                        ?>
                         <a href="profil.php?id=<?= $p['id'] ?>"
-                           class="flex items-center gap-5 bg-[#111] border border-[#1a1a1a] rounded-2xl px-6 py-4 hover:border-[#333] hover:bg-[#141414] transition-all group">
-
-                            <!-- Avatar -->
-                            <?php $avatar_url = $p['profile_picture_url'] ?: $p['fallback_avatar']; ?>
-                            <div class="w-14 h-14 rounded-full flex-shrink-0 overflow-hidden bg-[#222]">
+                           class="group bg-[#111] border border-[#1a1a1a] rounded-2xl overflow-hidden hover:border-[#333] transition-all">
+                            
+                            <!-- Image conteneur -->
+                            <div class="relative overflow-hidden bg-[#222] aspect-[3/4] flex items-center justify-center">
                                 <?php if ($avatar_url): ?>
-                                    <img src="<?= htmlspecialchars($avatar_url) ?>" class="w-full h-full object-cover" alt="">
+                                    <img src="<?= htmlspecialchars($avatar_url) ?>" class="w-full h-full object-cover" alt="<?= htmlspecialchars($p['full_name']) ?>">
                                 <?php else: ?>
-                                    <div class="w-full h-full flex items-center justify-center text-[#444] text-xl">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-7 h-7"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" class="w-12 h-12 text-[#333]"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                <?php endif; ?>
+
+                                <!-- Overlay mensurations (talents only) -->
+                                <?php if ($has_measurements): ?>
+                                    <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-end p-5">
+                                        <div class="text-xs text-[#ddd] w-full">
+                                            <div class="space-y-1.5">
+                                                <?php if ($p['height']): ?>
+                                                    <div class="flex justify-between"><span class="text-[#aaa]">HAUTEUR</span> <span class="font-semibold"><?= htmlspecialchars($p['height']) ?> cm</span></div>
+                                                <?php endif; ?>
+                                                <?php if ($p['chest_size']): ?>
+                                                    <div class="flex justify-between"><span class="text-[#aaa]">POITRINE</span> <span class="font-semibold"><?= htmlspecialchars($p['chest_size']) ?></span></div>
+                                                <?php endif; ?>
+                                                <?php if ($p['cup_size']): ?>
+                                                    <div class="flex justify-between"><span class="text-[#aaa]">BONNET</span> <span class="font-semibold"><?= htmlspecialchars($p['cup_size']) ?></span></div>
+                                                <?php endif; ?>
+                                                <?php if ($p['waist_size']): ?>
+                                                    <div class="flex justify-between"><span class="text-[#aaa]">TAILLE</span> <span class="font-semibold"><?= htmlspecialchars($p['waist_size']) ?></span></div>
+                                                <?php endif; ?>
+                                                <?php if ($p['hip_size']): ?>
+                                                    <div class="flex justify-between"><span class="text-[#aaa]">HANCHES</span> <span class="font-semibold"><?= htmlspecialchars($p['hip_size']) ?></span></div>
+                                                <?php endif; ?>
+                                                <?php if ($p['shoe_size']): ?>
+                                                    <div class="flex justify-between"><span class="text-[#aaa]">POINTURE</span> <span class="font-semibold"><?= htmlspecialchars($p['shoe_size']) ?></span></div>
+                                                <?php endif; ?>
+                                                <?php if ($p['eye_color']): ?>
+                                                    <div class="flex justify-between"><span class="text-[#aaa]">YEUX</span> <span class="font-semibold"><?= htmlspecialchars($p['eye_color']) ?></span></div>
+                                                <?php endif; ?>
+                                                <?php if ($p['hair_color']): ?>
+                                                    <div class="flex justify-between"><span class="text-[#aaa]">CHEVEUX</span> <span class="font-semibold"><?= htmlspecialchars($p['hair_color']) ?></span></div>
+                                                <?php endif; ?>
+                                                <?php if ($p['ethnicity']): ?>
+                                                    <div class="flex justify-between"><span class="text-[#aaa]">ETHNICITÉ</span> <span class="font-semibold"><?= htmlspecialchars($p['ethnicity']) ?></span></div>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
                                     </div>
                                 <?php endif; ?>
                             </div>
 
-                            <!-- Infos -->
-                            <div class="flex-grow min-w-0">
-                                <div class="flex items-baseline gap-2 flex-wrap">
-                                    <span class="font-bold text-white text-[15px] group-hover:text-[#d4a5d4] transition-colors">
+                            <!-- Infos en bas -->
+                            <div class="px-5 py-4">
+                                <div class="mb-2">
+                                    <h3 class="font-bold text-white text-sm group-hover:text-[#d4a5d4] transition-colors line-clamp-1">
                                         <?= htmlspecialchars($p['full_name']) ?>
-                                    </span>
-                                    <span class="text-[#555] text-xs">·</span>
-                                    <span class="text-[#888] text-sm">
+                                    </h3>
+                                    <p class="text-[#888] text-xs">
                                         <?= htmlspecialchars($p['specific_profession'] ?? $p['profession_name'] ?? $profession) ?>
-                                    </span>
+                                    </p>
                                 </div>
-                                <?php if (!empty($p['city'])): ?>
-                                    <div class="text-[#555] text-xs mt-0.5">
-                                        <?= htmlspecialchars($p['city']) ?><?= !empty($p['country']) ? ', '.htmlspecialchars($p['country']) : '' ?>
+
+                                <?php if (!empty($p['city']) || !empty($p['country']) || $age_range): ?>
+                                    <div class="text-[#666] text-xs mb-2 space-y-0.5">
+                                        <?php if (!empty($p['city'])): ?>
+                                            <div><?= htmlspecialchars($p['city']) ?><?= !empty($p['country']) ? ', '.htmlspecialchars($p['country']) : '' ?></div>
+                                        <?php endif; ?>
+                                        <?php if ($age_range): ?>
+                                            <div><?= htmlspecialchars($age_range) ?></div>
+                                        <?php endif; ?>
                                     </div>
                                 <?php endif; ?>
+
                                 <?php if (!empty($p['expertise_tags'])): ?>
-                                    <div class="flex flex-wrap gap-1.5 mt-2">
-                                        <?php foreach (array_slice(explode(',', $p['expertise_tags']), 0, 4) as $tag): ?>
+                                    <div class="flex flex-wrap gap-1">
+                                        <?php foreach (array_slice(explode(',', $p['expertise_tags']), 0, 3) as $tag): ?>
                                             <?php if (trim($tag)): ?>
-                                                <span class="bg-[#1a1a1a] border border-[#2a2a2a] text-[#888] text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide">
+                                                <span class="bg-[#1a1a1a] border border-[#2a2a2a] text-[#888] text-[9px] font-semibold px-2 py-1 rounded-full">
                                                     <?= htmlspecialchars(trim($tag)) ?>
                                                 </span>
                                             <?php endif; ?>
@@ -198,8 +271,6 @@ function buildUrl($params) {
                                 <?php endif; ?>
                             </div>
 
-                            <!-- Flèche -->
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 text-[#333] group-hover:text-[#d4a5d4] flex-shrink-0 transition-colors"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                         </a>
                     <?php endforeach; ?>
                 </div>

@@ -60,6 +60,28 @@ if ($is_logged_in && isset($_POST['photo_action'])) {
         exit;
     }
 }
+
+// ── Édition description/tags photo ─────────────────────────────────────────
+if ($is_logged_in && isset($_POST['edit_photo'])) {
+    $db = Database::getInstance()->getConnection();
+    $photo_id = intval($_POST['photo_id']);
+    $description = trim($_POST['description'] ?? '');
+    $tags = trim($_POST['tags'] ?? '');
+    
+    // Vérifier que la photo appartient à l'utilisateur
+    $stmt = $db->prepare("SELECT user_id FROM portfolios WHERE id=:id");
+    $stmt->execute([':id' => $photo_id]);
+    $photo = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($photo && $photo['user_id'] == $_SESSION['user_id']) {
+        $stmt = $db->prepare("UPDATE portfolios SET description=:desc, tags=:tags WHERE id=:id");
+        $stmt->execute([':desc' => $description ?: null, ':tags' => $tags ?: null, ':id' => $photo_id]);
+        echo json_encode(['ok' => true]);
+    } else {
+        echo json_encode(['ok' => false]);
+    }
+    exit;
+}
 $db = Database::getInstance()->getConnection();
 $userModel = new User($db);
 
@@ -77,7 +99,8 @@ if (!$profile_data) { die("Ce profil n'existe pas."); }
 $is_own_profile = ($is_logged_in && $_SESSION['user_id'] == $profile_id);
 
 $age = null;
-if (!empty($profile_data['birth_date']) && !empty($profile_data['show_age'])) {
+// Afficher l'âge seulement si show_age est TRUE (booléen) et birth_date est défini
+if (!empty($profile_data['birth_date']) && $profile_data['show_age'] === true) {
     $birth = new DateTime($profile_data['birth_date']);
     $age = (new DateTime())->diff($birth)->y;
 }
@@ -120,15 +143,7 @@ function renderActions($is_own_profile, $profile_id = 0) { ?>
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                 Photos
             </button>
-            <div class="relative inline-block">
-                <button onclick="toggleProfileMenu()" id="profile-menu-btn" class="bg-[#1e1e1e] text-white px-5 py-2 rounded-full text-sm font-semibold border border-[#333] hover:border-[#555] transition-all">Gérer mon profil ▾</button>
-                <div id="profile-menu" class="hidden absolute right-0 top-full mt-2 bg-[#111] min-w-[200px] shadow-[0_8px_24px_rgba(0,0,0,0.6)] border border-[#2a2a2a] rounded-xl overflow-hidden z-50">
-                    <button onclick="openEditModal('section-infos')"    class="w-full text-left text-white px-4 py-3 text-sm border-b border-[#1e1e1e] hover:bg-[#1e1e1e] hover:text-[#d4a5d4] transition-colors">Modifier le profil</button>
-                    <button onclick="openEditModal('section-portfolio')" class="w-full text-left text-white px-4 py-3 text-sm border-b border-[#1e1e1e] hover:bg-[#1e1e1e] hover:text-[#d4a5d4] transition-colors">Ajouter des photos</button>
-                    <button onclick="openEditModal('section-theme')"    class="w-full text-left text-white px-4 py-3 text-sm border-b border-[#1e1e1e] hover:bg-[#1e1e1e] hover:text-[#d4a5d4] transition-colors">Changer le thème</button>
-                    <button onclick="openEditModal('section-portfolio-manage')" class="w-full text-left text-white px-4 py-3 text-sm hover:bg-[#1e1e1e] hover:text-[#e57373] transition-colors">Supprimer des photos</button>
-                </div>
-            </div>
+            <a href="edit_profil.php" class="bg-[#1e1e1e] text-white px-5 py-2 rounded-full text-sm font-semibold border border-[#333] hover:border-[#d4a5d4] hover:text-[#d4a5d4] transition-all">Gérer mon profil</a>
         <?php endif; ?>
     </div>
 <?php } ?>
@@ -174,9 +189,15 @@ function renderActions($is_own_profile, $profile_id = 0) { ?>
         <div id="photos-view" style="column-count:3; column-gap:12px;">
             <?php if (empty($photos)): ?>
                 <p class="text-[#555]">Aucune photo dans le book pour le moment.</p>
-            <?php else: foreach ($photos as $photo): ?>
+            <?php else: foreach ($photos as $idx => $photo): ?>
                 <div style="break-inside:avoid; margin-bottom:12px;">
-                    <img src="<?= htmlspecialchars($photo['image_url']) ?>" alt="" class="w-full block rounded-xl hover:scale-[1.01] transition-transform duration-300">
+                    <img src="<?= htmlspecialchars($photo['image_url']) ?>" 
+                         alt="" 
+                         class="w-full block rounded-xl hover:scale-[1.01] transition-transform duration-300 cursor-pointer"
+                         onclick="openPhotoLightbox(<?= $idx ?>)"
+                         data-photo-idx="<?= $idx ?>"
+                         data-description="<?= htmlspecialchars($photo['description'] ?? '') ?>"
+                         data-tags="<?= htmlspecialchars($photo['tags'] ?? '') ?>">
                 </div>
             <?php endforeach; endif; ?>
         </div>
@@ -240,9 +261,17 @@ function renderActions($is_own_profile, $profile_id = 0) { ?>
     <div id="photos-view" class="grid gap-3" style="grid-template-columns: repeat(3, 1fr);">
         <?php
         $grid_photos = !empty($photos) ? array_slice($photos, 1) : [];
-        foreach ($grid_photos as $photo): ?>
+        foreach ($grid_photos as $idx => $photo): 
+            $real_idx = $idx + 1; // Index réel (premier exclu en éditorial)
+        ?>
             <div class="overflow-hidden rounded-xl aspect-square bg-[#111]">
-                <img src="<?= htmlspecialchars($photo['image_url']) ?>" alt="" class="w-full h-full object-cover hover:scale-[1.04] transition-transform duration-500">
+                <img src="<?= htmlspecialchars($photo['image_url']) ?>" 
+                     alt="" 
+                     class="w-full h-full object-cover hover:scale-[1.04] transition-transform duration-500 cursor-pointer"
+                     onclick="openPhotoLightbox(<?= $real_idx ?>)"
+                     data-photo-idx="<?= $real_idx ?>"
+                     data-description="<?= htmlspecialchars($photo['description'] ?? '') ?>"
+                     data-tags="<?= htmlspecialchars($photo['tags'] ?? '') ?>">
             </div>
         <?php endforeach; ?>
         <?php if (empty($grid_photos) && empty($photos)): ?>
@@ -304,9 +333,15 @@ function renderActions($is_own_profile, $profile_id = 0) { ?>
     <div id="photos-view" class="grid grid-cols-2 gap-3">
         <?php if (empty($photos)): ?>
             <p class="text-[#555] col-span-2 text-center">Aucune photo dans le book pour le moment.</p>
-        <?php else: foreach ($photos as $i => $photo): ?>
-            <div class="overflow-hidden rounded-2xl bg-[#0e0e0e] <?= $i === 0 ? 'col-span-2 aspect-video' : 'aspect-square' ?>">
-                <img src="<?= htmlspecialchars($photo['image_url']) ?>" alt="" class="w-full h-full object-cover hover:scale-[1.03] transition-transform duration-500">
+        <?php else: foreach ($photos as $idx => $photo): ?>
+            <div class="overflow-hidden rounded-2xl bg-[#0e0e0e] <?= $idx === 0 ? 'col-span-2 aspect-video' : 'aspect-square' ?>">
+                <img src="<?= htmlspecialchars($photo['image_url']) ?>" 
+                     alt="" 
+                     class="w-full h-full object-cover hover:scale-[1.03] transition-transform duration-500 cursor-pointer"
+                     onclick="openPhotoLightbox(<?= $idx ?>)"
+                     data-photo-idx="<?= $idx ?>"
+                     data-description="<?= htmlspecialchars($photo['description'] ?? '') ?>"
+                     data-tags="<?= htmlspecialchars($photo['tags'] ?? '') ?>">
             </div>
         <?php endforeach; endif; ?>
     </div>
@@ -339,37 +374,191 @@ function renderActions($is_own_profile, $profile_id = 0) { ?>
 </div>
 <?php endif; ?>
 
-<!-- Modale édition profil -->
-<div id="edit-modal" class="hidden fixed inset-0 z-[4000] flex items-center justify-center bg-black/80 backdrop-blur-sm" onclick="if(event.target===this)closeEditModal()">
-    <div class="relative bg-[#0e0e0e] rounded-2xl w-[95vw] max-w-[1100px] h-[90vh] flex flex-col overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.8)] border border-[#1e1e1e]">
-        <div class="flex items-center justify-between px-6 py-4 border-b border-[#1e1e1e] flex-shrink-0">
-            <span class="text-white font-bold text-base">Paramètres du profil</span>
-            <button onclick="closeEditModal()" class="w-8 h-8 flex items-center justify-center rounded-full bg-[#1e1e1e] hover:bg-[#2a2a2a] text-[#888] hover:text-white transition-colors border-none cursor-pointer text-lg leading-none">✕</button>
+<!-- Modal Lightbox Photos -->
+<div id="photo-lightbox" class="hidden fixed inset-0 z-[3500] flex items-center justify-center bg-black/95 backdrop-blur-sm" onclick="if(event.target.id==='photo-lightbox')closePhotoLightbox()">
+    <div class="relative w-[95vw] h-[90vh] max-w-6xl flex flex-col">
+        <!-- Bouton fermer -->
+        <button onclick="closePhotoLightbox()" class="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-[#1e1e1e] hover:bg-[#2a2a2a] text-[#888] hover:text-white transition-colors text-xl leading-none z-10">✕</button>
+        
+        <!-- Image principale -->
+        <div class="flex-grow flex items-center justify-center min-h-0 relative">
+            <img id="lightbox-image" src="" alt="" class="max-w-full max-h-full object-contain">
+            
+            <!-- Flèche gauche -->
+            <button onclick="prevPhoto()" class="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full bg-[#1e1e1e] hover:bg-[#2a2a2a] text-white transition-all hover:scale-110">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            </button>
+            
+            <!-- Flèche droite -->
+            <button onclick="nextPhoto()" class="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full bg-[#1e1e1e] hover:bg-[#2a2a2a] text-white transition-all hover:scale-110">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            </button>
         </div>
-        <iframe id="edit-iframe" src="" class="flex-grow w-full border-none bg-[#0e0e0e]" style="min-height:0;"></iframe>
+        
+        <!-- Infos + Description -->
+        <div class="bg-[#0e0e0e] border-t border-[#1e1e1e] p-6">
+            <div class="flex justify-between items-start gap-4">
+                <div class="flex-grow">
+                    <div id="lightbox-counter" class="text-[#666] text-xs font-semibold mb-3">1 / 1</div>
+                    <div id="lightbox-description" class="text-[#aaa] text-sm mb-4"></div>
+                    <div id="lightbox-tags" class="flex flex-wrap gap-2"></div>
+                </div>
+                <?php if ($is_own_profile): ?>
+                    <button onclick="openPhotoEditor()" class="flex-shrink-0 px-4 py-2 bg-[#1e1e1e] text-white rounded-lg text-sm font-semibold hover:bg-[#2a2a2a] transition-colors">
+                        ✎ Éditer
+                    </button>
+                <?php endif; ?>
+            </div>
+        </div>
     </div>
 </div>
 
+<!-- Modal d'édition photo (pour propriétaire) -->
+<?php if ($is_own_profile): ?>
+<div id="photo-edit-modal" class="hidden fixed inset-0 z-[4000] flex items-center justify-center bg-black/80 backdrop-blur-sm" onclick="if(event.target.id==='photo-edit-modal')closePhotoEditor()">
+    <div class="relative bg-[#111] rounded-2xl w-full max-w-lg mx-4 shadow-[0_32px_80px_rgba(0,0,0,0.8)] border border-[#1e1e1e]">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-[#1e1e1e]">
+            <h3 class="text-white font-bold">Éditer la photo</h3>
+            <button onclick="closePhotoEditor()" class="w-8 h-8 flex items-center justify-center rounded-full bg-[#1e1e1e] hover:bg-[#2a2a2a] text-[#888] hover:text-white transition-colors text-lg leading-none">✕</button>
+        </div>
+        <form id="photo-edit-form" method="POST" class="p-6 flex flex-col gap-4">
+            <input type="hidden" name="edit_photo" value="1">
+            <input type="hidden" id="edit-photo-id" name="photo_id" value="">
+            
+            <div>
+                <label class="block text-[#888] text-xs font-bold uppercase tracking-widest mb-2">Description</label>
+                <textarea id="edit-description" name="description" rows="3" class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-4 py-2 text-white text-sm outline-none focus:border-[#d4a5d4] transition-colors placeholder:text-[#444]" placeholder="Décrivez cette photo..."></textarea>
+            </div>
+            
+            <div>
+                <label class="block text-[#888] text-xs font-bold uppercase tracking-widest mb-2">Tags (séparés par des virgules)</label>
+                <input type="text" id="edit-tags" name="tags" class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-4 py-2 text-white text-sm outline-none focus:border-[#d4a5d4] transition-colors placeholder:text-[#444]" placeholder="tag1, tag2, tag3">
+            </div>
+            
+            <div class="flex gap-3">
+                <button type="button" onclick="closePhotoEditor()" class="flex-1 py-2 bg-[#1e1e1e] text-white rounded-lg text-sm font-semibold hover:bg-[#2a2a2a] transition-colors">
+                    Annuler
+                </button>
+                <button type="submit" class="flex-1 py-2 bg-[#d4a5d4] text-black rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity">
+                    Enregistrer
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
+
 <script>
-function openEditModal(section) {
-    document.getElementById('profile-menu').classList.add('hidden');
-    const iframe = document.getElementById('edit-iframe');
-    iframe.src = 'edit_profil.php#' + section;
-    document.getElementById('edit-modal').classList.remove('hidden');
+// ─── Lightbox Photos ───────────────────────────────────────────────────────
+let currentPhotoIdx = 0;
+const allPhotos = <?= json_encode($photos) ?>;
+
+function openPhotoLightbox(idx) {
+    if (!allPhotos || allPhotos.length === 0) return;
+    currentPhotoIdx = idx;
+    updateLightbox();
+    document.getElementById('photo-lightbox').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
 }
-function closeEditModal() {
-    document.getElementById('edit-modal').classList.add('hidden');
-    document.getElementById('edit-iframe').src = '';
+
+function closePhotoLightbox() {
+    document.getElementById('photo-lightbox').classList.add('hidden');
     document.body.style.overflow = '';
-    location.reload();
 }
+
+function nextPhoto() {
+    if (!allPhotos) return;
+    currentPhotoIdx = (currentPhotoIdx + 1) % allPhotos.length;
+    updateLightbox();
+}
+
+function prevPhoto() {
+    if (!allPhotos) return;
+    currentPhotoIdx = (currentPhotoIdx - 1 + allPhotos.length) % allPhotos.length;
+    updateLightbox();
+}
+
+function updateLightbox() {
+    const photo = allPhotos[currentPhotoIdx];
+    if (!photo) return;
+    
+    document.getElementById('lightbox-image').src = photo.image_url;
+    document.getElementById('lightbox-counter').textContent = (currentPhotoIdx + 1) + ' / ' + allPhotos.length;
+    
+    // Description
+    const desc = document.getElementById('lightbox-description');
+    if (photo.description) {
+        desc.textContent = photo.description;
+        desc.classList.remove('hidden');
+    } else {
+        desc.textContent = '';
+    }
+    
+    // Tags
+    const tagsDiv = document.getElementById('lightbox-tags');
+    tagsDiv.innerHTML = '';
+    if (photo.tags) {
+        const tags = photo.tags.split(',').map(t => t.trim()).filter(t => t);
+        tags.forEach(tag => {
+            const span = document.createElement('span');
+            span.className = 'bg-[#1a1a1a] border border-[#2a2a2a] text-[#888] px-3 py-1 rounded-full text-xs font-semibold';
+            span.textContent = tag;
+            tagsDiv.appendChild(span);
+        });
+    }
+}
+
+function openPhotoEditor() {
+    const photo = allPhotos[currentPhotoIdx];
+    if (!photo) return;
+    
+    document.getElementById('edit-photo-id').value = photo.id;
+    document.getElementById('edit-description').value = photo.description || '';
+    document.getElementById('edit-tags').value = photo.tags || '';
+    document.getElementById('photo-edit-modal').classList.remove('hidden');
+}
+
+function closePhotoEditor() {
+    document.getElementById('photo-edit-modal').classList.add('hidden');
+}
+
+// Soumettre le formulaire d'édition
+document.getElementById('photo-edit-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    
+    fetch('profil.php?id=<?= $profile_id ?>', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.text())
+    .then(data => {
+        if (data.includes('ok')) {
+            closePhotoEditor();
+            closePhotoLightbox();
+            location.reload();
+        }
+    })
+    .catch(err => console.error(err));
+});
+
+// Clavier pour naviguer
+document.addEventListener('keydown', e => {
+    const lightbox = document.getElementById('photo-lightbox');
+    if (!lightbox.classList.contains('hidden')) {
+        if (e.key === 'ArrowLeft') prevPhoto();
+        if (e.key === 'ArrowRight') nextPhoto();
+        if (e.key === 'Escape') closePhotoLightbox();
+    }
+});
+
+// ─── Ancien code ──────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
         if (document.getElementById('photos-edit') && !document.getElementById('photos-edit').classList.contains('hidden')) {
             toggleEditMode();
         } else {
-            closeEditModal();
             closeBioModal();
         }
     }
@@ -405,18 +594,6 @@ function closeBioModal() {
     document.getElementById('bio-modal')?.classList.add('hidden');
     document.body.style.overflow = '';
 }
-
-function toggleProfileMenu() {
-    const menu = document.getElementById('profile-menu');
-    if (menu) menu.classList.toggle('hidden');
-}
-document.addEventListener('click', (e) => {
-    const btn = document.getElementById('profile-menu-btn');
-    const menu = document.getElementById('profile-menu');
-    if (menu && btn && !btn.contains(e.target) && !menu.contains(e.target)) {
-        menu.classList.add('hidden');
-    }
-});
 
 document.getElementById('btn-share')?.addEventListener('click', async (e) => {
     e.preventDefault();

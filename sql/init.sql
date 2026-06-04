@@ -85,6 +85,9 @@ CREATE TABLE
         user_id INT NOT NULL,
         title VARCHAR(255),
         image_url VARCHAR(255) NOT NULL,
+        description TEXT,
+        tags TEXT,
+        position INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
     );
@@ -287,8 +290,6 @@ CREATE TABLE IF NOT EXISTS casting_favorites (
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
     FOREIGN KEY (casting_id) REFERENCES castings (id) ON DELETE CASCADE
 );
-
-ALTER TABLE portfolios ADD COLUMN IF NOT EXISTS position INT DEFAULT 0;
 
 -- Back office
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;

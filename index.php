@@ -65,7 +65,7 @@ $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM eve
       // Dernière photo ajoutée par chaque utilisateur, triée par date décroissante
       $feed_stmt = $db->query("
           SELECT DISTINCT ON (po.user_id)
-              po.id AS photo_id, po.image_url, po.created_at,
+              po.id AS photo_id, po.image_url, po.created_at, po.description AS photo_description, po.tags AS photo_tags,
               u.id AS user_id, u.full_name, u.specific_profession,
               u.city, u.expertise_tags, u.profile_picture_url,
               (SELECT image_url FROM portfolios WHERE user_id=u.id ORDER BY position ASC, created_at DESC LIMIT 1) AS fallback_avatar
@@ -129,11 +129,30 @@ $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM eve
 
         <!-- Contenu -->
         <div class="px-5 pt-4 pb-5">
-          <!-- Tags + Like -->
-          <div class="flex flex-wrap items-center gap-1.5">
-            <?php foreach (array_slice($tags, 0, 5) as $tag): ?>
+          <!-- Description de la photo -->
+          <?php if (!empty($p['photo_description'])): ?>
+            <p class="text-[#aaa] text-sm mb-3 leading-relaxed"><?= htmlspecialchars($p['photo_description']) ?></p>
+          <?php endif; ?>
+
+          <!-- Tags de la photo + expertise tags -->
+          <div class="flex flex-wrap items-center gap-1.5 mb-3">
+            <?php 
+            $photo_tags = array_filter(array_map('trim', explode(',', $p['photo_tags'] ?? '')));
+            $expertise_tags = array_filter(array_map('trim', explode(',', $p['expertise_tags'] ?? '')));
+            $photo_tags_count = min(3, count($photo_tags));
+            $expertise_tags_max = max(0, 5 - $photo_tags_count);
+            ?>
+            
+            <!-- Tags de la photo (en mauve) -->
+            <?php foreach (array_slice($photo_tags, 0, $photo_tags_count) as $tag): ?>
+              <span class="tag-badge bg-[#d4a5d4] text-black"><?= htmlspecialchars($tag) ?></span>
+            <?php endforeach; ?>
+            
+            <!-- Tags d'expertise (gris) -->
+            <?php foreach (array_slice($expertise_tags, 0, $expertise_tags_max) as $tag): ?>
               <span class="tag-badge bg-[#1e1e1e] text-[#aaa] border border-[#2a2a2a]"><?= htmlspecialchars($tag) ?></span>
             <?php endforeach; ?>
+            
             <button class="like-btn flex items-center gap-1.5 text-[#555] hover:text-[#d4a5d4] transition-colors text-sm font-semibold ml-auto flex-shrink-0" onclick="toggleLike(this)">
               <svg class="like-icon w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
