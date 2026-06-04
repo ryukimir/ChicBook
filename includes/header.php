@@ -1,6 +1,17 @@
 <?php
 $current_user_id = $_SESSION['user_id'] ?? null;
 $user_avatar = $_SESSION['user_avatar'] ?? null;
+// Appliquer le thème côté serveur via cookie (évite le flash)
+$_theme_is_light = (($_COOKIE['chicbook_theme'] ?? 'dark') === 'light');
+if ($_theme_is_light) {
+    echo '<script>document.documentElement.classList.add("light")</script>';
+}
+if (!$user_avatar && $current_user_id && isset($db)) {
+    $fa = $db->prepare("SELECT image_url FROM portfolios WHERE user_id=:id ORDER BY position ASC, created_at DESC LIMIT 1");
+    $fa->execute(['id' => $current_user_id]);
+    $fa_row = $fa->fetch(PDO::FETCH_ASSOC);
+    if ($fa_row) $user_avatar = $fa_row['image_url'];
+}
 $current_page = basename($_SERVER['PHP_SELF']);
 ?>
 
@@ -49,16 +60,16 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <span class="sidebar-label">Événements</span>
     </a>
 
-    <a href="apropos.php" class="sidebar-item <?= $current_page === 'apropos.php' ? 'active' : '' ?>">
-        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M12 16v-4m0-4h.01"/>
-        </svg>
-        <span class="sidebar-label">À propos</span>
-    </a>
-
     <div class="sidebar-spacer"></div>
     <div class="sidebar-divider"></div>
+
+    <a href="preferences.php" class="sidebar-item <?= $current_page === 'preferences.php' ? 'active' : '' ?>">
+        <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+        </svg>
+        <span class="sidebar-label">Préférences</span>
+    </a>
 
     <?php if ($current_user_id): ?>
         <a href="profil.php" class="sidebar-item <?= $current_page === 'profil.php' ? 'active' : '' ?>">
@@ -71,12 +82,6 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 </svg>
             <?php endif; ?>
             <span class="sidebar-label">Mon Profil</span>
-        </a>
-        <a href="logout.php" class="sidebar-item sidebar-item-danger">
-            <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-            </svg>
-            <span class="sidebar-label">Déconnexion</span>
         </a>
     <?php else: ?>
         <a href="connexion.php" class="sidebar-item sidebar-item-accent">

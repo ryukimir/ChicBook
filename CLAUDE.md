@@ -111,8 +111,7 @@ Registration collects `prenom` + `nom` (combined into `full_name` in DB), `birth
 - **Expanded:** 260px wide on hover — labels slide in with `translateX` + opacity transition
 - `body { padding-left: 260px }` is **always fixed** — the sidebar zone is permanently reserved so expanding never overlaps content
 - Active page detected via `basename($_SERVER['PHP_SELF'])` → `active` class on the matching item
-- No theme toggle — dark theme is permanent
-- Item padding: `10px 18px` (reduced from 15px to slim the bar without shrinking icons/text)
+- Item padding: `10px 18px`
 
 **Sidebar nav items (in order):**
 1. Accueil → `index.php`
@@ -120,20 +119,32 @@ Registration collects `prenom` + `nom` (combined into `full_name` in DB), `birth
 3. Castings → `castings.php`
 4. Messagerie → `messagerie.php`
 5. Événements → `evenements.php`
-6. À propos → `apropos.php`
-7. *(spacer)*
+6. *(spacer)*
+7. Préférences → `preferences.php` (icône engrenage)
 8. Mon Profil / S'identifier → `profil.php` / `connexion.php`
-9. Déconnexion → `logout.php`
+
+"À propos" et "Déconnexion" ont été retirés de la sidebar. La déconnexion sera dans les paramètres plus tard.
 
 CSS class names that must exist in the HTML for the sidebar to work: `#sidebar`, `.sidebar-item`, `.sidebar-icon`, `.sidebar-label`, `.sidebar-logo`, `.sidebar-logo-text`, `.sidebar-divider`, `.sidebar-spacer`.
 
-### Dark theme (permanent)
+### Thème clair / sombre
 
-There is **no light/dark toggle**. The entire site is dark-only:
-- All pages use `<body class="bg-black text-white ...">` 
-- Card surfaces: `#111` (page bg), `#1a1a1a` (cards), `#222` (nested elements)
-- `assets/css/custom.css` sets `body { background-color: #000; font-family: 'Open Sans', sans-serif }` as the global default
-- No `html.light` CSS overrides exist
+Le site supporte deux thèmes. Le sombre est le défaut.
+
+**Persistance :** cookie `chicbook_theme` (`light` ou `dark`, max-age 1 an) + `localStorage`. Le cookie est lu par PHP côté serveur.
+
+**Application sans FOUC :** chaque page PHP lit `$_COOKIE['chicbook_theme']` et injecte `class="light"` directement sur le tag `<html>` avant toute feuille de style. Pattern sur toutes les pages :
+```php
+<html lang="fr" <?php if((($_COOKIE['chicbook_theme']??'dark')==='light'))echo' class="light"';?>>
+```
+`header.php` injecte aussi un `<script>` pour appliquer la classe si le cookie est présent.
+
+**CSS :** `assets/css/custom.css` contient une section `/* ===== LIGHT THEME ===== */` avec des overrides `html.light .bg-black`, `html.light .text-white`, etc. pour toutes les classes Tailwind sombres courantes. La palette claire est warm off-white (`#f2ede8`) avec cartes `#ffffff`/`#ece8e3`.
+
+**Toggle :** `preferences.php` — toggle iOS-style qui appelle `applyTheme(isLight, save)`. Sauvegarde cookie + localStorage simultanément.
+
+- Card surfaces sombres : `#111` (page bg), `#1a1a1a` (cards), `#222` (nested)
+- Card surfaces claires : `#ffffff`, `#ece8e3`, `#e8e3dd`
 
 ### Tailwind usage
 
@@ -148,13 +159,15 @@ Brand color: `#d4a5d4` (mauve/purple). Page background: `#000`. Card surface: `#
 
 - `users` — central table; `full_name`, `birth_date DATE`, `specific_profession`, `expertise_tags` (comma-separated), `login_code` (temp 2FA), `profile_theme VARCHAR(50) DEFAULT 'classique'`, `is_admin BOOLEAN DEFAULT FALSE`, `is_suspended BOOLEAN DEFAULT FALSE`, `show_age BOOLEAN DEFAULT FALSE`, `gender VARCHAR(50)`
 - `user_professions` — many-to-many to `professions` lookup (set at registration)
-- `measurements` — one-to-one with `users`, physical talent types only
+- `measurements` — one-to-one with `users`, physical talent types only: height, chest/waist/hip/shoe sizes, eye_color_id, hair_color_id, ethnicity_id (FKs to lookup tables)
 - `castings` — has `casting_date DATE` (audition day) and `performance_date DATE` (realization day), `city`, `country`, `collaboration_type`, `cover_image`
 - `casting_profiles` — multiple profiles per casting (role, quantity, age range, gender, measurements as min-max strings like "165 - 175", eye/hair/ethnicity FKs)
 - `casting_favorites` — many-to-many: users save castings as favorites
 - `portfolios` — images per user, path under `uploads/`, `position INT` for ordering (ORDER BY position ASC, created_at DESC)
 - `events` — title, type, organizer, city, country, event_date, cover_image, description, price, capacity, tags (comma-separated), user_id
 - `event_registrations` — many-to-many: users register interest in events
+- `conversations` — one row per pair of users; `user1_id = MIN(id)`, `user2_id = MAX(id)`, UNIQUE(user1_id, user2_id) prevents duplicates
+- `messages` — `conversation_id`, `sender_id`, `content TEXT`, `is_read BOOLEAN DEFAULT FALSE`
 
 When adding a column/table, append at the bottom of `sql/init.sql` and run the migration manually on the running container.
 
@@ -176,11 +189,19 @@ When adding a column/table, append at the bottom of `sql/init.sql` and run the m
 - Two date fields: `casting_date` (audition) + `performance_date` (realization)
 - "Add profile" button clones the first `.profile-card` — relies on class names `profile-card`, `profile-card-header`, `role-selector`, `mensurations-grid`
 
+### Avatar fallback — première photo du book
+
+Partout où un avatar est affiché, si `users.profile_picture_url` est vide, la **première photo du book** (`portfolios ORDER BY position ASC, created_at DESC LIMIT 1`) est utilisée automatiquement. Pattern SQL :
+```sql
+(SELECT image_url FROM portfolios WHERE user_id=u.id ORDER BY position ASC, created_at DESC LIMIT 1) AS fallback_avatar
+```
+Rendu PHP : `$avatar = $user['profile_picture_url'] ?: $user['fallback_avatar']`. Appliqué dans : `index.php` (feed), `trouver_talent.php`, `messagerie.php` (bulles + header chat), `includes/header.php` (sidebar).
+
 ### index.php — feed
 
 The homepage is a professional feed (not carousels). Structure:
 - **Filter dropdown** at top: "Fil d'actualité · Tous les talents" — dropdown with profession options, JS filtering via `data-filter` on each `.feed-post`, no page reload. Closes on outside click.
-- **Feed posts (real data):** sourced from `portfolios` table — **one post per user, the most recent photo**, sorted by `created_at DESC`. Uses `DISTINCT ON (po.user_id)` + PHP `usort`. Each post: avatar + name (clickable link to `profil.php?id=`), image in original format (no crop), expertise tags from `users.expertise_tags` (max 5), heart like button (client-side only). No caption field — real users don't have one. `data-filter` is the normalized profession slug (lowercase, no accents/spaces via `iconv + preg_replace`).
+- **Feed posts (real data):** sourced from `portfolios` table — **one post per user, the most recent photo**, sorted by `created_at DESC`. Uses `DISTINCT ON (po.user_id)` + PHP `usort`. Each post: avatar (avec fallback book) + name (clickable link to `profil.php?id=`), image in original format (no crop), expertise tags from `users.expertise_tags` (max 5), heart like button (client-side only). No caption field. `data-filter` is the normalized profession slug (lowercase, no accents/spaces via `iconv + preg_replace`).
 - **Right column:** conditional by login state:
   - **Non connecté:** "Rejoindre ChicBook" CTA + "La mode en mouvement"
   - **Connecté:** widget événements à venir (4 prochains depuis DB, date + titre + ville) + "La mode en mouvement". Le widget événements est masqué pour les non-connectés.
@@ -234,14 +255,15 @@ Theme is saved via `edit_profil.php?tab=theme` → `POST update_theme` (hidden i
 `edit_profil.php` is a **tab-based settings panel** — no scroll, no individual submit buttons. Key design:
 
 - **Layout:** fixed sidebar (240px, `bg-[#111]`) on the left + scrollable content area on the right. No `header.php` included — the sidebar is never rendered here.
-- **Tabs:** `infos`, `expertise`, `bio`, `theme`, `securite` — stored in `?tab=` URL param so the correct tab is restored after a POST redirect.
+- **Tabs:** `infos`, `expertise`, `bio`, `mensurations`, `theme`, `securite` — stored in `?tab=` URL param so the correct tab is restored after a POST redirect.
 - **Tab switching:** pure JS `switchTab(key)` — swaps `.tab-panel.active` and `.nav-item.active`.
 - **Global sticky bar:** a single `position:fixed; bottom:0; right:0` bar with **"Annuler"** + **"Valider"** buttons. "Valider" calls `document.querySelector('.tab-panel.active form').submit()`. "Annuler" calls `.reset()` on the active form. No per-tab submit buttons exist. **After a successful save (`$message` set), the modal is auto-closed** via `window.parent.closeEditModal()` (only when running in iframe).
-- **`infos` tab:** contains photo upload (`profile_pic`), general info fields, **genre** (4 radio pills: Homme/Femme/Non-binaire/Autre), and **toggle switch "Afficher mon âge"** (`show_age` checkbox styled as a custom toggle) — all in one `multipart/form-data` form with `<input type="hidden" name="update_general" value="1">`. Avatar previewed immediately via `FileReader`. `User::updateGeneralInfo()` takes `$show_age` (bool) and `$gender` (string).
-- **`expertise` tab:** tag pills (same `data-selected` + inline style pattern as `inscription.php`). Hidden input `name="tags_string"` updated by `toggleEditTag()`. Form has `<input type="hidden" name="update_expertise" value="1">`.
-- **`bio`, `theme`, `securite` tabs:** same hidden-input pattern for their respective PHP handlers.
-- **`update_password` guard:** PHP checks `!empty($_POST['current_password'])` before processing to avoid triggering on other form submits.
-- **Age display:** `profil.php` only computes `$age` if `users.show_age = TRUE`. `getUserProfile()` selects `show_age` and `gender` from DB.
+- **`infos` tab:** photo upload (`profile_pic`), nom complet, **date de naissance** (date input → `users.birth_date`), **genre** (4 radio pills: Homme/Femme/Non-binaire/Autre), ville, pays, **toggle switch "Afficher mon âge"** (`show_age`) — `multipart/form-data`, hidden `update_general=1`. Avatar previewed via `FileReader`. `User::updateGeneralInfo()` prend `$show_age`, `$gender`, `$birth_date`.
+- **`expertise` tab:** tag pills (`data-selected` + inline style). Hidden `tags_string` mis à jour par `toggleEditTag()`. Hidden `update_expertise=1`.
+- **`mensurations` tab:** taille, poitrine, taille, hanches, pointure (number inputs) + selects pour yeux/cheveux/ethnicité (lookup tables). `User::upsertMeasurements()` fait INSERT ou UPDATE selon l'existence de la ligne. Hidden `update_measurements=1`.
+- **`bio`, `theme`, `securite` tabs:** même pattern hidden-input pour leurs handlers respectifs.
+- **`update_password` guard:** PHP vérifie `!empty($_POST['current_password'])` pour éviter le déclenchement sur d'autres soumissions.
+- **Age display:** `profil.php` calcule `$age` uniquement si `users.show_age = TRUE`.
 
 ### evenements.php — key behaviors
 
@@ -252,6 +274,21 @@ Theme is saved via `edit_profil.php?tab=theme` → `POST update_theme` (hidden i
 - Cards clickable → modal with full event details + "Je suis intéressé(e)" AJAX button
 - Create button → `creer_evenement.php` (own form, image upload, redirects back to list)
 - **"Mes événements" tab:** shows cards with extra "✎ Modifier" + "✕ Supprimer" buttons. Modifier opens an **edit modal** (`#edit-event-modal`) pre-filled via `eventsById[id]` JS object (built from PHP `array_column`). Form POSTs `update_event=1` + all fields + optional new cover image. Supprimer POSTs `delete_event=1` with confirmation. Both redirect to `?view=mes_creations`. Cover image is replaced on disk only if a new file is uploaded.
+
+### messagerie.php — key behaviors
+
+- Requires login — redirects to `connexion.php` if not authenticated
+- **Layout:** `html, body { height:100%; overflow:hidden }` + flex **colonne**. Barre horizontale de bulles **en haut** (`#conv-topbar`, `overflow-x:auto`, scrollbar cachée). Zone de chat en dessous (`flex:1`).
+- **Barre du haut (bulles):** une bulle par conversation — avatar circulaire 52px (initiale si pas de photo). Au hover + état actif via CSS : prénom apparaît en dessous (`max-height` + opacity transition). Point mauve (`#d4a5d4`) en top-right si messages non lus. Anneau mauve (`box-shadow: 0 0 0 2px #d4a5d4`) sur l'avatar actif.
+- **Ouverture depuis un profil:** `?with=USER_ID` → trouve ou crée la conversation (`MIN/MAX` pour garantir l'unicité), marque comme lue, charge les messages.
+- **AJAX handlers** (POST `action=`):
+  - `send` — insère un message, retourne `id` + `created_at`
+  - `poll` — retourne les messages `> last_id`, marque les reçus comme lus, retourne aussi la map `unread` par conv pour mettre à jour les badges
+  - `open_conversation` — trouve ou crée une conv entre `$me` et `other_id`
+- **Polling:** `setInterval(poll, 2500)` sur la conv active
+- **Envoi:** Entrée (sans Shift) ou bouton. Textarea auto-resize via JS.
+- **Bulles JS:** `data-conv-id`, `data-other-id`, `data-name`, `data-avatar`, `data-profession` sur chaque `.conv-bubble`. Listener `click` délégué en JS (pas d'`onclick` inline pour éviter les problèmes d'échappement).
+- **URL:** `history.replaceState` vers `?conv=ID` lors du changement de conversation (sans rechargement).
 
 ### Back office (`admin/`)
 
@@ -292,11 +329,12 @@ Uploaded files go to `uploads/` (gitignored). Path relative to webroot stored in
 | `creer_casting.php` | Create casting: multi-profile builder with ranges, two dates, live preview |
 | `edit_casting.php` | Edit existing casting — **not yet migrated to Tailwind** (still uses `src/` CSS) |
 | `trouver_talent.php` | Browse talents by category + profession, list view, filters on right |
-| `messagerie.php` | Messaging — **not yet created** |
+| `messagerie.php` | Messagerie temps réel — bulles avatars à gauche, chat à droite, polling AJAX 2.5s, `?with=USER_ID` ouvre/crée une conv |
 | `evenements.php` | Events: tabs, card grid, right filters, AJAX registration toggle, modal — login required |
 | `creer_evenement.php` | Create event: title, type, organizer, city/country, date, price, capacity, description, tags, image |
-| `apropos.php` | About page |
+| `preferences.php` | Préférences : toggle thème clair/sombre + contenu À propos complet |
+| `apropos.php` | About page (standalone — contenu aussi intégré dans preferences.php) |
 | `logout.php` | Destroys session, redirects to index |
 | `admin/` | Back office: dashboard, users, castings, portfolios, events — requires `is_admin` |
 
-> **Note:** `edit_casting.php` still references `src/style.css` and `src/edit_casting.css` — not yet migrated to Tailwind. `messagerie.php` does not exist yet.
+> **Note:** `edit_casting.php` still references `src/style.css` and `src/edit_casting.css` — not yet migrated to Tailwind.

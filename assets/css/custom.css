@@ -203,6 +203,108 @@ body {
 }
 .input-field::placeholder { color: #666 !important; }
 
+/* ===== LIGHT THEME ===== */
+html.light,
+html.light body {
+  background-color: #f2ede8 !important;
+  color: #1a1a1a !important;
+}
+
+/* ── Backgrounds ── */
+html.light .bg-black           { background-color: #f2ede8 !important; }
+html.light .bg-white           { background-color: #ffffff !important; }
+html.light .bg-\[\#000\]       { background-color: #f2ede8 !important; }
+html.light .bg-\[\#0e0e0e\]    { background-color: #f7f3ef !important; }
+html.light .bg-\[\#0a0a0a\]    { background-color: #faf7f4 !important; }
+html.light .bg-\[\#111\]       { background-color: #ffffff !important; }
+html.light .bg-\[\#141414\]    { background-color: #f5f0eb !important; }
+html.light .bg-\[\#1a1a1a\]    { background-color: #ece8e3 !important; }
+html.light .bg-\[\#1e1e1e\]    { background-color: #e8e3dd !important; }
+html.light .bg-\[\#222\]       { background-color: #e4dfd9 !important; }
+html.light .bg-\[\#2a2a2a\]    { background-color: #d8d2cb !important; }
+html.light .bg-\[\#333\]       { background-color: #ccc7c0 !important; }
+html.light .bg-\[\#3a3a3a\]    { background-color: #c4bfb8 !important; }
+html.light .bg-\[\#444\]       { background-color: #b8b3ac !important; }
+
+/* ── Text ── */
+html.light .text-white         { color: #1a1a1a !important; }
+html.light .text-black         { color: #1a1a1a !important; }
+html.light .text-\[\#eee\]     { color: #2a2a2a !important; }
+html.light .text-\[\#ddd\]     { color: #333 !important; }
+html.light .text-\[\#ccc\]     { color: #444 !important; }
+html.light .text-\[\#bbb\]     { color: #555 !important; }
+html.light .text-\[\#aaa\]     { color: #666 !important; }
+html.light .text-\[\#999\]     { color: #666 !important; }
+html.light .text-\[\#888\]     { color: #666 !important; }
+html.light .text-\[\#777\]     { color: #777 !important; }
+html.light .text-\[\#666\]     { color: #777 !important; }
+html.light .text-\[\#555\]     { color: #777 !important; }
+html.light .text-\[\#444\]     { color: #666 !important; }
+html.light .text-\[\#333\]     { color: #555 !important; }
+html.light .text-gray-400      { color: #777 !important; }
+html.light .text-gray-500      { color: #666 !important; }
+
+/* ── Borders ── */
+html.light .border-\[\#111\]    { border-color: #e0dbd4 !important; }
+html.light .border-\[\#1a1a1a\] { border-color: #ddd8d2 !important; }
+html.light .border-\[\#222\]    { border-color: #d8d2cb !important; }
+html.light .border-\[\#2a2a2a\] { border-color: #d5d0ca !important; }
+html.light .border-\[\#333\]    { border-color: #ccc7c0 !important; }
+html.light .border-\[\#3a3a3a\] { border-color: #c4bfb8 !important; }
+html.light .border-\[\#444\]    { border-color: #b8b3ac !important; }
+html.light .border-white        { border-color: #1a1a1a !important; }
+html.light .border-dashed       { border-color: #ccc7c0 !important; }
+
+/* ── Inputs / textarea / select ── */
+html.light textarea,
+html.light select,
+html.light input[type="text"],
+html.light input[type="email"],
+html.light input[type="password"],
+html.light input[type="number"],
+html.light input[type="date"],
+html.light input[type="search"],
+html.light input[type="tel"] {
+  background-color: #f5f0eb !important;
+  color: #1a1a1a !important;
+  border-color: #d5d0ca !important;
+}
+html.light ::placeholder { color: #aaa !important; }
+html.light .form-control { background-color: #f5f0eb !important; color: #1a1a1a !important; border-color: #d5d0ca !important; }
+html.light .input-field  { background-color: #f5f0eb !important; color: #1a1a1a !important; border-color: #d5d0ca !important; }
+
+/* ── Hover backgrounds ── */
+html.light .hover\:bg-\[\#111\]:hover     { background-color: #f0ebe5 !important; }
+html.light .hover\:bg-\[\#141414\]:hover  { background-color: #ede8e2 !important; }
+html.light .hover\:bg-\[\#1a1a1a\]:hover  { background-color: #ece8e3 !important; }
+html.light .hover\:bg-\[\#1e1e1e\]:hover  { background-color: #e8e3dd !important; }
+html.light .hover\:bg-\[\#222\]:hover     { background-color: #e4dfd9 !important; }
+html.light .hover\:border-\[\#333\]:hover { border-color: #bbb !important; }
+html.light .hover\:border-\[\#555\]:hover { border-color: #999 !important; }
+html.light .group:hover .group-hover\:text-\[\#d4a5d4\] { color: #a060a0 !important; }
+
+/* ── Sidebar ── */
+html.light #sidebar             { background: #ffffff !important; border-right: 1px solid #e0dbd4; }
+html.light .sidebar-logo-text   { color: #1a1a1a !important; }
+html.light .sidebar-logo img    { filter: none; }
+html.light .sidebar-divider     { background: #e5e0d8 !important; }
+html.light .sidebar-item        { color: #555 !important; }
+html.light .sidebar-item:hover  { background: rgba(0,0,0,0.06) !important; color: #1a1a1a !important; }
+html.light .sidebar-item.active { color: #1a1a1a !important; }
+html.light .sidebar-item-accent { color: #a060a0 !important; }
+html.light .sidebar-subitem     { color: #888 !important; }
+html.light .sidebar-subitem:hover { color: #1a1a1a !important; background: rgba(0,0,0,0.06) !important; }
+
+/* ── Composants spécifiques ── */
+html.light .feed-post           { border-color: #e0dbd4 !important; }
+html.light .casting-card:hover  { border-color: #d4a5d4 !important; }
+
+/* Modals / overlays */
+html.light .fixed.inset-0.bg-black { background-color: rgba(0,0,0,0.5) !important; }
+
+/* Shadow helpers (inversion) */
+html.light [style*="box-shadow: 0 1px 0 rgba(255,255,255"] { box-shadow: none !important; }
+
 /* ===== MOBILE ===== */
 @media (max-width: 768px) {
   #sidebar {

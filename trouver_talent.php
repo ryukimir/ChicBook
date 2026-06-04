@@ -41,7 +41,8 @@ if ($filter_tag)     { $where .= " AND u.expertise_tags ILIKE :tag"; $binds['tag
 
 $stmt = $db->prepare("
     SELECT u.id, u.full_name, u.specific_profession, u.city, u.country,
-           u.profile_picture_url, u.expertise_tags, p.name AS profession_name
+           u.profile_picture_url, u.expertise_tags, p.name AS profession_name,
+           (SELECT image_url FROM portfolios WHERE user_id=u.id ORDER BY position ASC, created_at DESC LIMIT 1) AS fallback_avatar
     FROM users u
     LEFT JOIN user_professions up ON u.id = up.user_id
     LEFT JOIN professions p ON up.profession_id = p.id
@@ -70,7 +71,7 @@ function buildUrl($params) {
 }
 ?>
 <!doctype html>
-<html lang="fr">
+<html lang="fr" <?php if((($_COOKIE['chicbook_theme']??'dark')==='light'))echo' class="light"';?>>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -157,9 +158,10 @@ function buildUrl($params) {
                            class="flex items-center gap-5 bg-[#111] border border-[#1a1a1a] rounded-2xl px-6 py-4 hover:border-[#333] hover:bg-[#141414] transition-all group">
 
                             <!-- Avatar -->
+                            <?php $avatar_url = $p['profile_picture_url'] ?: $p['fallback_avatar']; ?>
                             <div class="w-14 h-14 rounded-full flex-shrink-0 overflow-hidden bg-[#222]">
-                                <?php if (!empty($p['profile_picture_url'])): ?>
-                                    <img src="<?= htmlspecialchars($p['profile_picture_url']) ?>" class="w-full h-full object-cover" alt="">
+                                <?php if ($avatar_url): ?>
+                                    <img src="<?= htmlspecialchars($avatar_url) ?>" class="w-full h-full object-cover" alt="">
                                 <?php else: ?>
                                     <div class="w-full h-full flex items-center justify-center text-[#444] text-xl">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-7 h-7"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>

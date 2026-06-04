@@ -96,7 +96,7 @@ $name       = htmlspecialchars($profile_data['full_name']);
 $location   = trim(($profile_data['city'] ?? '') . ($profile_data['country'] ? ', '.$profile_data['country'] : ''));
 ?>
 <!doctype html>
-<html lang="fr">
+<html lang="fr" <?php if((($_COOKIE['chicbook_theme']??'dark')==='light'))echo' class="light"';?>>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -110,11 +110,11 @@ $location   = trim(($profile_data['city'] ?? '') . ($profile_data['country'] ? '
 
 <?php
 // ─── Actions dropdown (commun à tous les thèmes) ───────────────────────────
-function renderActions($is_own_profile) { ?>
+function renderActions($is_own_profile, $profile_id = 0) { ?>
     <div class="flex gap-3">
         <?php if (!$is_own_profile): ?>
             <button class="bg-[#1e1e1e] text-white px-5 py-2 rounded-full text-sm font-semibold border border-[#333] hover:border-[#d4a5d4] hover:text-[#d4a5d4] transition-all">Suivre</button>
-            <button class="bg-[#d4a5d4] text-black px-5 py-2 rounded-full text-sm font-bold hover:opacity-90 transition-opacity">Contacter</button>
+            <a href="messagerie.php?with=<?= $profile_id ?>" class="bg-[#d4a5d4] text-black px-5 py-2 rounded-full text-sm font-bold hover:opacity-90 transition-opacity inline-flex items-center">Contacter</a>
         <?php else: ?>
             <button onclick="toggleEditMode()" id="edit-photos-btn" class="flex items-center gap-2 bg-[#1e1e1e] text-white px-5 py-2 rounded-full text-sm font-semibold border border-[#333] hover:border-brand hover:text-brand transition-all">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
@@ -167,7 +167,7 @@ function renderActions($is_own_profile) { ?>
     <section class="flex-grow min-w-0">
         <div class="flex justify-between items-center mb-8 pb-6 border-b border-[#1a1a1a]">
             <h1 class="text-4xl font-bold text-white"><?= $name ?></h1>
-            <?php renderActions($is_own_profile); ?>
+            <?php renderActions($is_own_profile, $profile_id); ?>
         </div>
 
         <!-- Vue normale -->
@@ -212,7 +212,7 @@ function renderActions($is_own_profile) { ?>
 <!-- Actions hors du overflow:hidden pour que le dropdown soit visible -->
 <div class="max-w-[1400px] mx-auto px-8 mt-4 flex justify-between items-center">
     <a href="#" id="btn-share" class="text-[#555] text-xs hover:text-[#d4a5d4] transition-colors">Partager</a>
-    <?php renderActions($is_own_profile); ?>
+    <?php renderActions($is_own_profile, $profile_id); ?>
 </div>
 
 <main class="max-w-[1400px] mx-auto px-8 mt-10 mb-10">
@@ -288,7 +288,7 @@ function renderActions($is_own_profile) { ?>
             </div>
         <?php endif; ?>
         <div class="flex justify-center gap-3 mb-4">
-            <?php renderActions($is_own_profile); ?>
+            <?php renderActions($is_own_profile, $profile_id); ?>
         </div>
         <a href="#" id="btn-share" class="text-[#333] text-xs hover:text-[#d4a5d4] transition-colors">Partager le profil</a>
     </div>
