@@ -32,6 +32,23 @@ $filter_city    = trim($_GET['city'] ?? '');
 $filter_country = trim($_GET['country'] ?? '');
 $filter_tag     = trim($_GET['tag'] ?? '');
 
+$talent_professions = ['Mannequin', 'Danseur', 'Comédien'];
+$is_talent_prof = in_array($profession, $talent_professions);
+
+$filter_height_min  = $_GET['height_min'] ?? '';
+$filter_height_max  = $_GET['height_max'] ?? '';
+$filter_chest_min   = $_GET['chest_min'] ?? '';
+$filter_chest_max   = $_GET['chest_max'] ?? '';
+$filter_waist_min   = $_GET['waist_min'] ?? '';
+$filter_waist_max   = $_GET['waist_max'] ?? '';
+$filter_hip_min     = $_GET['hip_min'] ?? '';
+$filter_hip_max     = $_GET['hip_max'] ?? '';
+$filter_shoe_min    = $_GET['shoe_min'] ?? '';
+$filter_shoe_max    = $_GET['shoe_max'] ?? '';
+$filter_eye         = $_GET['eye'] ?? '';
+$filter_hair        = $_GET['hair'] ?? '';
+$filter_ethnicity   = $_GET['ethnicity'] ?? '';
+
 // Function to convert age to age range
 function getAgeRange($birthDate) {
     if (!$birthDate) return null;
@@ -59,6 +76,21 @@ $binds = ['p1' => $profession, 'p2' => $profession];
 if ($filter_city)    { $where .= " AND u.city ILIKE :city";        $binds['city']    = "%$filter_city%"; }
 if ($filter_country) { $where .= " AND u.country = :country";      $binds['country'] = $filter_country; }
 if ($filter_tag)     { $where .= " AND u.expertise_tags ILIKE :tag"; $binds['tag']   = "%$filter_tag%"; }
+if ($is_talent_prof) {
+    if ($filter_height_min !== '') { $where .= " AND m.height >= :hmin"; $binds['hmin'] = (int)$filter_height_min; }
+    if ($filter_height_max !== '') { $where .= " AND m.height <= :hmax"; $binds['hmax'] = (int)$filter_height_max; }
+    if ($filter_chest_min  !== '') { $where .= " AND m.chest_size >= :cmin"; $binds['cmin'] = (int)$filter_chest_min; }
+    if ($filter_chest_max  !== '') { $where .= " AND m.chest_size <= :cmax"; $binds['cmax'] = (int)$filter_chest_max; }
+    if ($filter_waist_min  !== '') { $where .= " AND m.waist_size >= :wmin"; $binds['wmin'] = (int)$filter_waist_min; }
+    if ($filter_waist_max  !== '') { $where .= " AND m.waist_size <= :wmax"; $binds['wmax'] = (int)$filter_waist_max; }
+    if ($filter_hip_min    !== '') { $where .= " AND m.hip_size >= :hpmin"; $binds['hpmin'] = (int)$filter_hip_min; }
+    if ($filter_hip_max    !== '') { $where .= " AND m.hip_size <= :hpmax"; $binds['hpmax'] = (int)$filter_hip_max; }
+    if ($filter_shoe_min   !== '') { $where .= " AND m.shoe_size >= :smin"; $binds['smin'] = (int)$filter_shoe_min; }
+    if ($filter_shoe_max   !== '') { $where .= " AND m.shoe_size <= :smax"; $binds['smax'] = (int)$filter_shoe_max; }
+    if ($filter_eye        !== '') { $where .= " AND m.eye_color_id = :eye"; $binds['eye'] = (int)$filter_eye; }
+    if ($filter_hair       !== '') { $where .= " AND m.hair_color_id = :hair"; $binds['hair'] = (int)$filter_hair; }
+    if ($filter_ethnicity  !== '') { $where .= " AND m.ethnicity_id = :eth"; $binds['eth'] = (int)$filter_ethnicity; }
+}
 
 $stmt = $db->prepare("
     SELECT u.id, u.full_name, u.specific_profession, u.city, u.country,
@@ -79,7 +111,10 @@ $stmt = $db->prepare("
 $stmt->execute($binds);
 $profiles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$countries = $db->query("SELECT DISTINCT country FROM users WHERE country IS NOT NULL AND country != '' ORDER BY country")->fetchAll(PDO::FETCH_COLUMN);
+$countries   = $db->query("SELECT DISTINCT country FROM users WHERE country IS NOT NULL AND country != '' ORDER BY country")->fetchAll(PDO::FETCH_COLUMN);
+$eye_colors  = $db->query("SELECT id, name FROM eye_colors ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+$hair_colors = $db->query("SELECT id, name FROM hair_colors ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+$ethnicities = $db->query("SELECT id, name FROM ethnicities ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
 
 // Tous les tags distincts utilisés par les profils
 $raw_tags = $db->query("SELECT expertise_tags FROM users WHERE expertise_tags IS NOT NULL AND expertise_tags != ''")->fetchAll(PDO::FETCH_COLUMN);
@@ -312,11 +347,73 @@ function buildUrl($params) {
                                class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-[#d4a5d4] transition-colors placeholder:text-[#444]">
                     </div>
 
+                    <?php if ($is_talent_prof): ?>
+                    <div class="border-t border-[#1a1a1a] pt-4">
+                        <p class="text-[#d4a5d4] text-xs font-bold uppercase tracking-widest mb-4">Mensurations</p>
+
+                        <?php
+                        $range_fields = [
+                            ['label'=>'Taille (cm)',      'min'=>'height_min', 'max'=>'height_max', 'vmin'=>$filter_height_min, 'vmax'=>$filter_height_max, 'ph'=>['155','195']],
+                            ['label'=>'Poitrine (cm)',    'min'=>'chest_min',  'max'=>'chest_max',  'vmin'=>$filter_chest_min,  'vmax'=>$filter_chest_max,  'ph'=>['80','110']],
+                            ['label'=>'Tour de taille',   'min'=>'waist_min',  'max'=>'waist_max',  'vmin'=>$filter_waist_min,  'vmax'=>$filter_waist_max,  'ph'=>['55','90']],
+                            ['label'=>'Hanches (cm)',     'min'=>'hip_min',    'max'=>'hip_max',    'vmin'=>$filter_hip_min,    'vmax'=>$filter_hip_max,    'ph'=>['80','120']],
+                            ['label'=>'Pointure',         'min'=>'shoe_min',   'max'=>'shoe_max',   'vmin'=>$filter_shoe_min,   'vmax'=>$filter_shoe_max,   'ph'=>['35','48']],
+                        ];
+                        foreach ($range_fields as $f): ?>
+                        <div class="mb-3">
+                            <label class="block text-[#555] text-xs font-bold uppercase tracking-widest mb-1.5"><?= $f['label'] ?></label>
+                            <div class="flex gap-2 items-center">
+                                <input type="number" name="<?= $f['min'] ?>" value="<?= htmlspecialchars($f['vmin']) ?>" placeholder="<?= $f['ph'][0] ?>" min="0" max="999"
+                                    class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#d4a5d4] placeholder:text-[#333]">
+                                <span class="text-[#444] text-xs flex-shrink-0">–</span>
+                                <input type="number" name="<?= $f['max'] ?>" value="<?= htmlspecialchars($f['vmax']) ?>" placeholder="<?= $f['ph'][1] ?>" min="0" max="999"
+                                    class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#d4a5d4] placeholder:text-[#333]">
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+
+                        <div class="mb-3">
+                            <label class="block text-[#555] text-xs font-bold uppercase tracking-widest mb-1.5">Yeux</label>
+                            <select name="eye" class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-[#d4a5d4]">
+                                <option value="">Toutes</option>
+                                <?php foreach ($eye_colors as $e): ?>
+                                    <option value="<?= $e['id'] ?>" <?= $filter_eye == $e['id'] ? 'selected' : '' ?>><?= htmlspecialchars($e['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="block text-[#555] text-xs font-bold uppercase tracking-widest mb-1.5">Cheveux</label>
+                            <select name="hair" class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-[#d4a5d4]">
+                                <option value="">Tous</option>
+                                <?php foreach ($hair_colors as $h): ?>
+                                    <option value="<?= $h['id'] ?>" <?= $filter_hair == $h['id'] ? 'selected' : '' ?>><?= htmlspecialchars($h['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="block text-[#555] text-xs font-bold uppercase tracking-widest mb-1.5">Ethnicité</label>
+                            <select name="ethnicity" class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-[#d4a5d4]">
+                                <option value="">Toutes</option>
+                                <?php foreach ($ethnicities as $e): ?>
+                                    <option value="<?= $e['id'] ?>" <?= $filter_ethnicity == $e['id'] ? 'selected' : '' ?>><?= htmlspecialchars($e['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
                     <button type="submit" class="w-full py-2.5 bg-[#d4a5d4] text-black rounded-xl font-bold text-sm hover:opacity-90 transition-opacity border-none cursor-pointer">
                         Rechercher
                     </button>
 
-                    <?php if ($filter_city || $filter_country || $filter_tag): ?>
+                    <?php
+                    $has_active_filters = $filter_city || $filter_country || $filter_tag
+                        || $filter_height_min || $filter_height_max || $filter_chest_min || $filter_chest_max
+                        || $filter_waist_min || $filter_waist_max || $filter_hip_min || $filter_hip_max
+                        || $filter_shoe_min || $filter_shoe_max || $filter_eye || $filter_hair || $filter_ethnicity;
+                    if ($has_active_filters): ?>
                         <a href="<?= buildUrl(['category' => $category, 'profession' => $profession]) ?>"
                            class="text-center text-[#555] text-xs hover:text-[#d4a5d4] transition-colors">
                             ✕ Effacer les filtres
