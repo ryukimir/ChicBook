@@ -19,6 +19,19 @@ if (!empty($_POST['submit_report'])) {
         $report_success = true;
     }
 }
+
+$suggestion_success = false;
+if (!empty($_POST['submit_suggestion'])) {
+    $msg = trim($_POST['suggestion_message'] ?? '');
+    if (strlen($msg) > 0) {
+        $stmt = $db->prepare("INSERT INTO suggestions (user_id, message) VALUES (:uid, :msg)");
+        $stmt->execute([
+            'uid' => $_SESSION['user_id'] ?? null,
+            'msg' => mb_substr($msg, 0, 2000),
+        ]);
+        $suggestion_success = true;
+    }
+}
 ?>
 <!doctype html>
 <html lang="fr" class="<?= $is_light ? 'light' : '' ?>">
@@ -81,25 +94,6 @@ if (!empty($_POST['submit_report'])) {
         </div>
     </section>
 
-    <!-- ══ COMPTE ══ -->
-    <section class="bg-[#111] border border-[#1a1a1a] rounded-2xl mb-10 overflow-hidden">
-        <div class="px-6 py-4 border-b border-[#1a1a1a]">
-            <h2 class="font-semibold text-xs uppercase tracking-widest text-[#666]">Compte</h2>
-        </div>
-        <div class="px-6 py-5 flex items-center justify-between">
-            <div>
-                <p class="font-semibold text-[15px]">Déconnexion</p>
-                <p class="text-[#555] text-sm mt-0.5">Vous serez redirigé vers la page d'accueil.</p>
-            </div>
-            <a href="logout.php" class="inline-flex items-center gap-2 bg-[#1a1a1a] border border-[#2a2a2a] text-[#e05555] text-sm font-semibold px-5 py-2.5 rounded-xl hover:border-[#e05555] hover:bg-[#1f1313] transition-colors">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-                </svg>
-                Se déconnecter
-            </a>
-        </div>
-    </section>
-
     <!-- ══ SIGNALER UN PROBLÈME ══ -->
     <section class="bg-[#111] border border-[#1a1a1a] rounded-2xl overflow-hidden mb-8">
         <div class="px-6 py-4 border-b border-[#1a1a1a]">
@@ -117,7 +111,6 @@ if (!empty($_POST['submit_report'])) {
             </p>
             <form method="POST" action="preferences.php">
                 <input type="hidden" name="submit_report" value="1">
-
                 <div class="mb-4">
                     <label class="block text-xs font-semibold text-[#555] uppercase tracking-widest mb-2">Catégorie</label>
                     <select name="report_category" class="w-full bg-[#1a1a1a] border border-[#2a2a2a] text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#444] pr-8">
@@ -127,17 +120,63 @@ if (!empty($_POST['submit_report'])) {
                         <option value="autre">Autre</option>
                     </select>
                 </div>
-
                 <div class="mb-5">
                     <label class="block text-xs font-semibold text-[#555] uppercase tracking-widest mb-2">Description</label>
                     <textarea name="report_message" rows="4" placeholder="Décrivez le problème en détail…" class="w-full bg-[#1a1a1a] border border-[#2a2a2a] text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#444] resize-none" maxlength="2000"></textarea>
                 </div>
-
                 <button type="submit" class="inline-flex items-center gap-2 bg-[#1a1a1a] border border-[#2a2a2a] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:border-[#444] transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
                     Envoyer le signalement
                 </button>
             </form>
+        </div>
+    </section>
+
+    <!-- ══ SUGGÉRER UNE AMÉLIORATION ══ -->
+    <section class="bg-[#111] border border-[#1a1a1a] rounded-2xl overflow-hidden mb-8">
+        <div class="px-6 py-4 border-b border-[#1a1a1a]">
+            <h2 class="font-semibold text-xs uppercase tracking-widest text-[#666]">Suggérer une amélioration</h2>
+        </div>
+        <div class="px-6 py-6">
+            <?php if (!empty($suggestion_success)): ?>
+                <div class="flex items-center gap-3 bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-5 py-4 mb-5">
+                    <svg class="w-5 h-5 flex-shrink-0" style="color:#d4a5d4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    <p class="text-[#ccc] text-sm">Merci pour votre suggestion, nous en tiendrons compte !</p>
+                </div>
+            <?php endif; ?>
+            <p class="text-[#666] text-sm mb-5 leading-relaxed">
+                Une idée pour améliorer ChicBook ? Une fonctionnalité que vous aimeriez voir ? Partagez-la avec nous.
+            </p>
+            <form method="POST" action="preferences.php">
+                <input type="hidden" name="submit_suggestion" value="1">
+                <div class="mb-5">
+                    <label class="block text-xs font-semibold text-[#555] uppercase tracking-widest mb-2">Votre idée</label>
+                    <textarea name="suggestion_message" rows="4" placeholder="Décrivez votre idée ou suggestion…" class="w-full bg-[#1a1a1a] border border-[#2a2a2a] text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#444] resize-none" maxlength="2000"></textarea>
+                </div>
+                <button type="submit" class="inline-flex items-center gap-2 bg-[#1a1a1a] border border-[#2a2a2a] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:border-[#444] transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.001 3.001 0 00-.184 3.187A2 2 0 0118 20H6a2 2 0 01-1.94-1.487 3.001 3.001 0 00-.184-3.187l-.347-.347z"/></svg>
+                    Envoyer ma suggestion
+                </button>
+            </form>
+        </div>
+    </section>
+
+    <!-- ══ COMPTE ══ -->
+    <section class="bg-[#111] border border-[#1a1a1a] rounded-2xl overflow-hidden mb-8">
+        <div class="px-6 py-4 border-b border-[#1a1a1a]">
+            <h2 class="font-semibold text-xs uppercase tracking-widest text-[#666]">Compte</h2>
+        </div>
+        <div class="px-6 py-5 flex items-center justify-between">
+            <div>
+                <p class="font-semibold text-[15px]">Déconnexion</p>
+                <p class="text-[#555] text-sm mt-0.5">Vous serez redirigé vers la page d'accueil.</p>
+            </div>
+            <a href="logout.php" class="inline-flex items-center gap-2 bg-[#1a1a1a] border border-[#2a2a2a] text-[#e05555] text-sm font-semibold px-5 py-2.5 rounded-xl hover:border-[#e05555] hover:bg-[#1f1313] transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                </svg>
+                Se déconnecter
+            </a>
         </div>
     </section>
 

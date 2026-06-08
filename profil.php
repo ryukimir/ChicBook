@@ -176,7 +176,10 @@ function renderActions($is_own_profile, $profile_id = 0) { ?>
             <a href="edit_profil.php#section-bio" class="text-[#444] text-sm hover:text-[#d4a5d4] transition-colors mb-6 block">+ Ajouter une biographie</a>
         <?php endif; ?>
 
-        <a href="#" id="btn-share" class="text-[#444] text-xs hover:text-[#d4a5d4] transition-colors">Partager le profil</a>
+        <button id="btn-share" class="inline-flex items-center gap-2 mt-2 px-4 py-2 rounded-full border border-[#2a2a2a] bg-[#111] text-[#aaa] text-xs font-medium hover:border-[#d4a5d4] hover:text-[#d4a5d4] transition-all">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Partager le profil
+        </button>
     </aside>
 
     <section class="flex-grow min-w-0">
@@ -232,7 +235,10 @@ function renderActions($is_own_profile, $profile_id = 0) { ?>
 </div>
 <!-- Actions hors du overflow:hidden pour que le dropdown soit visible -->
 <div class="max-w-[1400px] mx-auto px-8 mt-4 flex justify-between items-center">
-    <a href="#" id="btn-share" class="text-[#555] text-xs hover:text-[#d4a5d4] transition-colors">Partager</a>
+    <button id="btn-share" class="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#2a2a2a] bg-black/40 text-[#aaa] text-xs font-medium hover:border-[#d4a5d4] hover:text-[#d4a5d4] transition-all">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        Partager le profil
+    </button>
     <?php renderActions($is_own_profile, $profile_id); ?>
 </div>
 
@@ -319,7 +325,10 @@ function renderActions($is_own_profile, $profile_id = 0) { ?>
         <div class="flex justify-center gap-3 mb-4">
             <?php renderActions($is_own_profile, $profile_id); ?>
         </div>
-        <a href="#" id="btn-share" class="text-[#333] text-xs hover:text-[#d4a5d4] transition-colors">Partager le profil</a>
+        <button id="btn-share" class="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#ddd] bg-white text-[#555] text-xs font-medium hover:border-[#d4a5d4] hover:text-[#d4a5d4] transition-all">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Partager le profil
+        </button>
     </div>
 
     <!-- Séparateur -->
@@ -608,9 +617,10 @@ document.getElementById('btn-share')?.addEventListener('click', async (e) => {
         navigator.clipboard.writeText(shareData.url).then(() => {
             const btn = document.getElementById('btn-share');
             const orig = btn.innerHTML;
-            btn.innerHTML = '✅ Lien copié !';
+            btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Lien copié !';
+            btn.style.borderColor = '#d4a5d4';
             btn.style.color = '#d4a5d4';
-            setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 3000);
+            setTimeout(() => { btn.innerHTML = orig; btn.style.borderColor = ''; btn.style.color = ''; }, 3000);
         });
     }
 });

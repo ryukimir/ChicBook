@@ -356,3 +356,12 @@ CREATE TABLE IF NOT EXISTS reports (
 
 -- Connexion persistante (remember me)
 ALTER TABLE users ADD COLUMN IF NOT EXISTS remember_token VARCHAR(64);
+
+-- Suggestions utilisateurs
+CREATE TABLE IF NOT EXISTS suggestions (
+    id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(id) ON DELETE SET NULL,
+    message TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW()
+);

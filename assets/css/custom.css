@@ -24,35 +24,21 @@
 .sidebar-logo {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 14px 20px 20px;
+  justify-content: center;
+  padding: 18px 14px 22px;
   text-decoration: none;
   white-space: nowrap;
+  position: relative;
+  height: 76px;
+  overflow: hidden;
 }
 
-.sidebar-logo img {
-  width: 38px;
-  height: 38px;
+#sidebar-logo-img {
+  width: 52px;
+  height: 52px;
   object-fit: contain;
-  flex-shrink: 0;
-  filter: brightness(0) invert(1) sepia(1) saturate(1000%) hue-rotate(250deg);
-}
-
-.sidebar-logo-text {
-  font-size: 26px;
-  font-weight: 800;
-  color: #fff;
-  letter-spacing: -0.5px;
-  opacity: 0;
-  transform: translateX(-10px);
-  transition: opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1) 0.04s,
-              transform 0.28s cubic-bezier(0.4, 0, 0.2, 1) 0.04s;
-  white-space: nowrap;
-}
-
-#sidebar:hover .sidebar-logo-text {
-  opacity: 1;
-  transform: translateX(0);
+  display: block;
+  transition: opacity 0.18s ease, width 0.25s ease, height 0.25s ease, max-width 0.25s ease;
 }
 
 .sidebar-divider {
@@ -285,8 +271,7 @@ html.light .group:hover .group-hover\:text-\[\#d4a5d4\] { color: #a060a0 !import
 
 /* ── Sidebar ── */
 html.light #sidebar             { background: #ffffff !important; border-right: 1px solid #e0dbd4; }
-html.light .sidebar-logo-text   { color: #1a1a1a !important; }
-html.light .sidebar-logo img    { filter: none; }
+html.light .sidebar-logoimg  { filter: none; }
 html.light .sidebar-divider     { background: #e5e0d8 !important; }
 html.light .sidebar-item        { color: #555 !important; }
 html.light .sidebar-item:hover  { background: rgba(0,0,0,0.06) !important; color: #1a1a1a !important; }
@@ -348,7 +333,6 @@ html.light [style*="box-shadow: 0 1px 0 rgba(255,255,255"] { box-shadow: none !i
   }
 
   .sidebar-icon { transform: none !important; }
-  #sidebar:hover .sidebar-logo img { transform: none; }
 
   .sidebar-label {
     opacity: 1;

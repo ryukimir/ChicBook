@@ -31,8 +31,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
 <nav id="sidebar">
 
     <a href="index.php" class="sidebar-logo">
-        <img src="assets/img/logo.png" alt="ChicBook">
-        <span class="sidebar-logo-text">ChicBook</span>
+        <img id="sidebar-logo-img" src="assets/img/navicon.png" alt="ChicBook">
     </a>
 
     <div class="sidebar-divider"></div>
@@ -130,6 +129,31 @@ $current_page = basename($_SERVER['PHP_SELF']);
   </svg>
 </button>
 <script>
+(function(){
+  var logo = document.getElementById('sidebar-logo-img');
+  var sidebar = document.getElementById('sidebar');
+  sidebar.addEventListener('mouseenter', function(){
+    logo.style.opacity = '0';
+    setTimeout(function(){
+      logo.src = 'assets/img/logo.png';
+      logo.style.width = 'auto';
+      logo.style.height = '44px';
+      logo.style.maxWidth = '220px';
+      logo.style.opacity = '1';
+    }, 180);
+  });
+  sidebar.addEventListener('mouseleave', function(){
+    logo.style.opacity = '0';
+    setTimeout(function(){
+      logo.src = 'assets/img/navicon.png';
+      logo.style.width = '52px';
+      logo.style.height = '52px';
+      logo.style.maxWidth = '';
+      logo.style.opacity = '1';
+    }, 180);
+  });
+})();
+
 (function(){
   var btn = document.getElementById('scroll-top-btn');
   window.addEventListener('scroll', function(){
