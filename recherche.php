@@ -5,19 +5,9 @@ require_once 'models/User.php';
 
 $db = Database::getInstance()->getConnection();
 
-$q              = trim($_GET['q'] ?? '');
-$filter_profession = trim($_GET['profession'] ?? '');
-$filter_city    = trim($_GET['city'] ?? '');
-$filter_country = trim($_GET['country'] ?? '');
-$filter_tag     = trim($_GET['tag'] ?? '');
-
-$has_search = $q !== '' || $filter_profession !== '' || $filter_city !== '' || $filter_country !== '' || $filter_tag !== '';
-
-$profiles = [];
-if ($has_search) {
+function runSearch($db, $q, $filter_profession, $filter_city, $filter_country, $filter_tag) {
     $where = "1=1";
     $binds = [];
-
     if ($q !== '') {
         $where .= " AND (u.full_name ILIKE :q OR u.specific_profession ILIKE :q2 OR u.expertise_tags ILIKE :q3 OR u.city ILIKE :q4)";
         $binds['q'] = "%$q%"; $binds['q2'] = "%$q%"; $binds['q3'] = "%$q%"; $binds['q4'] = "%$q%";
@@ -39,10 +29,32 @@ if ($has_search) {
         ORDER BY u.id, u.full_name
     ");
     $stmt->execute($binds);
-    $profiles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-// Données pour les filtres
+// ── Réponse AJAX ──────────────────────────────────────────────────────────
+if (!empty($_GET['ajax'])) {
+    header('Content-Type: application/json');
+    $q                 = trim($_GET['q'] ?? '');
+    $filter_profession = trim($_GET['profession'] ?? '');
+    $filter_city       = trim($_GET['city'] ?? '');
+    $filter_country    = trim($_GET['country'] ?? '');
+    $filter_tag        = trim($_GET['tag'] ?? '');
+    $has_search = $q !== '' || $filter_profession !== '' || $filter_city !== '' || $filter_country !== '' || $filter_tag !== '';
+    $profiles = $has_search ? runSearch($db, $q, $filter_profession, $filter_city, $filter_country, $filter_tag) : [];
+    echo json_encode(['count' => count($profiles), 'profiles' => $profiles, 'has_search' => $has_search]);
+    exit;
+}
+
+// ── Rendu initial ─────────────────────────────────────────────────────────
+$q                 = trim($_GET['q'] ?? '');
+$filter_profession = trim($_GET['profession'] ?? '');
+$filter_city       = trim($_GET['city'] ?? '');
+$filter_country    = trim($_GET['country'] ?? '');
+$filter_tag        = trim($_GET['tag'] ?? '');
+$has_search = $q !== '' || $filter_profession !== '' || $filter_city !== '' || $filter_country !== '' || $filter_tag !== '';
+$profiles = $has_search ? runSearch($db, $q, $filter_profession, $filter_city, $filter_country, $filter_tag) : [];
+
 $professions = $db->query("SELECT name FROM professions ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
 $countries   = $db->query("SELECT DISTINCT country FROM users WHERE country IS NOT NULL AND country != '' ORDER BY country")->fetchAll(PDO::FETCH_COLUMN);
 $raw_tags    = $db->query("SELECT expertise_tags FROM users WHERE expertise_tags IS NOT NULL AND expertise_tags != ''")->fetchAll(PDO::FETCH_COLUMN);
@@ -65,150 +77,279 @@ $all_tags = array_keys($all_tags);
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { theme: { extend: { colors: { brand: '#d4a5d4' } } } }</script>
     <link rel="stylesheet" href="assets/css/custom.css">
+    <style>
+        #search-zone {
+            transition: padding-top 0.45s cubic-bezier(0.4,0,0.2,1);
+            padding-top: 28vh;
+        }
+        #search-zone.has-results {
+            padding-top: 0;
+        }
+        #results-area {
+            transition: opacity 0.25s ease;
+        }
+        #results-area.loading {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+        .result-card {
+            animation: fadeInUp 0.18s ease both;
+        }
+        @keyframes fadeInUp {
+            from { opacity:0; transform:translateY(6px); }
+            to   { opacity:1; transform:translateY(0); }
+        }
+    </style>
 </head>
 <body class="bg-black text-white font-['Open_Sans',sans-serif]">
 <?php include 'includes/header.php'; ?>
 
-<div class="max-w-[1100px] mx-auto px-8 pt-12 pb-20">
+<div class="max-w-[900px] mx-auto px-8 pb-20">
 
-    <!-- Barre de recherche principale -->
-    <form method="GET" action="recherche.php" id="search-form">
+    <div id="search-zone" class="<?= $has_search ? 'has-results' : '' ?>">
+
+        <!-- Titre (visible seulement sans recherche) -->
+        <div id="search-title" class="text-center mb-8 transition-all duration-400 <?= $has_search ? 'hidden' : '' ?>">
+            <h1 class="text-2xl font-bold mb-1">Recherche</h1>
+            <p class="text-[#555] text-sm">Trouvez un talent par nom, profession, ville ou tag.</p>
+        </div>
+
+        <!-- Barre de recherche -->
         <div class="relative mb-3">
             <svg class="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-[#555] pointer-events-none" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
                 <circle cx="11" cy="11" r="8"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35"/>
             </svg>
-            <input type="text" name="q" id="search-input" value="<?= htmlspecialchars($q) ?>"
+            <input type="text" id="search-input" value="<?= htmlspecialchars($q) ?>"
                    placeholder="Rechercher un talent, une profession, une ville…"
                    autocomplete="off"
-                   class="w-full bg-[#111] border border-[#2a2a2a] rounded-2xl pl-14 pr-5 py-4 text-white text-base outline-none focus:border-[#d4a5d4] transition-colors placeholder:text-[#444]"
-                   style="font-size:16px;">
-            <?php if ($q): ?>
-                <button type="button" onclick="document.getElementById('search-input').value='';document.getElementById('search-form').submit();"
-                        class="absolute right-5 top-1/2 -translate-y-1/2 text-[#555] hover:text-white transition-colors text-xl leading-none">✕</button>
-            <?php endif; ?>
+                   class="w-full bg-[#111] border border-[#2a2a2a] rounded-2xl pl-14 pr-12 py-4 text-white text-base outline-none focus:border-[#d4a5d4] transition-colors placeholder:text-[#444]">
+            <button id="clear-btn" onclick="clearSearch()" class="absolute right-5 top-1/2 -translate-y-1/2 text-[#555] hover:text-white transition-colors text-lg leading-none <?= $q ? '' : 'hidden' ?>">✕</button>
         </div>
 
-        <!-- Filtres en ligne -->
-        <div class="flex flex-wrap gap-2 mb-8">
-            <select name="profession" class="bg-[#111] border border-[#2a2a2a] rounded-xl px-4 py-2 text-sm text-[#aaa] outline-none focus:border-[#d4a5d4] transition-colors cursor-pointer">
+        <!-- Filtres -->
+        <div class="flex flex-wrap gap-2 mb-6">
+            <select id="filter-profession" class="bg-[#111] border border-[#2a2a2a] rounded-xl px-4 py-2 text-sm text-[#aaa] outline-none focus:border-[#d4a5d4] transition-colors cursor-pointer">
                 <option value="">Toutes les professions</option>
                 <?php foreach ($professions as $prof): ?>
                     <option value="<?= htmlspecialchars($prof) ?>" <?= $filter_profession === $prof ? 'selected' : '' ?>><?= htmlspecialchars($prof) ?></option>
                 <?php endforeach; ?>
             </select>
 
-            <select name="country" class="bg-[#111] border border-[#2a2a2a] rounded-xl px-4 py-2 text-sm text-[#aaa] outline-none focus:border-[#d4a5d4] transition-colors cursor-pointer">
+            <select id="filter-country" class="bg-[#111] border border-[#2a2a2a] rounded-xl px-4 py-2 text-sm text-[#aaa] outline-none focus:border-[#d4a5d4] transition-colors cursor-pointer">
                 <option value="">Tous les pays</option>
                 <?php foreach ($countries as $c): ?>
                     <option value="<?= htmlspecialchars($c) ?>" <?= $filter_country === $c ? 'selected' : '' ?>><?= htmlspecialchars($c) ?></option>
                 <?php endforeach; ?>
             </select>
 
-            <input type="text" name="city" value="<?= htmlspecialchars($filter_city) ?>" placeholder="Ville…"
-                   class="bg-[#111] border border-[#2a2a2a] rounded-xl px-4 py-2 text-sm text-white outline-none focus:border-[#d4a5d4] transition-colors placeholder:text-[#444] w-36">
+            <input type="text" id="filter-city" value="<?= htmlspecialchars($filter_city) ?>" placeholder="Ville…"
+                   class="bg-[#111] border border-[#2a2a2a] rounded-xl px-4 py-2 text-sm text-white outline-none focus:border-[#d4a5d4] transition-colors placeholder:text-[#444] w-32">
 
-            <select name="tag" class="bg-[#111] border border-[#2a2a2a] rounded-xl px-4 py-2 text-sm text-[#aaa] outline-none focus:border-[#d4a5d4] transition-colors cursor-pointer">
+            <select id="filter-tag" class="bg-[#111] border border-[#2a2a2a] rounded-xl px-4 py-2 text-sm text-[#aaa] outline-none focus:border-[#d4a5d4] transition-colors cursor-pointer">
                 <option value="">Tous les tags</option>
                 <?php foreach ($all_tags as $t): ?>
                     <option value="<?= htmlspecialchars($t) ?>" <?= $filter_tag === $t ? 'selected' : '' ?>><?= htmlspecialchars($t) ?></option>
                 <?php endforeach; ?>
             </select>
 
-            <button type="submit" class="bg-[#d4a5d4] text-black font-bold text-sm px-5 py-2 rounded-xl hover:opacity-90 transition-opacity">
-                Rechercher
+            <button id="clear-all-btn" onclick="clearSearch()" class="<?= $has_search ? '' : 'hidden' ?> flex items-center px-4 py-2 text-sm text-[#555] hover:text-[#d4a5d4] transition-colors">
+                ✕ Effacer
             </button>
+        </div>
 
-            <?php if ($has_search): ?>
-                <a href="recherche.php" class="flex items-center px-4 py-2 text-sm text-[#555] hover:text-[#d4a5d4] transition-colors">
-                    ✕ Effacer
-                </a>
+    </div><!-- /search-zone -->
+
+    <!-- Zone résultats -->
+    <div id="results-area">
+
+        <!-- Compteur -->
+        <p id="results-count" class="text-[#555] text-sm mb-4 <?= !$has_search ? 'hidden' : '' ?>">
+            <?= count($profiles) ?> résultat<?= count($profiles) > 1 ? 's' : '' ?>
+        </p>
+
+        <!-- Liste -->
+        <div id="results-list" class="flex flex-col gap-3">
+            <?php if ($has_search && empty($profiles)): ?>
+                <div id="no-results" class="py-20 text-center">
+                    <p class="text-[#555] text-lg mb-1">Aucun résultat</p>
+                    <p class="text-[#333] text-sm">Essayez d'autres mots-clés ou filtres.</p>
+                </div>
+            <?php elseif (!$has_search): ?>
+                <!-- État vide -->
+                <div id="empty-state" class="flex flex-col items-center py-10 text-center">
+                    <p class="text-[#333] text-sm">Tapez quelque chose pour commencer.</p>
+                </div>
+            <?php else: ?>
+                <?php foreach ($profiles as $p): ?>
+                    <?php $avatar_url = $p['profile_picture_url'] ?: $p['fallback_avatar']; ?>
+                    <a href="profil.php?id=<?= $p['id'] ?>"
+                       class="result-card flex items-center gap-5 bg-[#111] border border-[#1a1a1a] rounded-2xl px-6 py-4 hover:border-[#333] hover:bg-[#141414] transition-all group">
+                        <div class="w-14 h-14 rounded-full flex-shrink-0 overflow-hidden bg-[#222]">
+                            <?php if ($avatar_url): ?>
+                                <img src="<?= htmlspecialchars($avatar_url) ?>" class="w-full h-full object-cover" alt="">
+                            <?php else: ?>
+                                <div class="w-full h-full flex items-center justify-center text-[#555] text-xl font-bold">
+                                    <?= mb_strtoupper(mb_substr($p['full_name'], 0, 1)) ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                        <div class="flex-grow min-w-0">
+                            <div class="flex items-baseline gap-2 flex-wrap">
+                                <span class="font-bold text-white text-[15px] group-hover:text-[#d4a5d4] transition-colors"><?= htmlspecialchars($p['full_name']) ?></span>
+                                <?php if (!empty($p['specific_profession'] ?? $p['profession_name'])): ?>
+                                    <span class="text-[#555] text-xs">·</span>
+                                    <span class="text-[#888] text-sm"><?= htmlspecialchars($p['specific_profession'] ?? $p['profession_name']) ?></span>
+                                <?php endif; ?>
+                            </div>
+                            <?php if (!empty($p['city'])): ?>
+                                <div class="text-[#555] text-xs mt-0.5"><?= htmlspecialchars($p['city']) ?><?= !empty($p['country']) ? ', '.htmlspecialchars($p['country']) : '' ?></div>
+                            <?php endif; ?>
+                            <?php if (!empty($p['expertise_tags'])): ?>
+                                <div class="flex flex-wrap gap-1.5 mt-2">
+                                    <?php foreach (array_slice(explode(',', $p['expertise_tags']), 0, 5) as $tag): ?>
+                                        <?php if (trim($tag)): ?>
+                                            <span class="bg-[#1a1a1a] border border-[#2a2a2a] text-[#888] text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide"><?= htmlspecialchars(trim($tag)) ?></span>
+                                        <?php endif; ?>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 text-[#333] group-hover:text-[#d4a5d4] flex-shrink-0 transition-colors"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                    </a>
+                <?php endforeach; ?>
             <?php endif; ?>
         </div>
-    </form>
 
-    <!-- État vide (avant toute recherche) -->
-    <?php if (!$has_search): ?>
-        <div class="flex flex-col items-center justify-center py-24 text-center">
-            <div class="w-16 h-16 rounded-2xl bg-[#111] border border-[#1a1a1a] flex items-center justify-center mb-5">
-                <svg class="w-8 h-8 text-[#333]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-                    <circle cx="11" cy="11" r="8"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35"/>
-                </svg>
-            </div>
-            <p class="text-[#444] text-base font-medium">Recherchez parmi les talents ChicBook</p>
-            <p class="text-[#333] text-sm mt-1">Nom, profession, ville, tag…</p>
-        </div>
-
-    <!-- Aucun résultat -->
-    <?php elseif (empty($profiles)): ?>
-        <div class="flex flex-col items-center justify-center py-20 text-center">
-            <p class="text-[#555] text-lg mb-1">Aucun résultat</p>
-            <p class="text-[#333] text-sm">Essayez d'autres mots-clés ou filtres.</p>
-        </div>
-
-    <!-- Résultats -->
-    <?php else: ?>
-        <p class="text-[#555] text-sm mb-4"><?= count($profiles) ?> résultat<?= count($profiles) > 1 ? 's' : '' ?></p>
-        <div class="flex flex-col gap-3">
-            <?php foreach ($profiles as $p): ?>
-                <a href="profil.php?id=<?= $p['id'] ?>"
-                   class="flex items-center gap-5 bg-[#111] border border-[#1a1a1a] rounded-2xl px-6 py-4 hover:border-[#333] hover:bg-[#141414] transition-all group">
-
-                    <?php $avatar_url = $p['profile_picture_url'] ?: $p['fallback_avatar']; ?>
-                    <div class="w-14 h-14 rounded-full flex-shrink-0 overflow-hidden bg-[#222]">
-                        <?php if ($avatar_url): ?>
-                            <img src="<?= htmlspecialchars($avatar_url) ?>" class="w-full h-full object-cover" alt="">
-                        <?php else: ?>
-                            <div class="w-full h-full flex items-center justify-center text-[#444] text-xl font-bold">
-                                <?= mb_strtoupper(mb_substr($p['full_name'], 0, 1)) ?>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-
-                    <div class="flex-grow min-w-0">
-                        <div class="flex items-baseline gap-2 flex-wrap">
-                            <span class="font-bold text-white text-[15px] group-hover:text-[#d4a5d4] transition-colors">
-                                <?= htmlspecialchars($p['full_name']) ?>
-                            </span>
-                            <span class="text-[#555] text-xs">·</span>
-                            <span class="text-[#888] text-sm">
-                                <?= htmlspecialchars($p['specific_profession'] ?? $p['profession_name'] ?? '') ?>
-                            </span>
-                        </div>
-                        <?php if (!empty($p['city'])): ?>
-                            <div class="text-[#555] text-xs mt-0.5">
-                                <?= htmlspecialchars($p['city']) ?><?= !empty($p['country']) ? ', '.htmlspecialchars($p['country']) : '' ?>
-                            </div>
-                        <?php endif; ?>
-                        <?php if (!empty($p['expertise_tags'])): ?>
-                            <div class="flex flex-wrap gap-1.5 mt-2">
-                                <?php foreach (array_slice(explode(',', $p['expertise_tags']), 0, 5) as $tag): ?>
-                                    <?php if (trim($tag)): ?>
-                                        <span class="bg-[#1a1a1a] border border-[#2a2a2a] text-[#888] text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide">
-                                            <?= htmlspecialchars(trim($tag)) ?>
-                                        </span>
-                                    <?php endif; ?>
-                                <?php endforeach; ?>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 text-[#333] group-hover:text-[#d4a5d4] flex-shrink-0 transition-colors">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-                    </svg>
-                </a>
-            <?php endforeach; ?>
-        </div>
-    <?php endif; ?>
-
+    </div><!-- /results-area -->
 </div>
 
 <script>
-// Soumettre automatiquement quand un filtre change (si une recherche est déjà active)
-<?php if ($has_search): ?>
-document.querySelectorAll('select[name]').forEach(s => {
-    s.addEventListener('change', () => document.getElementById('search-form').submit());
+const searchInput  = document.getElementById('search-input');
+const clearBtn     = document.getElementById('clear-btn');
+const clearAllBtn  = document.getElementById('clear-all-btn');
+const searchZone   = document.getElementById('search-zone');
+const searchTitle  = document.getElementById('search-title');
+const resultsList  = document.getElementById('results-list');
+const resultsCount = document.getElementById('results-count');
+const resultsArea  = document.getElementById('results-area');
+
+const selProfession = document.getElementById('filter-profession');
+const selCountry    = document.getElementById('filter-country');
+const inputCity     = document.getElementById('filter-city');
+const selTag        = document.getElementById('filter-tag');
+
+let debounceTimer = null;
+
+function getFilters() {
+    return {
+        q:          searchInput.value.trim(),
+        profession: selProfession.value,
+        country:    selCountry.value,
+        city:       inputCity.value.trim(),
+        tag:        selTag.value,
+    };
+}
+
+function hasAnyFilter(f) {
+    return f.q || f.profession || f.country || f.city || f.tag;
+}
+
+function buildCard(p) {
+    const avatar = p.profile_picture_url || p.fallback_avatar;
+    const avatarHtml = avatar
+        ? `<img src="${avatar}" class="w-full h-full object-cover" alt="">`
+        : `<div class="w-full h-full flex items-center justify-center text-[#555] text-xl font-bold">${(p.full_name||'?')[0].toUpperCase()}</div>`;
+
+    const profession = p.specific_profession || p.profession_name || '';
+    const profHtml = profession
+        ? `<span class="text-[#555] text-xs">·</span><span class="text-[#888] text-sm">${escHtml(profession)}</span>`
+        : '';
+
+    const city = p.city ? `<div class="text-[#555] text-xs mt-0.5">${escHtml(p.city)}${p.country ? ', '+escHtml(p.country) : ''}</div>` : '';
+
+    const tags = (p.expertise_tags || '').split(',').slice(0,5).filter(t=>t.trim()).map(t =>
+        `<span class="bg-[#1a1a1a] border border-[#2a2a2a] text-[#888] text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide">${escHtml(t.trim())}</span>`
+    ).join('');
+    const tagsHtml = tags ? `<div class="flex flex-wrap gap-1.5 mt-2">${tags}</div>` : '';
+
+    return `<a href="profil.php?id=${p.id}" class="result-card flex items-center gap-5 bg-[#111] border border-[#1a1a1a] rounded-2xl px-6 py-4 hover:border-[#333] hover:bg-[#141414] transition-all group">
+        <div class="w-14 h-14 rounded-full flex-shrink-0 overflow-hidden bg-[#222]">${avatarHtml}</div>
+        <div class="flex-grow min-w-0">
+            <div class="flex items-baseline gap-2 flex-wrap">
+                <span class="font-bold text-white text-[15px] group-hover:text-[#d4a5d4] transition-colors">${escHtml(p.full_name)}</span>
+                ${profHtml}
+            </div>
+            ${city}${tagsHtml}
+        </div>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 text-[#333] group-hover:text-[#d4a5d4] flex-shrink-0 transition-colors"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+    </a>`;
+}
+
+function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function doSearch() {
+    const f = getFilters();
+    const active = hasAnyFilter(f);
+
+    // Animer la barre vers le haut
+    if (active) {
+        searchZone.classList.add('has-results');
+        searchTitle.classList.add('hidden');
+        clearBtn.classList.toggle('hidden', !f.q);
+        clearAllBtn.classList.remove('hidden');
+    } else {
+        searchZone.classList.remove('has-results');
+        searchTitle.classList.remove('hidden');
+        clearBtn.classList.add('hidden');
+        clearAllBtn.classList.add('hidden');
+        resultsList.innerHTML = `<div class="flex flex-col items-center py-10 text-center"><p class="text-[#333] text-sm">Tapez quelque chose pour commencer.</p></div>`;
+        resultsCount.classList.add('hidden');
+        return;
+    }
+
+    resultsArea.classList.add('loading');
+
+    const params = new URLSearchParams({ ajax: '1', ...f });
+    fetch('recherche.php?' + params)
+        .then(r => r.json())
+        .then(data => {
+            resultsArea.classList.remove('loading');
+            resultsCount.classList.remove('hidden');
+            if (data.count === 0) {
+                resultsCount.textContent = 'Aucun résultat';
+                resultsList.innerHTML = `<div class="py-20 text-center"><p class="text-[#555] text-lg mb-1">Aucun résultat</p><p class="text-[#333] text-sm">Essayez d'autres mots-clés ou filtres.</p></div>`;
+            } else {
+                resultsCount.textContent = data.count + ' résultat' + (data.count > 1 ? 's' : '');
+                resultsList.innerHTML = data.profiles.map(buildCard).join('');
+            }
+        })
+        .catch(() => resultsArea.classList.remove('loading'));
+}
+
+function clearSearch() {
+    searchInput.value = '';
+    selProfession.value = '';
+    selCountry.value = '';
+    inputCity.value = '';
+    selTag.value = '';
+    doSearch();
+    searchInput.focus();
+}
+
+// Debounce 350ms sur le champ texte
+searchInput.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(doSearch, 350);
 });
-<?php endif; ?>
+
+// Immédiat sur les selects / ville
+[selProfession, selCountry, selTag].forEach(el => el.addEventListener('change', doSearch));
+inputCity.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(doSearch, 400);
+});
 </script>
 <script src="assets/js/script.js"></script>
 </body>
