@@ -83,7 +83,7 @@ $all_tags = array_keys($all_tags);
             padding-top: 28vh;
         }
         #search-zone.has-results {
-            padding-top: 0;
+            padding-top: 40px;
         }
         #results-area {
             transition: opacity 0.25s ease;
