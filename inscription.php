@@ -279,6 +279,18 @@ function get_post_value($key)
           btn.dataset.selected = '0';
       }
   });
+
+  // Calcul de la date d'il y a 18 ans
+  const today = new Date();
+  const minDate = new Date(today.getFullYear() - 16, today.getMonth(), today.getDate());
+  
+  // Formatage en YYYY-MM-DD
+  const yyyy = minDate.getFullYear();
+  const mm = String(minDate.getMonth() + 1).padStart(2, '0');
+  const dd = String(minDate.getDate()).padStart(2, '0');
+  
+  // Application de l'attribut max
+  document.querySelector('input[name="birth_date"]').setAttribute('max', `${yyyy}-${mm}-${dd}`);
   </script>
 </body>
 </html>
