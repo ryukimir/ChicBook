@@ -138,13 +138,13 @@ $all_tags = array_keys($all_tags);
 
         <!-- Filtres -->
         <div class="flex flex-wrap gap-2 mb-6">
-            <select id="filter-profession" class="bg-[#111] border border-[#2a2a2a] rounded-xl px-4 py-2 text-sm text-[#aaa] outline-none focus:border-[#d4a5d4] transition-colors cursor-pointer">
+            <select id="filter-profession" class="bg-[#111] border border-[#2a2a2a] rounded-xl px-4 pr-8 py-2 text-sm text-[#aaa] outline-none focus:border-[#d4a5d4] transition-colors cursor-pointer">
                 <option value="">Toutes les professions</option>
                 <?php foreach ($professions as $prof): ?>
                     <option value="<?= htmlspecialchars($prof) ?>" <?= $filter_profession === $prof ? 'selected' : '' ?>><?= htmlspecialchars($prof) ?></option>
                 <?php endforeach; ?>
             </select>
-            <select id="filter-country" class="bg-[#111] border border-[#2a2a2a] rounded-xl px-4 py-2 text-sm text-[#aaa] outline-none focus:border-[#d4a5d4] transition-colors cursor-pointer">
+            <select id="filter-country" class="bg-[#111] border border-[#2a2a2a] rounded-xl px-4 pr-8 py-2 text-sm text-[#aaa] outline-none focus:border-[#d4a5d4] transition-colors cursor-pointer">
                 <option value="">Tous les pays</option>
                 <?php foreach ($countries as $c): ?>
                     <option value="<?= htmlspecialchars($c) ?>" <?= $filter_country === $c ? 'selected' : '' ?>><?= htmlspecialchars($c) ?></option>
@@ -152,7 +152,7 @@ $all_tags = array_keys($all_tags);
             </select>
             <input type="text" id="filter-city" value="<?= htmlspecialchars($filter_city) ?>" placeholder="Ville…"
                    class="bg-[#111] border border-[#2a2a2a] rounded-xl px-4 py-2 text-sm text-white outline-none focus:border-[#d4a5d4] transition-colors placeholder:text-[#444] w-32">
-            <select id="filter-tag" class="bg-[#111] border border-[#2a2a2a] rounded-xl px-4 py-2 text-sm text-[#aaa] outline-none focus:border-[#d4a5d4] transition-colors cursor-pointer">
+            <select id="filter-tag" class="bg-[#111] border border-[#2a2a2a] rounded-xl px-4 pr-8 py-2 text-sm text-[#aaa] outline-none focus:border-[#d4a5d4] transition-colors cursor-pointer">
                 <option value="">Tous les tags</option>
                 <?php foreach ($all_tags as $t): ?>
                     <option value="<?= htmlspecialchars($t) ?>" <?= $filter_tag === $t ? 'selected' : '' ?>><?= htmlspecialchars($t) ?></option>
