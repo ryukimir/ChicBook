@@ -116,12 +116,13 @@ Registration collects `prenom` + `nom` (combined into `full_name` in DB), `birth
 **Sidebar nav items (in order):**
 1. Accueil → `index.php`
 2. Trouver un talent → `trouver_talent.php`
-3. Castings → `castings.php`
-4. Messagerie → `messagerie.php`
-5. Événements → `evenements.php`
-6. *(spacer)*
-7. Préférences → `preferences.php` (icône engrenage)
-8. Mon Profil / S'identifier → `profil.php` / `connexion.php`
+3. Recherche → `recherche.php` (icône loupe)
+4. Castings → `castings.php`
+5. Messagerie → `messagerie.php`
+6. Événements → `evenements.php`
+7. *(spacer)*
+8. Préférences → `preferences.php` (icône engrenage)
+9. Mon Profil / S'identifier → `profil.php` / `connexion.php`
 
 "À propos" et "Déconnexion" ont été retirés de la sidebar. La déconnexion sera dans les paramètres plus tard.
 
@@ -141,7 +142,7 @@ Le site supporte deux thèmes. Le sombre est le défaut.
 
 **CSS :** `assets/css/custom.css` contient une section `/* ===== LIGHT THEME ===== */` avec des overrides `html.light .bg-black`, `html.light .text-white`, etc. pour toutes les classes Tailwind sombres courantes. La palette claire est warm off-white (`#f2ede8`) avec cartes `#ffffff`/`#ece8e3`.
 
-**Toggle :** `preferences.php` — toggle iOS-style qui appelle `applyTheme(isLight, save)`. Sauvegarde cookie + localStorage simultanément.
+**Toggle :** `preferences.php` — toggle iOS-style qui sauvegarde cookie + localStorage puis recharge la page (`window.location.reload()`). Le rechargement est nécessaire pour que PHP applique `class="light"` sans flash — la mise à jour CSS instantanée via JS seul entrait en conflit avec l'injection de styles de Tailwind CDN.
 
 - Card surfaces sombres : `#111` (page bg), `#1a1a1a` (cards), `#222` (nested)
 - Card surfaces claires : `#ffffff`, `#ece8e3`, `#e8e3dd`
@@ -215,9 +216,20 @@ The homepage is a professional feed (not carousels). Structure:
   - `image-production`: Photographe, Vidéaste, Mannequin, Maquilleur, Coiffeur
   - `marques-createurs`: Marque, Créateur, Agence, Casting director
 - Top: category pills (white = active) + **profession dropdown** (same style as the feed filter on `index.php` — button shows `Category · Profession`, chevron rotates on open, closes on outside click)
-- Profiles displayed as horizontal list rows: avatar, name, profession, city, tags → click goes to `profil.php?id=`
+- Profiles displayed as **grille 3 colonnes** with portrait cards `aspect-[3/4]` — hover overlay affiche les mensurations pour Mannequin/Danseur/Comédien
 - Filters on the **right**: mot-clé (**`<select>` dropdown** populated from all distinct `expertise_tags` values in DB, aggregated and sorted alphabetically), pays, ville
 - Results ordered by `RANDOM()`
+- Query joins `measurements`, `eye_colors`, `hair_colors`, `ethnicities` to show physical data on hover
+
+### recherche.php — key behaviors
+
+- Page dédiée à la recherche de talents, accessible via la sidebar (icône loupe)
+- **Barre centrée au chargement** (padding-top `28vh`), remonte à `40px` dès qu'une recherche est active (transition CSS)
+- **Recherche dynamique** : debounce 350ms sur le texte, 400ms sur ville/mensurations — AJAX vers `?ajax=1` qui retourne JSON, rendu JS côté client
+- **Filtres principaux** (en ligne) : profession, pays, ville, tag
+- **Filtres mensurations** : apparaissent automatiquement (animation `max-height`) quand Mannequin / Danseur / Comédien est sélectionné. 5 plages min–max (taille, poitrine, tour de taille, hanches, pointure) + 3 selects (yeux, cheveux, ethnicité)
+- Cards identiques à `trouver_talent.php` : grille portrait `aspect-[3/4]`, overlay mensurations au hover
+- Handler AJAX : `?ajax=1` retourne `{count, profiles[]}` — `age_range` calculé côté PHP avant sérialisation JSON
 
 ### profil.php — 3 themes
 
@@ -328,8 +340,9 @@ Uploaded files go to `uploads/` (gitignored). Path relative to webroot stored in
 | `castings.php` | Browse/filter castings (filters on right), favorites, own castings, modal detail view |
 | `creer_casting.php` | Create casting: multi-profile builder with ranges, two dates, live preview |
 | `edit_casting.php` | Edit existing casting — **not yet migrated to Tailwind** (still uses `src/` CSS) |
-| `trouver_talent.php` | Browse talents by category + profession, list view, filters on right |
-| `messagerie.php` | Messagerie temps réel — bulles avatars à gauche, chat à droite, polling AJAX 2.5s, `?with=USER_ID` ouvre/crée une conv |
+| `trouver_talent.php` | Browse talents by category + profession, grid portrait cards, hover overlay mensurations, filters on right |
+| `recherche.php` | Recherche talents full-text + filtres inline + filtres mensurations (Mannequin/Danseur/Comédien), AJAX dynamique debounced |
+| `messagerie.php` | Messagerie temps réel — bulles avatars en haut (barre horizontale), chat en dessous, polling AJAX 2.5s, `?with=USER_ID` ouvre/crée une conv |
 | `evenements.php` | Events: tabs, card grid, right filters, AJAX registration toggle, modal — login required |
 | `creer_evenement.php` | Create event: title, type, organizer, city/country, date, price, capacity, description, tags, image |
 | `preferences.php` | Préférences : toggle thème clair/sombre + contenu À propos complet |
