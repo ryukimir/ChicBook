@@ -26,6 +26,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $_SESSION['user_avatar'] = $userData['profile_picture_url'];
             $userModel->clearLoginCode($_SESSION['user_id']);
             unset($_SESSION['temp_user_id']);
+            // Remember me : token 30 jours
+            $remember_token = bin2hex(random_bytes(32));
+            $db->prepare("UPDATE users SET remember_token=:t WHERE id=:id")->execute(['t' => $remember_token, 'id' => $_SESSION['user_id']]);
+            setcookie('chicbook_remember', $remember_token, time() + 30 * 24 * 3600, '/', '', false, true);
             header("Location: index.php");
             exit();
         } else {

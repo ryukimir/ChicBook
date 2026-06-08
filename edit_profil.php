@@ -255,7 +255,15 @@ $measurements = $userModel->getMeasurements($_SESSION['user_id']);
                         <input type="hidden" name="update_expertise" value="1">
                         <div>
                             <label class="block text-[#888] text-xs font-bold uppercase tracking-widest mb-2">Profession</label>
-                            <input type="text" name="profession" value="<?= htmlspecialchars($user['specific_profession'] ?? '') ?>" placeholder="ex: Photographe, Styliste…" class="input-field">
+                            <?php $professions_list = $db->query("SELECT name FROM professions ORDER BY name")->fetchAll(PDO::FETCH_COLUMN); ?>
+                            <select name="profession" class="input-field" style="cursor:pointer;">
+                                <option value="">-- Choisir une profession --</option>
+                                <?php foreach ($professions_list as $p): ?>
+                                    <option value="<?= htmlspecialchars($p) ?>" <?= ($user['specific_profession'] ?? '') === $p ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($p) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
                         <div>
                             <label class="block text-[#888] text-xs font-bold uppercase tracking-widest mb-3">Tags</label>

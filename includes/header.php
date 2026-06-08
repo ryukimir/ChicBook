@@ -1,6 +1,19 @@
 <?php
 $current_user_id = $_SESSION['user_id'] ?? null;
 $user_avatar = $_SESSION['user_avatar'] ?? null;
+
+// Auto-login via cookie remember me
+if (!$current_user_id && !empty($_COOKIE['chicbook_remember']) && isset($db)) {
+    $stmt = $db->prepare("SELECT id, profile_picture_url FROM users WHERE remember_token=:t AND is_suspended=FALSE LIMIT 1");
+    $stmt->execute(['t' => $_COOKIE['chicbook_remember']]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($row) {
+        $_SESSION['user_id'] = $row['id'];
+        $_SESSION['user_avatar'] = $row['profile_picture_url'];
+        $current_user_id = $row['id'];
+        $user_avatar = $row['profile_picture_url'];
+    }
+}
 // Appliquer le thème côté serveur via cookie (évite le flash)
 $_theme_is_light = (($_COOKIE['chicbook_theme'] ?? 'dark') === 'light');
 if ($_theme_is_light) {
@@ -75,7 +88,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
             <circle cx="12" cy="12" r="3"/>
             <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
         </svg>
-        <span class="sidebar-label">Préférences</span>
+        <span class="sidebar-label">Plus</span>
     </a>
 
     <?php if ($current_user_id): ?>
@@ -100,3 +113,32 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <?php endif; ?>
 
 </nav>
+
+<!-- Bouton scroll-to-top -->
+<button id="scroll-top-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Retour en haut" style="
+  position:fixed; bottom:28px; right:28px; z-index:9999;
+  width:44px; height:44px; border-radius:50%;
+  background:#111; border:1px solid #2a2a2a; color:#fff;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; opacity:0; pointer-events:none;
+  transition:opacity 0.25s, transform 0.25s, border-color 0.2s;
+  transform:translateY(10px);
+  box-shadow:0 4px 16px rgba(0,0,0,0.5);
+">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 15l-6-6-6 6"/>
+  </svg>
+</button>
+<script>
+(function(){
+  var btn = document.getElementById('scroll-top-btn');
+  window.addEventListener('scroll', function(){
+    var show = window.scrollY > 300;
+    btn.style.opacity = show ? '1' : '0';
+    btn.style.pointerEvents = show ? 'auto' : 'none';
+    btn.style.transform = show ? 'translateY(0)' : 'translateY(10px)';
+  }, {passive:true});
+  btn.addEventListener('mouseenter', function(){ btn.style.borderColor='#555'; btn.style.background='#1a1a1a'; });
+  btn.addEventListener('mouseleave', function(){ btn.style.borderColor='#2a2a2a'; btn.style.background='#111'; });
+})();
+</script>

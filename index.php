@@ -219,6 +219,18 @@ $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM eve
         <p class="text-[#777] text-[13px] leading-relaxed">Créatifs, marques, agences… ne manquez rien de la communauté ChicBook.</p>
       </div>
 
+      <!-- Footer à propos style Instagram -->
+      <div class="px-2">
+        <div class="flex flex-wrap gap-x-3 gap-y-1 mb-3">
+          <a href="apropos.php" target="_blank" class="text-[#555] text-[11px] hover:underline hover:text-[#888] transition-colors">À propos</a>
+          <a href="preferences.php" class="text-[#555] text-[11px] hover:underline hover:text-[#888] transition-colors">Préférences</a>
+          <a href="castings.php" class="text-[#555] text-[11px] hover:underline hover:text-[#888] transition-colors">Castings</a>
+          <a href="evenements.php" class="text-[#555] text-[11px] hover:underline hover:text-[#888] transition-colors">Événements</a>
+          <a href="trouver_talent.php" class="text-[#555] text-[11px] hover:underline hover:text-[#888] transition-colors">Trouver un talent</a>
+        </div>
+        <p class="text-[#444] text-[11px]">© 2025 ChicBook · Le réseau professionnel de la mode</p>
+      </div>
+
     </aside>
 
   </div>
@@ -267,7 +279,8 @@ $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM eve
     });
 
     document.querySelectorAll('.filter-option').forEach(opt => {
-      opt.addEventListener('click', () => {
+      opt.addEventListener('click', (e) => {
+        e.stopPropagation();
         const filter = opt.dataset.filter;
         label.textContent = opt.dataset.label;
         menu.classList.add('hidden');
@@ -281,11 +294,7 @@ $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM eve
         opt.classList.remove('text-[#aaa]');
 
         posts.forEach(post => {
-          if (filter === 'all' || post.dataset.filter === filter) {
-            post.classList.remove('hidden-post');
-          } else {
-            post.classList.add('hidden-post');
-          }
+          post.style.display = (filter === 'all' || post.dataset.filter === filter) ? '' : 'none';
         });
       });
     });

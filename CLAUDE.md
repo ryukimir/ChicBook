@@ -121,7 +121,7 @@ Registration collects `prenom` + `nom` (combined into `full_name` in DB), `birth
 5. Messagerie → `messagerie.php`
 6. Événements → `evenements.php`
 7. *(spacer)*
-8. Préférences → `preferences.php` (icône engrenage)
+8. **Plus** → `preferences.php` (icône engrenage) — label affiché est "Plus", pas "Préférences"
 9. Mon Profil / S'identifier → `profil.php` / `connexion.php`
 
 "À propos" et "Déconnexion" ont été retirés de la sidebar. La déconnexion sera dans les paramètres plus tard.
@@ -169,6 +169,7 @@ Brand color: `#d4a5d4` (mauve/purple). Page background: `#000`. Card surface: `#
 - `event_registrations` — many-to-many: users register interest in events
 - `conversations` — one row per pair of users; `user1_id = MIN(id)`, `user2_id = MAX(id)`, UNIQUE(user1_id, user2_id) prevents duplicates
 - `messages` — `conversation_id`, `sender_id`, `content TEXT`, `is_read BOOLEAN DEFAULT FALSE`
+- `reports` — signalements utilisateurs : `user_id` (nullable FK), `category VARCHAR(50)` (bug/contenu/compte/autre), `message TEXT`, `is_read BOOLEAN DEFAULT FALSE`, `created_at`
 
 When adding a column/table, append at the bottom of `sql/init.sql` and run the migration manually on the running container.
 
@@ -204,8 +205,10 @@ The homepage is a professional feed (not carousels). Structure:
 - **Filter dropdown** at top: "Fil d'actualité · Tous les talents" — dropdown with profession options, JS filtering via `data-filter` on each `.feed-post`, no page reload. Closes on outside click.
 - **Feed posts (real data):** sourced from `portfolios` table — **one post per user, the most recent photo**, sorted by `created_at DESC`. Uses `DISTINCT ON (po.user_id)` + PHP `usort`. Each post: avatar (avec fallback book) + name (clickable link to `profil.php?id=`), image in original format (no crop), expertise tags from `users.expertise_tags` (max 5), heart like button (client-side only). No caption field. `data-filter` is the normalized profession slug (lowercase, no accents/spaces via `iconv + preg_replace`).
 - **Right column:** conditional by login state:
-  - **Non connecté:** "Rejoindre ChicBook" CTA + "La mode en mouvement"
-  - **Connecté:** widget événements à venir (4 prochains depuis DB, date + titre + ville) + "La mode en mouvement". Le widget événements est masqué pour les non-connectés.
+  - **Non connecté:** "Rejoindre ChicBook" CTA + widget "La mode en mouvement" + footer liens
+  - **Connecté:** widget événements à venir (4 prochains depuis DB, date + titre + ville) + widget "La mode en mouvement" + footer liens. Le widget événements est masqué pour les non-connectés.
+- **Footer right column:** petits liens style Instagram (À propos `target="_blank"`, Préférences, Castings, Événements, Trouver un talent) + copyright. `À propos` ouvre `apropos.php` dans un nouvel onglet.
+- **Filter JS:** utilise `post.style.display = ''/'none'` (inline style direct) + `e.stopPropagation()` sur les options — évite les conflits CSS Tailwind et les interférences du listener document.
 - **Welcome popup**: shown on first visit (non-logged-in users only), tracked via `localStorage('chicbook_visited')`. Contains "S'inscrire" CTA. Closes on ✕ or outside click.
 
 ### trouver_talent.php — key behaviors
@@ -302,6 +305,26 @@ Theme is saved via `edit_profil.php?tab=theme` → `POST update_theme` (hidden i
 - **Bulles JS:** `data-conv-id`, `data-other-id`, `data-name`, `data-avatar`, `data-profession` sur chaque `.conv-bubble`. Listener `click` délégué en JS (pas d'`onclick` inline pour éviter les problèmes d'échappement).
 - **URL:** `history.replaceState` vers `?conv=ID` lors du changement de conversation (sans rechargement).
 
+### preferences.php — contenu
+
+Renommée "Plus" dans la sidebar (icône engrenage inchangée). Deux sections :
+- **Apparence** — toggle thème clair/sombre (iOS-style, reload page)
+- **Signaler un problème** — select catégorie (bug/contenu/compte/autre) + textarea + bouton submit → INSERT dans `reports`. Confirmation visuelle (`$report_success`) après envoi.
+
+### Scroll-to-top button
+
+Bouton flottant `position:fixed; bottom:28px; right:28px; z-index:9999` injecté à la fin de `includes/header.php` (donc présent sur toutes les pages qui incluent header). Également dupliqué dans `apropos.php` (standalone). Apparaît après 300px de scroll (opacity + translateY animation). IIFE isolée — aucun variable globale.
+
+### apropos.php — structure
+
+Page standalone (pas de `header.php`, pas de `body { padding-left: 260px }`). Sections :
+1. Hero plein-écran : eyebrow animé, titre `clamp`, CTA
+2. Marquee défilant CSS des 14 métiers
+3. Stats bar 3 colonnes avec compteurs JS animés (easeOut cubic)
+4. Section intro centrée
+5. 3 piliers alternés (image + texte, scroll-reveal `.reveal-left`/`.reveal-right` via IntersectionObserver)
+6. CTA final + bouton "Revenir sur ChicBook" → `index.php`
+
 ### Back office (`admin/`)
 
 Accessible at `/admin/`. Protected by `auth_guard.php` which checks `$_SESSION['is_admin']`.
@@ -345,8 +368,8 @@ Uploaded files go to `uploads/` (gitignored). Path relative to webroot stored in
 | `messagerie.php` | Messagerie temps réel — bulles avatars en haut (barre horizontale), chat en dessous, polling AJAX 2.5s, `?with=USER_ID` ouvre/crée une conv |
 | `evenements.php` | Events: tabs, card grid, right filters, AJAX registration toggle, modal — login required |
 | `creer_evenement.php` | Create event: title, type, organizer, city/country, date, price, capacity, description, tags, image |
-| `preferences.php` | Préférences : toggle thème clair/sombre + contenu À propos complet |
-| `apropos.php` | About page (standalone — contenu aussi intégré dans preferences.php) |
+| `preferences.php` | Préférences : toggle thème clair/sombre + formulaire "Signaler un problème" (INSERT dans `reports`) |
+| `apropos.php` | Page À propos **standalone** (sans sidebar, sans `header.php`) — ouverte en `target="_blank"`. Hero animé, marquee métiers, stats compteurs, 3 sections piliers avec scroll-reveal, bouton "Revenir sur ChicBook" en bas |
 | `logout.php` | Destroys session, redirects to index |
 | `admin/` | Back office: dashboard, users, castings, portfolios, events — requires `is_admin` |
 

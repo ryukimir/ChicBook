@@ -4,6 +4,21 @@ $is_logged_in = isset($_SESSION['user_id']);
 require_once 'config/database.php';
 $db = Database::getInstance()->getConnection();
 $is_light = (($_COOKIE['chicbook_theme'] ?? 'dark') === 'light');
+
+$report_success = false;
+if (!empty($_POST['submit_report'])) {
+    $msg = trim($_POST['report_message'] ?? '');
+    $cat = $_POST['report_category'] ?? 'autre';
+    if (strlen($msg) > 0) {
+        $stmt = $db->prepare("INSERT INTO reports (user_id, category, message) VALUES (:uid, :cat, :msg)");
+        $stmt->execute([
+            'uid' => $_SESSION['user_id'] ?? null,
+            'cat' => $cat,
+            'msg' => mb_substr($msg, 0, 2000),
+        ]);
+        $report_success = true;
+    }
+}
 ?>
 <!doctype html>
 <html lang="fr" class="<?= $is_light ? 'light' : '' ?>">
@@ -66,73 +81,63 @@ $is_light = (($_COOKIE['chicbook_theme'] ?? 'dark') === 'light');
         </div>
     </section>
 
-    <!-- ══ À PROPOS ══ -->
+    <!-- ══ COMPTE ══ -->
+    <section class="bg-[#111] border border-[#1a1a1a] rounded-2xl mb-10 overflow-hidden">
+        <div class="px-6 py-4 border-b border-[#1a1a1a]">
+            <h2 class="font-semibold text-xs uppercase tracking-widest text-[#666]">Compte</h2>
+        </div>
+        <div class="px-6 py-5 flex items-center justify-between">
+            <div>
+                <p class="font-semibold text-[15px]">Déconnexion</p>
+                <p class="text-[#555] text-sm mt-0.5">Vous serez redirigé vers la page d'accueil.</p>
+            </div>
+            <a href="logout.php" class="inline-flex items-center gap-2 bg-[#1a1a1a] border border-[#2a2a2a] text-[#e05555] text-sm font-semibold px-5 py-2.5 rounded-xl hover:border-[#e05555] hover:bg-[#1f1313] transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                </svg>
+                Se déconnecter
+            </a>
+        </div>
+    </section>
+
+    <!-- ══ SIGNALER UN PROBLÈME ══ -->
     <section class="bg-[#111] border border-[#1a1a1a] rounded-2xl overflow-hidden mb-8">
         <div class="px-6 py-4 border-b border-[#1a1a1a]">
-            <h2 class="font-semibold text-xs uppercase tracking-widest text-[#666]">À propos de ChicBook</h2>
+            <h2 class="font-semibold text-xs uppercase tracking-widest text-[#666]">Signaler un problème</h2>
         </div>
-
-        <!-- Tagline -->
-        <div class="px-6 pt-6 pb-2">
-            <p class="text-[15px] text-[#ccc] leading-relaxed">
-                Un hub 360° dédié à la mode et à l'image — où chaque talent dispose de son propre <span class="text-white font-semibold">book professionnel</span> pour exposer, collaborer et évoluer.
-                Conçu pour connecter créatifs, marques et agences au sein d'une seule plateforme.
+        <div class="px-6 py-6">
+            <?php if (!empty($report_success)): ?>
+                <div class="flex items-center gap-3 bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-5 py-4 mb-5">
+                    <svg class="w-5 h-5 flex-shrink-0" style="color:#d4a5d4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    <p class="text-[#ccc] text-sm">Votre signalement a bien été envoyé. Merci !</p>
+                </div>
+            <?php endif; ?>
+            <p class="text-[#666] text-sm mb-5 leading-relaxed">
+                Un bug, un contenu inapproprié, un problème technique ? Décrivez-le ci-dessous et notre équipe s'en occupera.
             </p>
-        </div>
+            <form method="POST" action="preferences.php">
+                <input type="hidden" name="submit_report" value="1">
 
-        <!-- 3 piliers en grille -->
-        <div class="grid grid-cols-1 gap-4 px-6 py-6" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
+                <div class="mb-4">
+                    <label class="block text-xs font-semibold text-[#555] uppercase tracking-widest mb-2">Catégorie</label>
+                    <select name="report_category" class="w-full bg-[#1a1a1a] border border-[#2a2a2a] text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#444] pr-8">
+                        <option value="bug">Bug technique</option>
+                        <option value="contenu">Contenu inapproprié</option>
+                        <option value="compte">Problème de compte</option>
+                        <option value="autre">Autre</option>
+                    </select>
+                </div>
 
-            <!-- Marque & Créateur -->
-            <div class="about-card">
-                <div class="about-card-icon">
-                    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                    </svg>
+                <div class="mb-5">
+                    <label class="block text-xs font-semibold text-[#555] uppercase tracking-widest mb-2">Description</label>
+                    <textarea name="report_message" rows="4" placeholder="Décrivez le problème en détail…" class="w-full bg-[#1a1a1a] border border-[#2a2a2a] text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#444] resize-none" maxlength="2000"></textarea>
                 </div>
-                <div>
-                    <h3 class="font-bold text-[15px] text-white mb-1">Marque & Créateur</h3>
-                    <p class="text-[#666] text-sm leading-relaxed">Vision, identité, intention créative. Marques, créateurs et directeurs artistiques qui imaginent un univers et cherchent les talents pour le réaliser.</p>
-                </div>
-            </div>
 
-            <!-- Création & Design -->
-            <div class="about-card">
-                <div class="about-card-icon">
-                    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.293-6.293a1 1 0 011.414 0l1.586 1.586a1 1 0 010 1.414L12 14H9v-3z"/>
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 21h18"/>
-                    </svg>
-                </div>
-                <div>
-                    <h3 class="font-bold text-[15px] text-white mb-1">Création & Design</h3>
-                    <p class="text-[#666] text-sm leading-relaxed">Pièces, volumes, matières. Stylistes, modélistes, designers textile et accessoires — les métiers qui donnent forme concrète aux collections.</p>
-                </div>
-            </div>
-
-            <!-- Image & Production -->
-            <div class="about-card">
-                <div class="about-card-icon">
-                    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
-                        <circle cx="12" cy="13" r="3"/>
-                    </svg>
-                </div>
-                <div>
-                    <h3 class="font-bold text-[15px] text-white mb-1">Image & Production</h3>
-                    <p class="text-[#666] text-sm leading-relaxed">Shootings, campagnes, contenus éditoriaux. Photographes, vidéastes, mannequins, maquilleurs et coiffeurs qui donnent vie à la création.</p>
-                </div>
-            </div>
-
-        </div>
-
-        <!-- CTA -->
-        <div class="px-6 pb-6 flex items-center justify-between flex-wrap gap-3 border-t border-[#1a1a1a] pt-5">
-            <p class="text-[#555] text-sm">Vous êtes un professionnel de la mode ?</p>
-            <a href="inscription.php" class="inline-flex items-center gap-2 bg-[#d4a5d4] text-black text-sm font-bold px-5 py-2.5 rounded-xl hover:opacity-90 transition-opacity">
-                Rejoindre ChicBook
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-            </a>
+                <button type="submit" class="inline-flex items-center gap-2 bg-[#1a1a1a] border border-[#2a2a2a] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:border-[#444] transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                    Envoyer le signalement
+                </button>
+            </form>
         </div>
     </section>
 

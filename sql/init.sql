@@ -342,3 +342,17 @@ CREATE TABLE IF NOT EXISTS messages (
     created_at TIMESTAMP DEFAULT NOW(),
     is_read BOOLEAN DEFAULT FALSE
 );
+
+
+-- Signalements
+CREATE TABLE IF NOT EXISTS reports (
+    id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(id) ON DELETE SET NULL,
+    category VARCHAR(50) NOT NULL DEFAULT 'autre',
+    message TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Connexion persistante (remember me)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS remember_token VARCHAR(64);
