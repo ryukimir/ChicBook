@@ -99,6 +99,8 @@ Every PHP page follows the same pattern:
 
 Login is two-factor: email/password → 6-digit code sent via `mail()` → verified at `verifier_code.php`. Session keys: `$_SESSION['user_id']` (set after 2FA), `$_SESSION['user_avatar']`. During 2FA: `$_SESSION['temp_user_id']` + `$_SESSION['temp_email']`.
 
+**Remember me :** après 2FA réussi, un token 64 chars est généré (`bin2hex(random_bytes(32))`), stocké dans `users.remember_token`, et placé dans un cookie `chicbook_remember` (30 jours, HttpOnly). `header.php` vérifie ce cookie si `$_SESSION['user_id']` absent → restaure la session automatiquement. `logout.php` efface le token en DB et supprime le cookie.
+
 Registration collects `prenom` + `nom` (combined into `full_name` in DB), `birth_date` (stored in `users` table, required for all). The mensurations sub-form (height, sizes, eye/hair color) is stored in `measurements` table and only shown for: Mannequin, Comédien, Danseur. Password validation: min 8 chars, at least one letter and one digit, all special characters allowed.
 
 **Registration tags:** `inscription.php` shows clickable pill tags (expertise keywords) — user clicks to toggle, stored comma-separated in `users.expertise_tags`. Implemented via `data-selected` attribute + inline styles (not Tailwind classes, to avoid escaping issues with querySelector).
@@ -126,7 +128,9 @@ Registration collects `prenom` + `nom` (combined into `full_name` in DB), `birth
 
 "À propos" et "Déconnexion" ont été retirés de la sidebar. La déconnexion sera dans les paramètres plus tard.
 
-CSS class names that must exist in the HTML for the sidebar to work: `#sidebar`, `.sidebar-item`, `.sidebar-icon`, `.sidebar-label`, `.sidebar-logo`, `.sidebar-logo-text`, `.sidebar-divider`, `.sidebar-spacer`.
+**Logo sidebar :** une seule `<img id="sidebar-logo-img">`. JS `mouseenter`/`mouseleave` sur `#sidebar` swap le `src` entre `assets/img/navicon.png` (collapsed, 52×52px) et `assets/img/logo.png` (expanded, height 44px auto-width) avec fondu opacity via `setTimeout(180ms)`.
+
+CSS class names that must exist in the HTML for the sidebar to work: `#sidebar`, `.sidebar-item`, `.sidebar-icon`, `.sidebar-label`, `.sidebar-logo`, `.sidebar-divider`, `.sidebar-spacer`.
 
 ### Thème clair / sombre
 
@@ -170,6 +174,8 @@ Brand color: `#d4a5d4` (mauve/purple). Page background: `#000`. Card surface: `#
 - `conversations` — one row per pair of users; `user1_id = MIN(id)`, `user2_id = MAX(id)`, UNIQUE(user1_id, user2_id) prevents duplicates
 - `messages` — `conversation_id`, `sender_id`, `content TEXT`, `is_read BOOLEAN DEFAULT FALSE`
 - `reports` — signalements utilisateurs : `user_id` (nullable FK), `category VARCHAR(50)` (bug/contenu/compte/autre), `message TEXT`, `is_read BOOLEAN DEFAULT FALSE`, `created_at`
+- `suggestions` — suggestions d'amélioration : `user_id` (nullable FK), `message TEXT`, `is_read BOOLEAN DEFAULT FALSE`, `created_at`
+- `users.remember_token VARCHAR(64)` — token remember me 30 jours, généré après 2FA, effacé au logout
 
 When adding a column/table, append at the bottom of `sql/init.sql` and run the migration manually on the running container.
 
@@ -221,6 +227,7 @@ The homepage is a professional feed (not carousels). Structure:
 - Top: category pills (white = active) + **profession dropdown** (same style as the feed filter on `index.php` — button shows `Category · Profession`, chevron rotates on open, closes on outside click)
 - Profiles displayed as **grille 3 colonnes** with portrait cards `aspect-[3/4]` — hover overlay affiche les mensurations pour Mannequin/Danseur/Comédien
 - Filters on the **right**: mot-clé (**`<select>` dropdown** populated from all distinct `expertise_tags` values in DB, aggregated and sorted alphabetically), pays, ville
+- **Filtres mensurations** (visibles uniquement pour Mannequin/Danseur/Comédien) : 5 plages min–max (taille, poitrine, tour de taille, hanches, pointure) + selects yeux/cheveux/ethnicité — appliqués dans la requête SQL via `WHERE m.height >= :hmin` etc.
 - Results ordered by `RANDOM()`
 - Query joins `measurements`, `eye_colors`, `hair_colors`, `ethnicities` to show physical data on hover
 
@@ -245,6 +252,8 @@ The profile page renders one of 3 layouts based on `users.profile_theme`:
 Theme is saved via `edit_profil.php?tab=theme` → `POST update_theme` (hidden input) → `User::updateTheme()`. Allowed values: `classique`, `editorial`, `luxe`.
 
 **Bio button:** If `users.bio` is set, a "Biographie" pill button appears (all 3 themes) that opens a popup modal with the full bio text. If no bio, no button is shown (own profile shows "+ Ajouter une biographie" link in classique theme only).
+
+**Bouton partager :** pill arrondi avec icône share (3 cercles reliés) — `id="btn-share"` présent sur les 3 thèmes. `navigator.share` si dispo, sinon `clipboard.writeText`. Feedback "✓ Lien copié !" en mauve pendant 3s.
 
 **Action buttons (owner only):** Two buttons rendered by `renderActions()` next to the profile name:
 - **"Photos"** — toggles inline drag-drop edit mode (see below)
@@ -307,9 +316,11 @@ Theme is saved via `edit_profil.php?tab=theme` → `POST update_theme` (hidden i
 
 ### preferences.php — contenu
 
-Renommée "Plus" dans la sidebar (icône engrenage inchangée). Deux sections :
+Renommée "Plus" dans la sidebar (icône engrenage inchangée). Quatre sections dans cet ordre :
 - **Apparence** — toggle thème clair/sombre (iOS-style, reload page)
-- **Signaler un problème** — select catégorie (bug/contenu/compte/autre) + textarea + bouton submit → INSERT dans `reports`. Confirmation visuelle (`$report_success`) après envoi.
+- **Signaler un problème** — select catégorie (bug/contenu/compte/autre) + textarea → INSERT dans `reports`. Confirmation visuelle (`$report_success`) après envoi.
+- **Suggérer une amélioration** — textarea libre → INSERT dans `suggestions`. Confirmation visuelle (`$suggestion_success`) après envoi.
+- **Compte** — bouton "Se déconnecter" → `logout.php` (tout en bas)
 
 ### Scroll-to-top button
 
@@ -355,7 +366,7 @@ Uploaded files go to `uploads/` (gitignored). Path relative to webroot stored in
 | File | Purpose |
 |---|---|
 | `index.php` | Homepage: feed + dropdown filter + right column 3 blocs + first-visit popup |
-| `inscription.php` | Registration: prenom+nom, birth_date, clickable tag pills, conditional mensurations |
+| `inscription.php` | Registration: prenom+nom, birth_date (max = il y a 16 ans, bloqué JS), clickable tag pills, conditional mensurations |
 | `connexion.php` | Login step 1 (email + password) |
 | `verifier_code.php` | Login step 2 (2FA code entry) |
 | `profil.php` | Public talent profile — 3 themes, bio popup, inline photo drag-drop edit |
@@ -368,7 +379,7 @@ Uploaded files go to `uploads/` (gitignored). Path relative to webroot stored in
 | `messagerie.php` | Messagerie temps réel — bulles avatars en haut (barre horizontale), chat en dessous, polling AJAX 2.5s, `?with=USER_ID` ouvre/crée une conv |
 | `evenements.php` | Events: tabs, card grid, right filters, AJAX registration toggle, modal — login required |
 | `creer_evenement.php` | Create event: title, type, organizer, city/country, date, price, capacity, description, tags, image |
-| `preferences.php` | Préférences : toggle thème clair/sombre + formulaire "Signaler un problème" (INSERT dans `reports`) |
+| `preferences.php` | Plus : toggle thème + signaler un problème (`reports`) + suggérer une amélioration (`suggestions`) + déconnexion |
 | `apropos.php` | Page À propos **standalone** (sans sidebar, sans `header.php`) — ouverte en `target="_blank"`. Hero animé, marquee métiers, stats compteurs, 3 sections piliers avec scroll-reveal, bouton "Revenir sur ChicBook" en bas |
 | `logout.php` | Destroys session, redirects to index |
 | `admin/` | Back office: dashboard, users, castings, portfolios, events — requires `is_admin` |
