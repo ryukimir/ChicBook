@@ -65,7 +65,7 @@ $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM eve
       // Dernière photo ajoutée par chaque utilisateur, triée par date décroissante
       $feed_stmt = $db->query("
           SELECT DISTINCT ON (po.user_id)
-              po.id AS photo_id, po.image_url, po.created_at, po.description AS photo_description, po.tags AS photo_tags,
+              po.id AS photo_id, po.image_url, po.created_at,
               u.id AS user_id, u.full_name, u.specific_profession,
               u.city, u.expertise_tags, u.profile_picture_url,
               (SELECT image_url FROM portfolios WHERE user_id=u.id ORDER BY position ASC, created_at DESC LIMIT 1) AS fallback_avatar
