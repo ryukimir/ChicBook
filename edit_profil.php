@@ -27,7 +27,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $birth_date = !empty($_POST['birth_date']) ? $_POST['birth_date'] : null;
         if ($userModel->updateGeneralInfo($_SESSION['user_id'], $_POST['full_name'], $_POST['city'], $_POST['country'], $show_age, $gender, $birth_date)) {
             $message = "Informations générales mises à jour !";
-        } else { $error = "Erreur lors de la mise à jour."; }
+        } else {
+            $error = "Erreur lors de la mise à jour.";
+        }
     }
     if (isset($_POST['update_measurements'])) {
         $mdata = [
@@ -37,12 +39,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             'hip_size'     => trim($_POST['hip_size'] ?? ''),
             'shoe_size'    => trim($_POST['shoe_size'] ?? ''),
             'eye_color_id' => intval($_POST['eye_color_id'] ?? 0) ?: null,
-            'hair_color_id'=> intval($_POST['hair_color_id'] ?? 0) ?: null,
+            'hair_color_id' => intval($_POST['hair_color_id'] ?? 0) ?: null,
             'ethnicity_id' => intval($_POST['ethnicity_id'] ?? 0) ?: null,
         ];
         if ($userModel->upsertMeasurements($_SESSION['user_id'], $mdata)) {
             $message = "Mensurations mises à jour !";
-        } else { $error = "Erreur lors de la mise à jour des mensurations."; }
+        } else {
+            $error = "Erreur lors de la mise à jour des mensurations.";
+        }
     }
     if (isset($_FILES['profile_pic']) && $_FILES['profile_pic']['error'] == 0) {
         $target_dir = "uploads/";
@@ -52,22 +56,30 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $userModel->updateProfilePicture($_SESSION['user_id'], $target_file);
             $_SESSION['user_avatar'] = $target_file;
             $message = "Photo de profil mise à jour !";
-        } else { $error = "Erreur lors du téléchargement de l'avatar."; }
+        } else {
+            $error = "Erreur lors du téléchargement de l'avatar.";
+        }
     }
     if (isset($_POST['update_expertise'])) {
         $profession = $_POST['profession'] ?? '';
         $tags_string = trim($_POST['tags_string'] ?? '');
         if ($userModel->updateExpertise($_SESSION['user_id'], $profession, $tags_string)) {
             $message = "Expertise et mots-clés mis à jour !";
-        } else { $error = "Erreur lors de la mise à jour de l'expertise."; }
+        } else {
+            $error = "Erreur lors de la mise à jour de l'expertise.";
+        }
         $user = $userModel->getUserProfile($_SESSION['user_id']);
     }
     if (isset($_POST['update_password']) && !empty($_POST['current_password'])) {
         if ($_POST['new_password'] === $_POST['confirm_password']) {
             if ($userModel->updatePassword($_SESSION['user_id'], $_POST['current_password'], $_POST['new_password'])) {
                 $message = "Mot de passe modifié avec succès !";
-            } else { $error = "L'ancien mot de passe est incorrect."; }
-        } else { $error = "Les nouveaux mots de passe ne correspondent pas."; }
+            } else {
+                $error = "L'ancien mot de passe est incorrect.";
+            }
+        } else {
+            $error = "Les nouveaux mots de passe ne correspondent pas.";
+        }
     }
     if (isset($_POST['update_theme'])) {
         $userModel->updateTheme($_SESSION['user_id'], $_POST['theme'] ?? 'classique');
@@ -95,35 +107,123 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         if (move_uploaded_file($_FILES["portfolio_image"]["tmp_name"], $target_file)) {
             $portfolioModel->addPhoto($_SESSION['user_id'], $target_file);
             $message = "Photo ajoutée au book avec succès !";
-        } else { $error = "Erreur lors du téléchargement de l'image."; }
+        } else {
+            $error = "Erreur lors du téléchargement de l'image.";
+        }
     }
 }
 
 $user         = $userModel->getUserProfile($_SESSION['user_id']);
 $measurements = $userModel->getMeasurements($_SESSION['user_id']);
+
+
+$professions_with_measurements = ['Mannequin', 'Danseur', 'Comédien'];
+$query_user_professions = "SELECT p.name FROM user_professions up
+                           JOIN professions p ON up.profession_id = p.id
+                           WHERE up.user_id = :user_id";
+$stmt_prof = $db->prepare($query_user_professions);
+$stmt_prof->bindParam(":user_id", $_SESSION['user_id']);
+$stmt_prof->execute();
+$user_professions = $stmt_prof->fetchAll(PDO::FETCH_COLUMN);
+
+$show_measurements = false;
+foreach ($user_professions as $prof) {
+    if (in_array($prof, $professions_with_measurements)) {
+        $show_measurements = true;
+        break;
+    }
+}
 ?>
 <!doctype html>
-<html lang="fr" <?php if((($_COOKIE['chicbook_theme']??'dark')==='light'))echo' class="light"';?>>
+<html lang="fr" <?php if ((($_COOKIE['chicbook_theme'] ?? 'dark') === 'light')) echo ' class="light"'; ?>>
+
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Paramètres du Profil - ChicBook</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>tailwind.config = { theme: { extend: { colors: { brand: '#d4a5d4' } } } }</script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: '#d4a5d4'
+                    }
+                }
+            }
+        }
+    </script>
     <link rel="stylesheet" href="assets/css/custom.css" />
     <style>
-      html, body { height: 100%; overflow: hidden; margin: 0; padding: 0 !important; }
-      #sidebar { display: none !important; }
-      .input-field { width:100%; padding:12px; border-radius:6px; border:1px solid #444; background:#111; color:white; font-family:inherit; font-size:14px; }
-      .input-field:disabled { background:#222; color:#666; cursor:not-allowed; }
-      textarea.input-field { height:120px; resize:vertical; }
-      .tab-panel { display: none; }
-      .tab-panel.active { display: block; }
-      .nav-item { display:block; width:100%; text-align:left; padding:10px 14px; border-radius:8px; font-size:14px; color:#aaa; background:none; border:none; cursor:pointer; transition:background .15s, color .15s; }
-      .nav-item:hover { background:#333; color:#fff; }
-      .nav-item.active { background:#2a2a2a; color:#fff; font-weight:600; }
+        html,
+        body {
+            height: 100%;
+            overflow: hidden;
+            margin: 0;
+            padding: 0 !important;
+        }
+
+        #sidebar {
+            display: none !important;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #444;
+            background: #111;
+            color: white;
+            font-family: inherit;
+            font-size: 14px;
+        }
+
+        .input-field:disabled {
+            background: #222;
+            color: #666;
+            cursor: not-allowed;
+        }
+
+        textarea.input-field {
+            height: 120px;
+            resize: vertical;
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        .nav-item {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #aaa;
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: background .15s, color .15s;
+        }
+
+        .nav-item:hover {
+            background: #333;
+            color: #fff;
+        }
+
+        .nav-item.active {
+            background: #2a2a2a;
+            color: #fff;
+            font-weight: 600;
+        }
     </style>
 </head>
+
 <body class="bg-[#1a1a1a] text-white" style="font-family:'Open Sans',sans-serif;">
     <div class="flex h-screen">
 
@@ -136,10 +236,14 @@ $measurements = $userModel->getMeasurements($_SESSION['user_id']);
                 'infos'        => 'Informations générales',
                 'expertise'    => 'Expertise & Tags',
                 'bio'          => 'Biographie',
-                'mensurations' => 'Mensurations',
-                'theme'        => 'Thème du profil',
-                'securite'     => 'Sécurité',
             ];
+            // Ajouter l'onglet mensurations seulement si la profession le justifie
+            if ($show_measurements) {
+                $tabs['mensurations'] = 'Mensurations';
+            }
+            $tabs['theme']   = 'Thème du profil';
+            $tabs['securite'] = 'Sécurité';
+
             $active_tab = $_GET['tab'] ?? (array_key_first($tabs));
             if (!isset($tabs[$active_tab])) $active_tab = array_key_first($tabs);
             ?>
@@ -147,7 +251,7 @@ $measurements = $userModel->getMeasurements($_SESSION['user_id']);
             <nav class="flex flex-col gap-1 flex-grow">
                 <?php foreach ($tabs as $key => $label): ?>
                     <button onclick="switchTab('<?= $key ?>')" id="nav-<?= $key ?>"
-                            class="nav-item <?= $key === $active_tab ? 'active' : '' ?>">
+                        class="nav-item <?= $key === $active_tab ? 'active' : '' ?>">
                         <?= $label ?>
                     </button>
                 <?php endforeach; ?>
@@ -211,7 +315,7 @@ $measurements = $userModel->getMeasurements($_SESSION['user_id']);
                                     <label class="cursor-pointer">
                                         <input type="radio" name="gender" value="<?= $g ?>" class="sr-only gender-radio" <?= $cur_gender === $g ? 'checked' : '' ?>>
                                         <span class="gender-pill inline-block px-4 py-2 rounded-full text-sm font-semibold border transition-all"
-                                              style="<?= $cur_gender === $g ? 'background:#d4a5d4;color:#000;border-color:#d4a5d4;' : 'background:transparent;color:#888;border-color:#333;' ?>">
+                                            style="<?= $cur_gender === $g ? 'background:#d4a5d4;color:#000;border-color:#d4a5d4;' : 'background:transparent;color:#888;border-color:#333;' ?>">
                                             <?= $g ?>
                                         </span>
                                     </label>
@@ -233,14 +337,14 @@ $measurements = $userModel->getMeasurements($_SESSION['user_id']);
                         <label class="flex items-center gap-3 cursor-pointer select-none group">
                             <input type="hidden" name="show_age" value="0">
                             <input type="checkbox" name="show_age" value="1" id="show-age-checkbox"
-                                   <?= !empty($user['show_age']) ? 'checked' : '' ?>
-                                   class="sr-only">
+                                <?= !empty($user['show_age']) ? 'checked' : '' ?>
+                                class="sr-only">
                             <div id="show-age-track"
-                                 class="w-10 h-5 rounded-full transition-colors duration-200 flex items-center px-0.5 flex-shrink-0"
-                                 style="background:<?= !empty($user['show_age']) ? '#d4a5d4' : '#333' ?>;">
+                                class="w-10 h-5 rounded-full transition-colors duration-200 flex items-center px-0.5 flex-shrink-0"
+                                style="background:<?= !empty($user['show_age']) ? '#d4a5d4' : '#333' ?>;">
                                 <div id="show-age-thumb"
-                                     class="w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
-                                     style="transform:<?= !empty($user['show_age']) ? 'translateX(20px)' : 'translateX(0)' ?>;"></div>
+                                    class="w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
+                                    style="transform:<?= !empty($user['show_age']) ? 'translateX(20px)' : 'translateX(0)' ?>;"></div>
                             </div>
                             <span class="text-sm text-[#aaa] group-hover:text-white transition-colors">Afficher mon âge sur le profil public</span>
                         </label>
@@ -269,14 +373,14 @@ $measurements = $userModel->getMeasurements($_SESSION['user_id']);
                             <label class="block text-[#888] text-xs font-bold uppercase tracking-widest mb-3">Tags</label>
                             <?php
                             $saved_tags_arr = array_map('trim', explode(',', $user['expertise_tags'] ?? ''));
-                            $all_edit_tags = ['Brodeur','Haute couture','Luxe','Editorial','Créatif','Premium','Fashion week','Minimaliste','Streetwear','Avant-garde','Moderne','International','Haut de gamme','Commercial','Artistique','Perlage','Ornementation','Textile','Broderie','Couture','Coiffeur','Défilé','Beauté','Hair stylist','Mode','Comédien','Acteur','Campagne','Publicité','Fashion','Film','Danseur','Contemporain','Performance','Mouvement','Designer','Sacs','Bijoux','Chaussures','Maroquinerie','Accessoires','Imprimés','Maille','Surface','Mannequin','Maquilleur','Modéliste','Patronage','Atelier','Photographe','Studio','Styliste','Créateur','Photo','Célébrité','Plateau','Vidéaste','Backstage','Réalisateur','Contenu'];
+                            $all_edit_tags = ['Brodeur', 'Haute couture', 'Luxe', 'Editorial', 'Créatif', 'Premium', 'Fashion week', 'Minimaliste', 'Streetwear', 'Avant-garde', 'Moderne', 'International', 'Haut de gamme', 'Commercial', 'Artistique', 'Perlage', 'Ornementation', 'Textile', 'Broderie', 'Couture', 'Coiffeur', 'Défilé', 'Beauté', 'Hair stylist', 'Mode', 'Comédien', 'Acteur', 'Campagne', 'Publicité', 'Fashion', 'Film', 'Danseur', 'Contemporain', 'Performance', 'Mouvement', 'Designer', 'Sacs', 'Bijoux', 'Chaussures', 'Maroquinerie', 'Accessoires', 'Imprimés', 'Maille', 'Surface', 'Mannequin', 'Maquilleur', 'Modéliste', 'Patronage', 'Atelier', 'Photographe', 'Studio', 'Styliste', 'Créateur', 'Photo', 'Célébrité', 'Plateau', 'Vidéaste', 'Backstage', 'Réalisateur', 'Contenu'];
                             ?>
                             <div class="flex flex-wrap gap-2">
                                 <?php foreach ($all_edit_tags as $t):
                                     $sel = in_array($t, $saved_tags_arr); ?>
                                     <button type="button" onclick="toggleEditTag(this)" data-tag="<?= htmlspecialchars($t) ?>" data-selected="<?= $sel ? '1' : '0' ?>"
-                                            class="tag-pill px-3 py-1.5 rounded-full text-xs font-semibold border cursor-pointer"
-                                            style="<?= $sel ? 'background:#d4a5d4;color:#000;border-color:#d4a5d4;' : 'background:transparent;color:#888;border-color:#333;' ?>">
+                                        class="tag-pill px-3 py-1.5 rounded-full text-xs font-semibold border cursor-pointer"
+                                        style="<?= $sel ? 'background:#d4a5d4;color:#000;border-color:#d4a5d4;' : 'background:transparent;color:#888;border-color:#333;' ?>">
                                         <?= htmlspecialchars($t) ?>
                                     </button>
                                 <?php endforeach; ?>
@@ -299,64 +403,66 @@ $measurements = $userModel->getMeasurements($_SESSION['user_id']);
                 </div>
 
                 <!-- ── Mensurations ── -->
-                <div id="tab-mensurations" class="tab-panel <?= $active_tab === 'mensurations' ? 'active' : '' ?>">
-                    <h2 class="text-xl font-semibold mb-2">Mensurations</h2>
-                    <p class="text-[#555] text-sm mb-6">Ces informations sont utilisées pour les castings nécessitant des critères physiques.</p>
-                    <form id="form-mensurations" action="edit_profil.php?tab=mensurations" method="POST" class="flex flex-col gap-5">
-                        <input type="hidden" name="update_measurements" value="1">
+                <?php if ($show_measurements): ?>
+                    <div id="tab-mensurations" class="tab-panel <?= $active_tab === 'mensurations' ? 'active' : '' ?>">
+                        <h2 class="text-xl font-semibold mb-2">Mensurations</h2>
+                        <p class="text-[#555] text-sm mb-6">Ces informations sont utilisées pour les castings nécessitant des critères physiques.</p>
+                        <form id="form-mensurations" action="edit_profil.php?tab=mensurations" method="POST" class="flex flex-col gap-5">
+                            <input type="hidden" name="update_measurements" value="1">
 
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-[#888] text-xs font-bold uppercase tracking-widest mb-2">Taille (cm)</label>
-                                <input type="number" name="height" min="100" max="250" value="<?= htmlspecialchars($measurements['height'] ?? '') ?>" placeholder="ex: 175" class="input-field">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[#888] text-xs font-bold uppercase tracking-widest mb-2">Taille (cm)</label>
+                                    <input type="number" name="height" min="100" max="250" value="<?= htmlspecialchars($measurements['height'] ?? '') ?>" placeholder="ex: 175" class="input-field">
+                                </div>
+                                <div>
+                                    <label class="block text-[#888] text-xs font-bold uppercase tracking-widest mb-2">Pointure</label>
+                                    <input type="number" name="shoe_size" min="28" max="60" value="<?= htmlspecialchars($measurements['shoe_size'] ?? '') ?>" placeholder="ex: 40" class="input-field">
+                                </div>
+                                <div>
+                                    <label class="block text-[#888] text-xs font-bold uppercase tracking-widest mb-2">Tour de poitrine (cm)</label>
+                                    <input type="number" name="chest_size" min="50" max="150" value="<?= htmlspecialchars($measurements['chest_size'] ?? '') ?>" placeholder="ex: 88" class="input-field">
+                                </div>
+                                <div>
+                                    <label class="block text-[#888] text-xs font-bold uppercase tracking-widest mb-2">Tour de taille (cm)</label>
+                                    <input type="number" name="waist_size" min="40" max="150" value="<?= htmlspecialchars($measurements['waist_size'] ?? '') ?>" placeholder="ex: 65" class="input-field">
+                                </div>
+                                <div>
+                                    <label class="block text-[#888] text-xs font-bold uppercase tracking-widest mb-2">Tour de hanches (cm)</label>
+                                    <input type="number" name="hip_size" min="50" max="180" value="<?= htmlspecialchars($measurements['hip_size'] ?? '') ?>" placeholder="ex: 92" class="input-field">
+                                </div>
                             </div>
-                            <div>
-                                <label class="block text-[#888] text-xs font-bold uppercase tracking-widest mb-2">Pointure</label>
-                                <input type="number" name="shoe_size" min="28" max="60" value="<?= htmlspecialchars($measurements['shoe_size'] ?? '') ?>" placeholder="ex: 40" class="input-field">
-                            </div>
-                            <div>
-                                <label class="block text-[#888] text-xs font-bold uppercase tracking-widest mb-2">Tour de poitrine (cm)</label>
-                                <input type="number" name="chest_size" min="50" max="150" value="<?= htmlspecialchars($measurements['chest_size'] ?? '') ?>" placeholder="ex: 88" class="input-field">
-                            </div>
-                            <div>
-                                <label class="block text-[#888] text-xs font-bold uppercase tracking-widest mb-2">Tour de taille (cm)</label>
-                                <input type="number" name="waist_size" min="40" max="150" value="<?= htmlspecialchars($measurements['waist_size'] ?? '') ?>" placeholder="ex: 65" class="input-field">
-                            </div>
-                            <div>
-                                <label class="block text-[#888] text-xs font-bold uppercase tracking-widest mb-2">Tour de hanches (cm)</label>
-                                <input type="number" name="hip_size" min="50" max="180" value="<?= htmlspecialchars($measurements['hip_size'] ?? '') ?>" placeholder="ex: 92" class="input-field">
-                            </div>
-                        </div>
 
-                        <div>
-                            <label class="block text-[#888] text-xs font-bold uppercase tracking-widest mb-2">Couleur des yeux</label>
-                            <select name="eye_color_id" class="input-field">
-                                <option value="">— Non renseigné —</option>
-                                <?php foreach ($eye_colors as $ec): ?>
-                                    <option value="<?= $ec['id'] ?>" <?= ($measurements['eye_color_id'] ?? null) == $ec['id'] ? 'selected' : '' ?>><?= htmlspecialchars($ec['name']) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-[#888] text-xs font-bold uppercase tracking-widest mb-2">Couleur des cheveux</label>
-                            <select name="hair_color_id" class="input-field">
-                                <option value="">— Non renseigné —</option>
-                                <?php foreach ($hair_colors as $hc): ?>
-                                    <option value="<?= $hc['id'] ?>" <?= ($measurements['hair_color_id'] ?? null) == $hc['id'] ? 'selected' : '' ?>><?= htmlspecialchars($hc['name']) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-[#888] text-xs font-bold uppercase tracking-widest mb-2">Ethnicité</label>
-                            <select name="ethnicity_id" class="input-field">
-                                <option value="">— Non renseigné —</option>
-                                <?php foreach ($ethnicities as $eth): ?>
-                                    <option value="<?= $eth['id'] ?>" <?= ($measurements['ethnicity_id'] ?? null) == $eth['id'] ? 'selected' : '' ?>><?= htmlspecialchars($eth['name']) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                    </form>
-                </div>
+                            <div>
+                                <label class="block text-[#888] text-xs font-bold uppercase tracking-widest mb-2">Couleur des yeux</label>
+                                <select name="eye_color_id" class="input-field">
+                                    <option value="">— Non renseigné —</option>
+                                    <?php foreach ($eye_colors as $ec): ?>
+                                        <option value="<?= $ec['id'] ?>" <?= ($measurements['eye_color_id'] ?? null) == $ec['id'] ? 'selected' : '' ?>><?= htmlspecialchars($ec['name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[#888] text-xs font-bold uppercase tracking-widest mb-2">Couleur des cheveux</label>
+                                <select name="hair_color_id" class="input-field">
+                                    <option value="">— Non renseigné —</option>
+                                    <?php foreach ($hair_colors as $hc): ?>
+                                        <option value="<?= $hc['id'] ?>" <?= ($measurements['hair_color_id'] ?? null) == $hc['id'] ? 'selected' : '' ?>><?= htmlspecialchars($hc['name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[#888] text-xs font-bold uppercase tracking-widest mb-2">Ethnicité</label>
+                                <select name="ethnicity_id" class="input-field">
+                                    <option value="">— Non renseigné —</option>
+                                    <?php foreach ($ethnicities as $eth): ?>
+                                        <option value="<?= $eth['id'] ?>" <?= ($measurements['ethnicity_id'] ?? null) == $eth['id'] ? 'selected' : '' ?>><?= htmlspecialchars($eth['name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </form>
+                    </div>
+                <?php endif; ?>
 
                 <!-- ── Thème du profil ── -->
                 <div id="tab-theme" class="tab-panel <?= $active_tab === 'theme' ? 'active' : '' ?>">
@@ -374,23 +480,41 @@ $measurements = $userModel->getMeasurements($_SESSION['user_id']);
                                             <div class="h-2 bg-[#333] rounded w-3/4"></div>
                                             <div class="h-1.5 bg-[#222] rounded w-1/2"></div>
                                             <div class="h-1.5 bg-[#222] rounded w-2/3"></div>
-                                            <div class="mt-2 flex flex-wrap gap-1"><div class="h-1.5 bg-[#2a2a2a] rounded-full w-6"></div><div class="h-1.5 bg-[#2a2a2a] rounded-full w-4"></div></div>
+                                            <div class="mt-2 flex flex-wrap gap-1">
+                                                <div class="h-1.5 bg-[#2a2a2a] rounded-full w-6"></div>
+                                                <div class="h-1.5 bg-[#2a2a2a] rounded-full w-4"></div>
+                                            </div>
                                         </div>
                                         <div class="flex-grow grid grid-cols-3 gap-1 content-start">
-                                            <?php foreach ([28,20,32,24,18,30] as $h): ?><div class="bg-[#1e1e1e] rounded" style="height:<?= $h ?>px"></div><?php endforeach; ?>
+                                            <?php foreach ([28, 20, 32, 24, 18, 30] as $h): ?><div class="bg-[#1e1e1e] rounded" style="height:<?= $h ?>px"></div><?php endforeach; ?>
                                         </div>
                                     </div>
-                                    <div class="bg-[#111] px-3 py-2 border-t border-[#1e1e1e]"><p class="text-white text-xs font-bold">Classique</p><p class="text-[#555] text-[10px]">Sidebar + masonry</p></div>
+                                    <div class="bg-[#111] px-3 py-2 border-t border-[#1e1e1e]">
+                                        <p class="text-white text-xs font-bold">Classique</p>
+                                        <p class="text-[#555] text-[10px]">Sidebar + masonry</p>
+                                    </div>
                                 </div>
                             </label>
                             <label class="cursor-pointer">
                                 <input type="radio" name="theme" value="editorial" class="sr-only" <?= $cur_theme === 'editorial' ? 'checked' : '' ?>>
                                 <div class="theme-card rounded-xl overflow-hidden border-2 transition-all <?= $cur_theme === 'editorial' ? 'border-[#d4a5d4]' : 'border-[#333] hover:border-[#555]' ?>">
                                     <div class="bg-[#0a0a0a] p-3 h-[110px] flex flex-col gap-2">
-                                        <div class="bg-[#1e1e1e] rounded-lg h-14 flex items-end p-2"><div class="flex flex-col gap-1"><div class="h-2.5 bg-white rounded w-20"></div><div class="h-1.5 bg-[#555] rounded w-12"></div></div></div>
-                                        <div class="grid grid-cols-3 gap-1"><div class="bg-[#1e1e1e] rounded h-7"></div><div class="bg-[#1e1e1e] rounded h-7"></div><div class="bg-[#1e1e1e] rounded h-7"></div></div>
+                                        <div class="bg-[#1e1e1e] rounded-lg h-14 flex items-end p-2">
+                                            <div class="flex flex-col gap-1">
+                                                <div class="h-2.5 bg-white rounded w-20"></div>
+                                                <div class="h-1.5 bg-[#555] rounded w-12"></div>
+                                            </div>
+                                        </div>
+                                        <div class="grid grid-cols-3 gap-1">
+                                            <div class="bg-[#1e1e1e] rounded h-7"></div>
+                                            <div class="bg-[#1e1e1e] rounded h-7"></div>
+                                            <div class="bg-[#1e1e1e] rounded h-7"></div>
+                                        </div>
                                     </div>
-                                    <div class="bg-[#111] px-3 py-2 border-t border-[#1e1e1e]"><p class="text-white text-xs font-bold">Éditorial</p><p class="text-[#555] text-[10px]">Hero + grille</p></div>
+                                    <div class="bg-[#111] px-3 py-2 border-t border-[#1e1e1e]">
+                                        <p class="text-white text-xs font-bold">Éditorial</p>
+                                        <p class="text-[#555] text-[10px]">Hero + grille</p>
+                                    </div>
                                 </div>
                             </label>
                             <label class="cursor-pointer">
@@ -399,20 +523,30 @@ $measurements = $userModel->getMeasurements($_SESSION['user_id']);
                                     <div class="bg-[#050505] p-3 h-[110px] flex flex-col items-center gap-2 pt-4">
                                         <div class="h-3 bg-white rounded w-24"></div>
                                         <div class="h-px bg-[#333] w-full"></div>
-                                        <div class="grid grid-cols-2 gap-1 w-full"><div class="bg-[#1a1a1a] rounded h-9"></div><div class="bg-[#1a1a1a] rounded h-9"></div><div class="bg-[#1a1a1a] rounded h-9"></div><div class="bg-[#1a1a1a] rounded h-9"></div></div>
+                                        <div class="grid grid-cols-2 gap-1 w-full">
+                                            <div class="bg-[#1a1a1a] rounded h-9"></div>
+                                            <div class="bg-[#1a1a1a] rounded h-9"></div>
+                                            <div class="bg-[#1a1a1a] rounded h-9"></div>
+                                            <div class="bg-[#1a1a1a] rounded h-9"></div>
+                                        </div>
                                     </div>
-                                    <div class="bg-[#111] px-3 py-2 border-t border-[#1e1e1e]"><p class="text-white text-xs font-bold">Luxe</p><p class="text-[#555] text-[10px]">Centré + 2 colonnes</p></div>
+                                    <div class="bg-[#111] px-3 py-2 border-t border-[#1e1e1e]">
+                                        <p class="text-white text-xs font-bold">Luxe</p>
+                                        <p class="text-[#555] text-[10px]">Centré + 2 colonnes</p>
+                                    </div>
                                 </div>
                             </label>
                         </div>
                     </form>
                     <script>
-                    document.querySelectorAll('input[name="theme"]').forEach(r => {
-                        r.addEventListener('change', () => {
-                            document.querySelectorAll('.theme-card').forEach(c => { c.style.borderColor='#333'; });
-                            r.nextElementSibling.style.borderColor='#d4a5d4';
+                        document.querySelectorAll('input[name="theme"]').forEach(r => {
+                            r.addEventListener('change', () => {
+                                document.querySelectorAll('.theme-card').forEach(c => {
+                                    c.style.borderColor = '#333';
+                                });
+                                r.nextElementSibling.style.borderColor = '#d4a5d4';
+                            });
                         });
-                    });
                     </script>
                 </div>
 
@@ -442,134 +576,137 @@ $measurements = $userModel->getMeasurements($_SESSION['user_id']);
 
     <!-- Barre sticky globale -->
     <div id="global-bar"
-         style="position:fixed; bottom:0; right:0; z-index:100; padding:14px 28px;
+        style="position:fixed; bottom:0; right:0; z-index:100; padding:14px 28px;
                 display:flex; align-items:center; gap:12px;">
         <button id="global-cancel"
-                style="padding:10px 20px; border-radius:999px; font-size:13px; font-weight:600;
+            style="padding:10px 20px; border-radius:999px; font-size:13px; font-weight:600;
                        border:1px solid #333; color:#aaa; background:transparent; cursor:pointer; transition:all .15s;"
-                onmouseover="this.style.borderColor='#555';this.style.color='#fff'"
-                onmouseout="this.style.borderColor='#333';this.style.color='#aaa'">
+            onmouseover="this.style.borderColor='#555';this.style.color='#fff'"
+            onmouseout="this.style.borderColor='#333';this.style.color='#aaa'">
             Annuler
         </button>
         <button id="global-submit"
-                style="padding:10px 22px; border-radius:999px; font-size:13px; font-weight:700;
+            style="padding:10px 22px; border-radius:999px; font-size:13px; font-weight:700;
                        background:#d4a5d4; color:#000; border:none; cursor:pointer; transition:opacity .15s;"
-                onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+            onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
             Valider
         </button>
     </div>
 
     <script src="assets/js/script.js"></script>
     <script>
-    function switchTab(key) {
-        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-        document.getElementById('tab-' + key).classList.add('active');
-        document.getElementById('nav-' + key).classList.add('active');
-    }
-
-    function toggleEditTag(btn) {
-        const sel = btn.dataset.selected === '1';
-        if (sel) {
-            btn.dataset.selected = '0';
-            btn.style.background = 'transparent';
-            btn.style.color = '#888';
-            btn.style.borderColor = '#333';
-        } else {
-            btn.dataset.selected = '1';
-            btn.style.background = '#d4a5d4';
-            btn.style.color = '#000';
-            btn.style.borderColor = '#d4a5d4';
+        function switchTab(key) {
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById('tab-' + key).classList.add('active');
+            document.getElementById('nav-' + key).classList.add('active');
         }
-        const selected = [...document.querySelectorAll('.tag-pill[data-selected="1"]')].map(b => b.dataset.tag);
-        document.getElementById('edit-tags-input').value = selected.join(',');
-    }
 
-    // ── Barre sticky globale ─────────────────────────────────────
-    (function() {
-        const btnSubmit = document.getElementById('global-submit');
-        const btnCancel = document.getElementById('global-cancel');
+        function toggleEditTag(btn) {
+            const sel = btn.dataset.selected === '1';
+            if (sel) {
+                btn.dataset.selected = '0';
+                btn.style.background = 'transparent';
+                btn.style.color = '#888';
+                btn.style.borderColor = '#333';
+            } else {
+                btn.dataset.selected = '1';
+                btn.style.background = '#d4a5d4';
+                btn.style.color = '#000';
+                btn.style.borderColor = '#d4a5d4';
+            }
+            const selected = [...document.querySelectorAll('.tag-pill[data-selected="1"]')].map(b => b.dataset.tag);
+            document.getElementById('edit-tags-input').value = selected.join(',');
+        }
 
-        btnSubmit.addEventListener('click', () => {
-            const activePanel = document.querySelector('.tab-panel.active');
-            if (!activePanel) return;
-            const form = activePanel.querySelector('form');
-            if (form) form.submit();
-        });
+        // ── Barre sticky globale ─────────────────────────────────────
+        (function() {
+            const btnSubmit = document.getElementById('global-submit');
+            const btnCancel = document.getElementById('global-cancel');
 
-        btnCancel.addEventListener('click', () => {
-            const activePanel = document.querySelector('.tab-panel.active');
-            if (!activePanel) return;
-            const form = activePanel.querySelector('form');
-            if (form) form.reset();
-            // Restaurer la prévisualisation avatar si annulée
+            btnSubmit.addEventListener('click', () => {
+                const activePanel = document.querySelector('.tab-panel.active');
+                if (!activePanel) return;
+                const form = activePanel.querySelector('form');
+                if (form) form.submit();
+            });
+
+            btnCancel.addEventListener('click', () => {
+                const activePanel = document.querySelector('.tab-panel.active');
+                if (!activePanel) return;
+                const form = activePanel.querySelector('form');
+                if (form) form.reset();
+                // Restaurer la prévisualisation avatar si annulée
+                const fileInput = document.getElementById('avatar-file-input');
+                if (fileInput) {
+                    <?php if (!empty($user['profile_picture_url'])): ?>
+                        const img = document.getElementById('avatar-preview-img');
+                        if (img) img.src = '<?= htmlspecialchars($user['profile_picture_url']) ?>';
+                    <?php endif; ?>
+                }
+            });
+
+            // Prévisualisation avatar immédiate à la sélection
             const fileInput = document.getElementById('avatar-file-input');
             if (fileInput) {
-                <?php if (!empty($user['profile_picture_url'])): ?>
-                const img = document.getElementById('avatar-preview-img');
-                if (img) img.src = '<?= htmlspecialchars($user['profile_picture_url']) ?>';
-                <?php endif; ?>
+                fileInput.addEventListener('change', () => {
+                    if (!fileInput.files.length) return;
+                    const reader = new FileReader();
+                    reader.onload = e => {
+                        let img = document.getElementById('avatar-preview-img');
+                        const placeholder = document.getElementById('avatar-preview-placeholder');
+                        if (!img) {
+                            img = document.createElement('img');
+                            img.id = 'avatar-preview-img';
+                            img.className = 'w-full h-full object-cover';
+                            if (placeholder) placeholder.replaceWith(img);
+                            else document.getElementById('avatar-preview-wrap').appendChild(img);
+                        }
+                        img.src = e.target.result;
+                    };
+                    reader.readAsDataURL(fileInput.files[0]);
+                });
             }
+        })();
+
+        // Pills genre
+        document.querySelectorAll('.gender-radio').forEach(r => {
+            r.addEventListener('change', () => {
+                document.querySelectorAll('.gender-pill').forEach(p => {
+                    p.style.background = 'transparent';
+                    p.style.color = '#888';
+                    p.style.borderColor = '#333';
+                });
+                r.nextElementSibling.style.background = '#d4a5d4';
+                r.nextElementSibling.style.color = '#000';
+                r.nextElementSibling.style.borderColor = '#d4a5d4';
+            });
         });
 
-        // Prévisualisation avatar immédiate à la sélection
-        const fileInput = document.getElementById('avatar-file-input');
-        if (fileInput) {
-            fileInput.addEventListener('change', () => {
-                if (!fileInput.files.length) return;
-                const reader = new FileReader();
-                reader.onload = e => {
-                    let img = document.getElementById('avatar-preview-img');
-                    const placeholder = document.getElementById('avatar-preview-placeholder');
-                    if (!img) {
-                        img = document.createElement('img');
-                        img.id = 'avatar-preview-img';
-                        img.className = 'w-full h-full object-cover';
-                        if (placeholder) placeholder.replaceWith(img);
-                        else document.getElementById('avatar-preview-wrap').appendChild(img);
-                    }
-                    img.src = e.target.result;
-                };
-                reader.readAsDataURL(fileInput.files[0]);
+        // Toggle switch âge
+        (function() {
+            const cb = document.getElementById('show-age-checkbox');
+            const track = document.getElementById('show-age-track');
+            const thumb = document.getElementById('show-age-thumb');
+            if (!cb) return;
+            cb.addEventListener('change', () => {
+                track.style.background = cb.checked ? '#d4a5d4' : '#333';
+                thumb.style.transform = cb.checked ? 'translateX(20px)' : 'translateX(0)';
             });
+        })();
+
+        if (window.self !== window.top) {
+            document.querySelectorAll('a[href="profil.php"]').forEach(a => {
+                a.addEventListener('click', e => {
+                    e.preventDefault();
+                    window.parent.closeEditModal();
+                });
+            });
+            <?php if ($message): ?>
+                window.parent.closeEditModal();
+            <?php endif; ?>
         }
-    })();
-
-    // Pills genre
-    document.querySelectorAll('.gender-radio').forEach(r => {
-        r.addEventListener('change', () => {
-            document.querySelectorAll('.gender-pill').forEach(p => {
-                p.style.background = 'transparent';
-                p.style.color = '#888';
-                p.style.borderColor = '#333';
-            });
-            r.nextElementSibling.style.background = '#d4a5d4';
-            r.nextElementSibling.style.color = '#000';
-            r.nextElementSibling.style.borderColor = '#d4a5d4';
-        });
-    });
-
-    // Toggle switch âge
-    (function() {
-        const cb = document.getElementById('show-age-checkbox');
-        const track = document.getElementById('show-age-track');
-        const thumb = document.getElementById('show-age-thumb');
-        if (!cb) return;
-        cb.addEventListener('change', () => {
-            track.style.background = cb.checked ? '#d4a5d4' : '#333';
-            thumb.style.transform = cb.checked ? 'translateX(20px)' : 'translateX(0)';
-        });
-    })();
-
-    if (window.self !== window.top) {
-        document.querySelectorAll('a[href="profil.php"]').forEach(a => {
-            a.addEventListener('click', e => { e.preventDefault(); window.parent.closeEditModal(); });
-        });
-        <?php if ($message): ?>
-        window.parent.closeEditModal();
-        <?php endif; ?>
-    }
     </script>
 </body>
-</html>
 
+</html>
