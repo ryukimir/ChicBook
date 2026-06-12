@@ -585,10 +585,7 @@ function closeChatMobile() {
 // Ouvrir la conv depuis ?with= directement en mode chat sur mobile
 <?php if ($open_conv_id): ?>
 document.getElementById('chat-panel').classList.add('open');
-if (window.innerWidth <= 768) {
-    const nav = document.getElementById('mobile-nav');
-    if (nav) nav.style.display = 'none';
-}
+if (window.innerWidth <= 768) document.body.classList.add('chat-open');
 <?php endif; ?>
 </script>
 </body>

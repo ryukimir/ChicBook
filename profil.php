@@ -7,11 +7,30 @@ require_once 'config/i18n.php';
 
 $is_logged_in = isset($_SESSION['user_id']);
 
-function extractYoutubeId(string $url): ?string {
+function extractVideoInfo(string $url): ?array {
     if (preg_match('/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|v\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/', $url, $m)) {
-        return $m[1];
+        return ['platform' => 'youtube', 'id' => $m[1]];
+    }
+    if (preg_match('/(?:dailymotion\.com\/(?:video\/|embed\/video\/)|dai\.ly\/)([a-zA-Z0-9]+)/', $url, $m)) {
+        return ['platform' => 'dailymotion', 'id' => $m[1]];
     }
     return null;
+}
+function extractYoutubeId(string $url): ?string {
+    $info = extractVideoInfo($url);
+    return ($info && $info['platform'] === 'youtube') ? $info['id'] : null;
+}
+function videoThumb(string $platform, string $id): string {
+    if ($platform === 'dailymotion') return 'https://www.dailymotion.com/thumbnail/video/' . $id;
+    return 'https://img.youtube.com/vi/' . $id . '/hqdefault.jpg';
+}
+function videoEmbed(string $platform, string $id): string {
+    if ($platform === 'dailymotion') return 'https://www.dailymotion.com/embed/video/' . $id . '?autoplay=1';
+    return 'https://www.youtube.com/embed/' . $id . '?autoplay=1&rel=0';
+}
+function canonicalVideoUrl(string $platform, string $id): string {
+    if ($platform === 'dailymotion') return 'https://www.dailymotion.com/video/' . $id;
+    return 'https://www.youtube.com/watch?v=' . $id;
 }
 
 // ── AJAX handlers ──────────────────────────────────────────────────────────
@@ -76,20 +95,21 @@ if ($is_logged_in && isset($_POST['photo_action'])) {
     }
 
     if ($_POST['photo_action'] === 'add_video') {
-        $url = trim($_POST['video_url'] ?? '');
-        $yt_id = extractYoutubeId($url);
-        if (!$yt_id) {
-            echo json_encode(['ok' => false, 'err' => 'URL YouTube invalide']);
+        $url  = trim($_POST['video_url'] ?? '');
+        $info = extractVideoInfo($url);
+        if (!$info) {
+            echo json_encode(['ok' => false, 'err' => 'URL YouTube ou Dailymotion invalide']);
             exit;
         }
-        $clean_url = 'https://www.youtube.com/watch?v=' . $yt_id;
+        $clean_url = canonicalVideoUrl($info['platform'], $info['id']);
+        $thumb     = videoThumb($info['platform'], $info['id']);
         $maxPos = $db->prepare("SELECT COALESCE(MAX(position),0)+1 FROM portfolios WHERE user_id=:u");
         $maxPos->execute([':u' => $_SESSION['user_id']]);
         $pos = $maxPos->fetchColumn();
         $stmt = $db->prepare("INSERT INTO portfolios (user_id, video_url, position) VALUES (:u, :url, :pos) RETURNING id");
         $stmt->execute([':u' => $_SESSION['user_id'], ':url' => $clean_url, ':pos' => $pos]);
         $new_id = $stmt->fetchColumn();
-        echo json_encode(['ok' => true, 'id' => $new_id, 'video_url' => $clean_url, 'yt_id' => $yt_id, 'thumb' => 'https://img.youtube.com/vi/'.$yt_id.'/hqdefault.jpg']);
+        echo json_encode(['ok' => true, 'id' => $new_id, 'video_url' => $clean_url, 'platform' => $info['platform'], 'thumb' => $thumb]);
         exit;
     }
 }
@@ -290,6 +310,17 @@ $location   = trim(($profile_data['city'] ?? '') . ($profile_data['country'] ? '
     <style>
     /* ── Mobile Instagram-style profile ── */
     #profil-mobile-header { display: none; }
+    .pmh-top { padding: 24px 20px 0; text-align: center; }
+    .pmh-avatar-wrap { display: flex; justify-content: center; margin-bottom: 14px; }
+    .pmh-avatar { width: 92px; height: 92px; border-radius: 50%; overflow: hidden; background: #1a1a1a; border: 2.5px solid #333; flex-shrink: 0; }
+    .pmh-name { font-size: 17px; font-weight: 800; color: #fff; line-height: 1.2; margin-bottom: 5px; }
+    .pmh-meta { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+    .pmh-profession { font-size: 13px; color: #d4a5d4; font-weight: 700; }
+    .pmh-dot { color: #3a3a3a; font-size: 13px; }
+    .pmh-city { font-size: 13px; color: #666; font-weight: 500; }
+    .pmh-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 14px; justify-content: center; }
+    .pmh-tag { background: #161616; border: 1px solid #2a2a2a; color: #777; padding: 4px 11px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+    .pmh-tag-more { background: none; color: #888; cursor: pointer; }
     @media (max-width: 768px) {
       /* Show mobile header, hide topbar (already in mobile header) */
       #profil-mobile-header { display: block !important; }
@@ -321,6 +352,9 @@ $location   = trim(($profile_data['city'] ?? '') . ($profile_data['country'] ? '
         border-radius: 0 !important;
         background: #111;
       }
+      .profil-masonry-item.video-item, .profil-editorial-item.video-item, .profil-luxe-item.video-item {
+        aspect-ratio: 16 / 9 !important;
+      }
       .profil-masonry-item img, .profil-editorial-item img, .profil-luxe-item img {
         width: 100% !important;
         height: 100% !important;
@@ -334,15 +368,51 @@ $location   = trim(($profile_data['city'] ?? '') . ($profile_data['country'] ? '
       #photos-view.hidden { display: none !important; }
       /* Projects section */
       .profil-projects-section { padding: 0 12px 16px !important; }
+      /* Action buttons */
+      .pmh-actions { padding: 0 16px 14px; display: flex; flex-direction: column; gap: 8px; }
+      .pmh-row-main { display: flex; gap: 8px; }
+      .pmh-row-sec  { display: flex; gap: 6px; align-items: center; }
+      .pmh-btn-main {
+        flex: 1; padding: 10px 14px; font-size: 13px; font-weight: 700;
+        border-radius: 14px; border: 1.5px solid #2a2a2a; background: #1a1a1a;
+        color: #e8e8e8; cursor: pointer; text-decoration: none;
+        display: inline-flex; align-items: center; justify-content: center;
+        gap: 6px; white-space: nowrap; transition: border-color .15s, background .15s;
+      }
+      .pmh-btn-main:active { background: #222; }
+      .pmh-btn-following {
+        background: rgba(212,165,212,0.18) !important;
+        border-color: rgba(212,165,212,0.5) !important;
+        color: #d4a5d4 !important;
+      }
+      .pmh-btn-accent {
+        background: #d4a5d4 !important;
+        border-color: #d4a5d4 !important;
+        color: #000 !important;
+      }
+      .pmh-btn-sec {
+        flex: 1; padding: 8px 12px; font-size: 12px; font-weight: 600;
+        border-radius: 12px; border: 1.5px solid #2a2a2a; background: #141414;
+        color: #aaa; cursor: pointer; display: inline-flex; align-items: center;
+        justify-content: center; gap: 5px; white-space: nowrap; transition: border-color .15s;
+      }
+      .pmh-btn-sec:active { background: #1e1e1e; }
+      .pmh-btn-share { flex: 0 0 auto; padding: 8px 12px; }
+      .pmh-followers { font-size: 11px; color: #666; text-align: center; }
       /* Light theme mobile header */
-      html.light .pmh-card { background: #f5f0eb !important; border-color: #e0d8d0 !important; }
-      html.light .pmh-btn { background: #ece8e3 !important; border-color: #d0c8c0 !important; color: #333 !important; }
-      html.light .pmh-tag { background: #ece8e3 !important; border-color: #d0c8c0 !important; color: #666 !important; }
-      html.light .pmh-stat-label { color: #999 !important; }
-      html.light .pmh-stat-val { color: #111 !important; }
       html.light .pmh-name { color: #111 !important; }
-      html.light .pmh-profession { color: #a07aa0 !important; }
+      html.light .pmh-profession { color: #a060a0 !important; }
+      html.light .pmh-city { color: #999 !important; }
+      html.light .pmh-dot { color: #ccc !important; }
+      html.light .pmh-tag { background: #ece8e3 !important; border-color: #d0c8c0 !important; color: #666 !important; }
+      html.light .pmh-tag-more { background: none !important; color: #888 !important; }
+      html.light .pmh-avatar { border-color: #d8d2cb !important; background: #ece8e3 !important; }
       html.light .pmh-sep { background: #e0d8d0 !important; }
+      html.light .pmh-btn-main { background: #f0ece8 !important; border-color: #d8d2cb !important; color: #1a1a1a !important; }
+      html.light .pmh-btn-following { background: rgba(160,96,160,0.12) !important; border-color: rgba(160,96,160,0.4) !important; color: #a060a0 !important; }
+      html.light .pmh-btn-accent { background: #a060a0 !important; border-color: #a060a0 !important; color: #fff !important; }
+      html.light .pmh-btn-sec { background: #f0ece8 !important; border-color: #d8d2cb !important; color: #666 !important; }
+      html.light .pmh-followers { color: #999 !important; }
     }
     /* ── Light theme — aside classique ── */
     html.light .cl-aside-sep       { border-color: #e8e2db !important; }
@@ -372,76 +442,91 @@ elseif ($location) $mob_city = explode(',', $location)[0];
 ?>
 <!-- ══ MOBILE HEADER style Instagram (visible ≤768px seulement) ══ -->
 <div id="profil-mobile-header">
-  <div style="padding:20px 16px 0 16px;text-align:center;">
+  <div class="pmh-top">
     <!-- Avatar centré -->
-    <div style="display:flex;justify-content:center;margin-bottom:12px;">
-      <div style="width:82px;height:82px;border-radius:50%;overflow:hidden;background:#1a1a1a;border:2px solid #2a2a2a;">
+    <div class="pmh-avatar-wrap">
+      <div class="pmh-avatar">
         <?php if ($mob_avatar): ?>
           <img src="<?= htmlspecialchars($mob_avatar) ?>" style="width:100%;height:100%;object-fit:cover;display:block;">
         <?php else: ?>
-          <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;color:#d4a5d4;"><?= $mob_initial ?></div>
+          <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:900;color:#d4a5d4;"><?= $mob_initial ?></div>
         <?php endif; ?>
       </div>
     </div>
-    <!-- Nom + profession + ville -->
-    <div style="margin-bottom:8px;text-align:center;">
-      <div class="pmh-name" style="font-size:15px;font-weight:900;color:#fff;line-height:1.2;"><?= $name ?></div>
-      <div style="font-size:12px;color:#d4a5d4;font-weight:700;margin-top:3px;display:flex;align-items:center;justify-content:center;gap:6px;">
-        <span><?= $profession ?></span>
-        <?php if ($mob_city): ?>
-          <span style="color:#444;">·</span>
-          <span style="color:#666;font-weight:500;"><?= htmlspecialchars($mob_city) ?></span>
-        <?php endif; ?>
-      </div>
+    <!-- Nom -->
+    <div class="pmh-name"><?= htmlspecialchars($name) ?></div>
+    <!-- Profession + ville -->
+    <div class="pmh-meta">
+      <span class="pmh-profession"><?= htmlspecialchars($profession) ?></span>
+      <?php if ($mob_city): ?>
+        <span class="pmh-dot">·</span>
+        <span class="pmh-city"><?= htmlspecialchars($mob_city) ?></span>
+      <?php endif; ?>
     </div>
     <!-- Tags -->
     <?php if ($tags): ?>
-    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;justify-content:center;" id="<?= $tags_uid ?>-mob">
+    <div class="pmh-tags" id="<?= $tags_uid ?>-mob">
       <?php foreach ($tags_visible as $t): ?>
-        <span class="pmh-tag" style="background:#1a1a1a;border:1px solid #2a2a2a;color:#888;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;">#<?= htmlspecialchars($t) ?></span>
+        <span class="pmh-tag">#<?= htmlspecialchars($t) ?></span>
       <?php endforeach; ?>
       <?php foreach ($tags_hidden as $t): ?>
-        <span class="pmh-tag tags-extra-mob" style="background:#1a1a1a;border:1px solid #2a2a2a;color:#888;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;display:none;">#<?= htmlspecialchars($t) ?></span>
+        <span class="pmh-tag tags-extra-mob" style="display:none;">#<?= htmlspecialchars($t) ?></span>
       <?php endforeach; ?>
       <?php if ($tags_hidden): ?>
-        <button onclick="toggleTags('mob')" id="<?= $tags_uid ?>-mob-btn" style="background:none;border:1px solid #333;color:#888;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;">+<?= count($tags_hidden) ?> voir plus</button>
+        <button onclick="toggleTags('mob')" id="<?= $tags_uid ?>-mob-btn" class="pmh-tag pmh-tag-more">+<?= count($tags_hidden) ?> voir plus</button>
       <?php endif; ?>
     </div>
     <?php endif; ?>
     <!-- Boutons action -->
-    <div style="display:flex;gap:7px;margin-bottom:14px;flex-wrap:wrap;justify-content:center;">
-      <?php
-      $lg = 'backdrop-filter:blur(16px) saturate(180%);-webkit-backdrop-filter:blur(16px) saturate(180%);background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.13);border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;color:#fff;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;';
-      $lg_accent = 'backdrop-filter:blur(16px) saturate(180%);-webkit-backdrop-filter:blur(16px) saturate(180%);background:rgba(212,165,212,0.25);border:1px solid rgba(212,165,212,0.35);border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;color:#d4a5d4;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;';
-      ?>
+    <div class="pmh-actions">
       <?php if (!$is_own_profile): ?>
-        <button id="follow-btn-mobile" onclick="toggleFollow()"
-            style="flex:1;<?= $is_following ? 'backdrop-filter:blur(16px) saturate(180%);-webkit-backdrop-filter:blur(16px) saturate(180%);background:rgba(212,165,212,0.35);border:1px solid rgba(212,165,212,0.5);border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;color:#d4a5d4;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;' : $lg ?>"
-            data-following="<?= $is_following ? '1' : '0' ?>"
-            data-target="<?= $profile_id ?>">
-            <?= $is_following ? t('profile.following') : t('profile.follow') ?>
-        </button>
-        <a href="messagerie.php?with=<?= $profile_id ?>" style="flex:1;<?= $lg_accent ?>"><?= t('profile.contact') ?></a>
+        <!-- Rangée principale -->
+        <div class="pmh-row-main">
+          <button id="follow-btn-mobile" onclick="toggleFollow()" class="pmh-btn-main<?= $is_following ? ' pmh-btn-following' : '' ?>"
+              data-following="<?= $is_following ? '1' : '0' ?>"
+              data-target="<?= $profile_id ?>">
+              <?= $is_following ? t('profile.following') : t('profile.follow') ?>
+          </button>
+          <a href="messagerie.php?with=<?= $profile_id ?>" class="pmh-btn-main pmh-btn-accent"><?= t('profile.contact') ?></a>
+        </div>
         <?php if ($followers_count > 0): ?>
-          <span id="followers-count-mobile" style="font-size:11px;color:#888;text-align:center;width:100%;display:block;margin-top:-6px;margin-bottom:4px;">
-            <strong style="color:#fff;"><?= $followers_count ?></strong> follower<?= $followers_count > 1 ? 's' : '' ?>
-          </span>
+          <div id="followers-count-mobile" class="pmh-followers"><?= $followers_count ?> follower<?= $followers_count > 1 ? 's' : '' ?></div>
         <?php else: ?>
-          <span id="followers-count-mobile" style="font-size:11px;color:#888;display:none;width:100%;text-align:center;"></span>
+          <div id="followers-count-mobile" class="pmh-followers" style="display:none;"></div>
         <?php endif; ?>
       <?php else: ?>
-        <button onclick="toggleEditMode()" id="edit-photos-btn-mob" style="<?= $lg ?>"><?= t('profile.photos') ?></button>
-        <a href="edit_profil.php" style="flex:1;<?= $lg ?>"><?= t('profile.edit') ?></a>
+        <div class="pmh-row-main">
+          <button onclick="toggleEditMode()" id="edit-photos-btn-mob" class="pmh-btn-main"><?= t('profile.photos') ?></button>
+          <a href="edit_profil.php" class="pmh-btn-main"><?= t('profile.edit') ?></a>
+        </div>
       <?php endif; ?>
-      <?php if (!empty($profile_data['bio'])): ?>
-        <button onclick="openBioModal()" style="<?= $lg ?>"><?= t('profile.bio') ?></button>
+      <!-- Rangée secondaire : Bio / Mensurations / Partager -->
+      <?php $has_secondary = !empty($profile_data['bio']) || $measurements; ?>
+      <?php if ($has_secondary): ?>
+      <div class="pmh-row-sec">
+        <?php if (!empty($profile_data['bio'])): ?>
+          <button onclick="openBioModal()" class="pmh-btn-sec">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <?= t('profile.bio') ?>
+          </button>
+        <?php endif; ?>
+        <?php if ($measurements): ?>
+          <button onclick="openMeasurementsModal()" class="pmh-btn-sec">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+            <?= t('profile.measurements') ?>
+          </button>
+        <?php endif; ?>
+        <button onclick="doShare()" class="pmh-btn-sec pmh-btn-share">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        </button>
+      </div>
+      <?php else: ?>
+      <div class="pmh-row-sec" style="justify-content:flex-end;">
+        <button onclick="doShare()" class="pmh-btn-sec pmh-btn-share">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        </button>
+      </div>
       <?php endif; ?>
-      <?php if ($measurements): ?>
-        <button onclick="openMeasurementsModal()" style="<?= $lg ?>"><?= t('profile.measurements') ?></button>
-      <?php endif; ?>
-      <button onclick="doShare()" style="<?= $lg ?>">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-      </button>
     </div>
   </div>
   <!-- Séparateur -->
@@ -590,10 +675,10 @@ function renderActions($is_own_profile, $profile_id = 0, $is_following = false, 
             <?php if (empty($photos)): ?>
                 <p class="text-[#555]">Aucune photo dans le book pour le moment.</p>
             <?php else: foreach ($photos as $idx => $photo): ?>
-                <div class="profil-masonry-item" style="break-inside:avoid; margin-bottom:12px;">
-                <?php if (!empty($photo['video_url'])): $yt_id = extractYoutubeId($photo['video_url']); ?>
+                <div class="profil-masonry-item<?= !empty($photo['video_url']) ? ' video-item' : '' ?>" style="break-inside:avoid; margin-bottom:12px;">
+                <?php if (!empty($photo['video_url'])): $vinfo = extractVideoInfo($photo['video_url']); $vthumb = $vinfo ? videoThumb($vinfo['platform'], $vinfo['id']) : ''; ?>
                     <div class="relative rounded-xl overflow-hidden cursor-pointer hover:scale-[1.01] transition-transform duration-300" style="aspect-ratio:16/9;background:#111;" onclick="openPhotoLightbox(<?= $idx ?>)">
-                        <img src="https://img.youtube.com/vi/<?= $yt_id ?>/hqdefault.jpg" class="w-full h-full object-cover" alt="">
+                        <img src="<?= htmlspecialchars($vthumb) ?>" class="w-full h-full object-cover" alt="">
                         <div class="absolute inset-0 flex items-center justify-center" style="background:rgba(0,0,0,0.25);">
                             <div style="width:52px;height:52px;border-radius:50%;background:rgba(212,165,212,0.92);display:flex;align-items:center;justify-content:center;">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="#000"><path d="M8 5v14l11-7z"/></svg>
@@ -690,9 +775,9 @@ function renderActions($is_own_profile, $profile_id = 0, $is_following = false, 
         foreach ($grid_photos as $idx => $photo):
             $real_idx = $idx + 1;
         ?>
-            <div class="overflow-hidden rounded-xl profil-editorial-item <?= !empty($photo['video_url']) ? '' : 'aspect-square' ?> bg-[#111] relative cursor-pointer" <?= !empty($photo['video_url']) ? 'style="aspect-ratio:16/9;"' : '' ?> onclick="openPhotoLightbox(<?= $real_idx ?>)">
-                <?php if (!empty($photo['video_url'])): $yt_id = extractYoutubeId($photo['video_url']); ?>
-                    <img src="https://img.youtube.com/vi/<?= $yt_id ?>/hqdefault.jpg" class="w-full h-full object-cover hover:scale-[1.04] transition-transform duration-500" alt="">
+            <div class="overflow-hidden rounded-xl profil-editorial-item <?= !empty($photo['video_url']) ? 'video-item' : 'aspect-square' ?> bg-[#111] relative cursor-pointer" <?= !empty($photo['video_url']) ? 'style="aspect-ratio:16/9;"' : '' ?> onclick="openPhotoLightbox(<?= $real_idx ?>)">
+                <?php if (!empty($photo['video_url'])): $vinfo = extractVideoInfo($photo['video_url']); $vthumb = $vinfo ? videoThumb($vinfo['platform'], $vinfo['id']) : ''; ?>
+                    <img src="<?= htmlspecialchars($vthumb) ?>" class="w-full h-full object-cover hover:scale-[1.04] transition-transform duration-500" alt="">
                     <div class="absolute inset-0 flex items-center justify-center" style="background:rgba(0,0,0,0.25);">
                         <div style="width:44px;height:44px;border-radius:50%;background:rgba(212,165,212,0.92);display:flex;align-items:center;justify-content:center;">
                             <svg width="17" height="17" viewBox="0 0 24 24" fill="#000"><path d="M8 5v14l11-7z"/></svg>
@@ -777,9 +862,9 @@ function renderActions($is_own_profile, $profile_id = 0, $is_following = false, 
         <?php if (empty($photos)): ?>
             <p class="text-[#555] col-span-2 text-center">Aucune photo dans le book pour le moment.</p>
         <?php else: foreach ($photos as $idx => $photo): ?>
-            <div class="overflow-hidden rounded-2xl bg-[#0e0e0e] profil-luxe-item relative cursor-pointer <?= $idx === 0 ? 'col-span-2 aspect-video profil-luxe-banner' : (!empty($photo['video_url']) ? 'col-span-2' : 'aspect-square') ?>" <?= (!empty($photo['video_url']) && $idx !== 0) ? 'style="aspect-ratio:16/9;"' : '' ?> onclick="openPhotoLightbox(<?= $idx ?>)">
-                <?php if (!empty($photo['video_url'])): $yt_id = extractYoutubeId($photo['video_url']); ?>
-                    <img src="https://img.youtube.com/vi/<?= $yt_id ?>/hqdefault.jpg" alt="" class="w-full h-full object-cover hover:scale-[1.03] transition-transform duration-500">
+            <div class="overflow-hidden rounded-2xl bg-[#0e0e0e] profil-luxe-item relative cursor-pointer <?= $idx === 0 ? 'col-span-2 aspect-video profil-luxe-banner' : (!empty($photo['video_url']) ? 'col-span-2 video-item' : 'aspect-square') ?>" <?= (!empty($photo['video_url']) && $idx !== 0) ? 'style="aspect-ratio:16/9;"' : '' ?> onclick="openPhotoLightbox(<?= $idx ?>)">
+                <?php if (!empty($photo['video_url'])): $vinfo = extractVideoInfo($photo['video_url']); $vthumb = $vinfo ? videoThumb($vinfo['platform'], $vinfo['id']) : ''; ?>
+                    <img src="<?= htmlspecialchars($vthumb) ?>" alt="" class="w-full h-full object-cover hover:scale-[1.03] transition-transform duration-500">
                     <div class="absolute inset-0 flex items-center justify-center" style="background:rgba(0,0,0,0.25);">
                         <div style="width:52px;height:52px;border-radius:50%;background:rgba(212,165,212,0.92);display:flex;align-items:center;justify-content:center;">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="#000"><path d="M8 5v14l11-7z"/></svg>
@@ -1103,8 +1188,15 @@ function updateLightbox() {
     const likeBtn = document.getElementById('lightbox-like-btn');
 
     if (photo.video_url) {
-        const ytId = photo.video_url.match(/[?&]v=([a-zA-Z0-9_-]{11})/)?.[1] || '';
-        iframe.src = 'https://www.youtube.com/embed/' + ytId + '?autoplay=1&rel=0';
+        let embedSrc = '';
+        if (photo.video_url.includes('dailymotion.com')) {
+            const dmId = photo.video_url.match(/\/video\/([a-zA-Z0-9]+)/)?.[1] || '';
+            embedSrc = 'https://www.dailymotion.com/embed/video/' + dmId + '?autoplay=1';
+        } else {
+            const ytId = photo.video_url.match(/[?&]v=([a-zA-Z0-9_-]{11})/)?.[1] || '';
+            embedSrc = 'https://www.youtube.com/embed/' + ytId + '?autoplay=1&rel=0';
+        }
+        iframe.src = embedSrc;
         img.classList.add('hidden');
         img.src = '';
         videoContainer.classList.remove('hidden');
@@ -1142,7 +1234,6 @@ function updateLightbox() {
     // Likes
     const likeCount = document.getElementById('lightbox-like-count');
     const likeIcon  = document.getElementById('lightbox-like-icon');
-    const likeBtn   = document.getElementById('lightbox-like-btn');
     if (likeCount) likeCount.textContent = photo.likes_count || 0;
     if (likeIcon && likeBtn) {
         const liked = photo.user_liked;

@@ -9,6 +9,7 @@ $_TRANSLATIONS = [
 // ── Navigation ──────────────────────────────────────────────────────────────
 'nav.home'          => ['fr'=>'Accueil',        'en'=>'Home',       'es'=>'Inicio'],
 'nav.talents'       => ['fr'=>'Trouver un talent','en'=>'Find talent','es'=>'Buscar talento'],
+'nav.talents_short' => ['fr'=>'Talents',           'en'=>'Talents',    'es'=>'Talentos'],
 'nav.search'        => ['fr'=>'Recherche',      'en'=>'Search',     'es'=>'Buscar'],
 'nav.castings'      => ['fr'=>'Castings',       'en'=>'Castings',   'es'=>'Castings'],
 'nav.messages'      => ['fr'=>'Messagerie',     'en'=>'Messages',   'es'=>'Mensajes'],
