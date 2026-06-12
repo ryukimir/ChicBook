@@ -33,6 +33,18 @@ class AuthController {
             $errors[] = "Le format de l'adresse email est invalide.";
         }
 
+        // Vérification âge minimum 16 ans côté serveur
+        $birth_date = $postData['birth_date'] ?? '';
+        if (!empty($birth_date)) {
+            $birth = DateTime::createFromFormat('Y-m-d', $birth_date);
+            $today = new DateTime();
+            if (!$birth || $today->diff($birth)->y < 16) {
+                $errors[] = "Vous devez avoir au moins 16 ans pour vous inscrire.";
+            }
+        } else {
+            $errors[] = "La date de naissance est requise.";
+        }
+
         if ($this->userModel->emailExists($postData['email'])) {
             $errors[] = "Cette adresse email est déjà utilisée.";
         }

@@ -103,7 +103,7 @@ Login is two-factor: email/password → 6-digit code sent via `mail()` → verif
 
 Registration collects `prenom` + `nom` (combined into `full_name` in DB), `birth_date` (stored in `users` table, required for all). The mensurations sub-form (height, sizes, eye/hair color) is stored in `measurements` table and only shown for: Mannequin, Comédien, Danseur. Password validation: min 8 chars, at least one letter and one digit, all special characters allowed.
 
-**Registration tags:** `inscription.php` shows clickable pill tags (expertise keywords) — user clicks to toggle, stored comma-separated in `users.expertise_tags`. Implemented via `data-selected` attribute + inline styles (not Tailwind classes, to avoid escaping issues with querySelector).
+**Registration tags:** `inscription.php` shows clickable pill tags loaded from `expertise_tags_list` DB table (ORDER BY name ASC) — user clicks to toggle, stored comma-separated in `users.expertise_tags`. Implemented via `data-selected` attribute + inline styles (not Tailwind classes, to avoid escaping issues with querySelector). Tags managed from `admin/metiers.php`.
 
 ### Navigation — left sidebar (Instagram-style) + mobile bottom nav + mobile topbar
 
@@ -272,6 +272,7 @@ Brand color: `#d4a5d4` (mauve/purple). Page background: `#000`. Card surface: `#
 - `messages` — `conversation_id`, `sender_id`, `content TEXT`, `is_read BOOLEAN DEFAULT FALSE`
 - `reports` — signalements utilisateurs : `user_id` (nullable FK), `category VARCHAR(50)` (bug/contenu/compte/autre), `message TEXT`, `is_read BOOLEAN DEFAULT FALSE`, `created_at`
 - `suggestions` — suggestions d'amélioration : `user_id` (nullable FK), `message TEXT`, `is_read BOOLEAN DEFAULT FALSE`, `created_at`
+- `expertise_tags_list` — tags expertise gérés depuis le BO : `name VARCHAR(100) UNIQUE`, `display_order INT`. Chargés dans `inscription.php` et `edit_profil.php` via requête DB (ORDER BY name ASC).
 - `users.remember_token VARCHAR(64)` — token remember me 30 jours, généré après 2FA, effacé au logout
 - `users.password_reset_token VARCHAR(64)` — token reset mot de passe, valide 1h, NULL après utilisation
 - `users.password_reset_expires TIMESTAMP` — expiry du token reset
@@ -498,19 +499,48 @@ Accessible at `/admin/`. Protected by `auth_guard.php` which checks `$_SESSION['
 - `portfolios.php` — photo grid (5-col), hover-reveal delete with `unlink()`
 - `evenements.php` — event list, search, delete
 - `signalements.php` — tabs Signalements / Suggestions. Badges non lus. Marquer lu / tout marquer lu / répondre par email (modal) / supprimer.
-- `metiers.php` — gestion catégories (`profession_categories`) + professions (`professions`). Modals ajouter/modifier pour chaque. Toggle "a des mensurations" par profession.
+- `metiers.php` — gestion catégories (`profession_categories`) + professions (`professions`) + **tags expertise** (`expertise_tags_list`). Catégories et tags dans la colonne gauche (flex-col gap-6), métiers dans la colonne droite. Modals ajouter/modifier pour chaque entité. Toggle "a des mensurations" par profession. Tags classés alphabétiquement.
 - `sidebar.php` — shared 220px fixed left sidebar. Charge les counts non lus depuis DB (`reports` + `suggestions`). Badge rouge sur "Signalements" si non lus.
 
 To grant admin to a user: `UPDATE users SET is_admin = TRUE WHERE email = 'xxx';`
 
+### Tags expertise
+
+Les tags sont stockés dans `expertise_tags_list` (table DB) et gérés depuis `admin/metiers.php`. 60 tags seedés par défaut. `inscription.php` et `edit_profil.php` chargent les tags via `SELECT name FROM expertise_tags_list ORDER BY name ASC` — plus de tableau hardcodé. Le select pays dans `inscription.php` utilise une **liste statique de 196 pays** dans `assets/js/script.js` (plus d'appel à l'API restcountries qui était instable).
+
+### Suppression de compte
+
+Dans `edit_profil.php` onglet Sécurité — bouton "Supprimer mon compte" ouvre une **modale** avec double saisie du mot de passe. Côté PHP : vérifie que les deux mots de passe correspondent + `password_verify` contre le hash DB. Si OK : supprime les fichiers disque (photos book + avatar), `DELETE FROM users` (CASCADE supprime le reste), `session_destroy()`, redirect `index.php`.
+
 ### External APIs used
 
-- **Countries list:** `https://restcountries.com/v3.1/all?fields=name,translations` — country dropdowns
+- ~~**Countries list:** `https://restcountries.com/v3.1/all`~~ — **remplacé par liste statique** dans `assets/js/script.js` (tableau `PAYS`, 196 pays en français, France en tête alphabétique)
 - **City autocomplete:** `https://geocoding-api.open-meteo.com/v1/search` — debounced 300ms, min 3 chars
 
 ### File uploads
 
 Uploaded files go to `uploads/` (gitignored). Path relative to webroot stored in DB (e.g. `uploads/portfolio_1_1234567890.jpg`).
+
+### Sécurité — failles connues et à corriger
+
+Audit réalisé le 2026-06-12. Points à corriger par priorité :
+
+**Critique/Haute :**
+- **XSS messagerie** — `messagerie.php` : messages injectés via `.innerHTML` sans `htmlspecialchars()`. Corriger avec `.textContent` côté JS ou encoder côté PHP avant `json_encode`.
+- **Pas de CSRF tokens** — aucun formulaire POST n'a de token CSRF (`edit_profil.php`, `creer_casting.php`, `evenements.php`, etc.). Ajouter `$_SESSION['csrf_token']` + vérification sur chaque POST sensible.
+- **Pas de `session_regenerate_id()`** — manquant dans `verifier_code.php` après 2FA réussi et dans `admin/login.php`. Risque de fixation de session.
+- **Validation MIME uploads** — seule l'extension est vérifiée, pas le vrai type MIME. Ajouter `getimagesize()` ou `finfo_file()` avant `move_uploaded_file()`.
+- **Email header injection** — `$email` non validé via `filter_var(FILTER_VALIDATE_EMAIL)` avant `mail()` dans `connexion.php`, `mot_de_passe_oublie.php`.
+- **Vérification âge minimum uniquement côté JS** — `inscription.php` ne vérifie pas `birth_date >= 16 ans` côté PHP.
+
+**Moyenne :**
+- **Erreurs DB exposées** — `config/database.php` : `die($e->getMessage())` affiche la version PG et détails de connexion. Remplacer par `error_log` + message générique.
+- **Noms de fichiers uploads prévisibles** — `portfolio_{user_id}_{time()}` est devinable. Utiliser `bin2hex(random_bytes(8))`.
+- **Pas de headers HTTP de sécurité** — aucun `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`.
+
+**Faible :**
+- **Token remember me en clair en DB** — stocker un hash `password_hash()` plutôt que le token brut.
+- **Pas de rate limiting** sur login, 2FA, reset mot de passe.
 
 ---
 
@@ -525,7 +555,7 @@ Uploaded files go to `uploads/` (gitignored). Path relative to webroot stored in
 | `mot_de_passe_oublie.php` | Formulaire email → envoi lien reset (token 1h) |
 | `reinitialiser_mdp.php` | Saisie nouveau mot de passe via token |
 | `profil.php` | Public talent profile — 3 themes, tags "voir plus" (max 3 visibles), mensurations desktop (mini-cartes) + mobile (modal sheet), bio popup, follow system, followers count, section projets |
-| `edit_profil.php` | Settings: avatar, general info, expertise tags (sync user_professions), bio, mensurations (si has_measurements), theme picker, password — desktop: sidebar + tabs ; mobile: scroll unique toutes sections |
+| `edit_profil.php` | Settings: avatar, general info, expertise tags (sync user_professions), bio, mensurations (si has_measurements), theme picker, password, **suppression de compte** (modale double mdp) — desktop: sidebar + tabs ; mobile: scroll unique toutes sections |
 | `creer_projet.php` | Create project: title, type, date, description, dynamic profile cards (profession select + mensurations conditionnelles pour Mannequin/Comédien/Danseur), contact |
 | `castings.php` | Browse/filter castings (filters on right), favorites, own castings, modal detail view |
 | `creer_casting.php` | Create casting: multi-profile builder with ranges (tous facultatifs), two dates, live preview, notifications email aux talents correspondants (avec filtrage mensurations) |
