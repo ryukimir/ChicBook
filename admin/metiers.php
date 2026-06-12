@@ -65,11 +65,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->prepare("DELETE FROM professions WHERE id=:id")->execute([':id' => $id]);
             $message = 'Métier supprimé.';
         }
+
+    // Tags
+    } elseif ($action === 'add_tag') {
+        $name = trim($_POST['name'] ?? '');
+        if ($name) {
+            $max = $db->query("SELECT COALESCE(MAX(display_order),0)+1 FROM expertise_tags_list")->fetchColumn();
+            try {
+                $db->prepare("INSERT INTO expertise_tags_list (name, display_order) VALUES (:n, :o)")
+                   ->execute([':n' => $name, ':o' => $max]);
+                $message = 'Tag ajouté.';
+            } catch (Exception $e) { $error = 'Ce tag existe déjà.'; }
+        } else { $error = 'Nom requis.'; }
+
+    } elseif ($action === 'edit_tag') {
+        $id   = intval($_POST['id']);
+        $name = trim($_POST['name'] ?? '');
+        if ($id && $name) {
+            try {
+                $db->prepare("UPDATE expertise_tags_list SET name=:n WHERE id=:id")
+                   ->execute([':n' => $name, ':id' => $id]);
+                $message = 'Tag modifié.';
+            } catch (Exception $e) { $error = 'Ce tag existe déjà.'; }
+        }
+
+    } elseif ($action === 'delete_tag') {
+        $id = intval($_POST['id']);
+        if ($id) {
+            $db->prepare("DELETE FROM expertise_tags_list WHERE id=:id")->execute([':id' => $id]);
+            $message = 'Tag supprimé.';
+        }
     }
 }
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 $categories = $db->query("SELECT * FROM profession_categories ORDER BY display_order ASC, name ASC")->fetchAll(PDO::FETCH_ASSOC);
+$tags_list = $db->query("SELECT * FROM expertise_tags_list ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
 $professions = $db->query("
     SELECT p.*, pc.name AS category_name
     FROM professions p
@@ -112,8 +143,8 @@ foreach ($professions as $p) {
 
     <div class="grid grid-cols-2 gap-6">
 
-        <!-- ── Catégories ── -->
-        <div>
+        <!-- ── Catégories + Tags ── -->
+        <div class="flex flex-col gap-6">
             <div class="bg-[#111] rounded-2xl border border-[#1a1a1a] overflow-hidden">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-[#1a1a1a]">
                     <span class="font-semibold text-sm">Catégories <span class="text-[#555] font-normal">(<?= count($categories) ?>)</span></span>
@@ -141,6 +172,32 @@ foreach ($professions as $p) {
                     <?php endif; ?>
                     </tbody>
                 </table>
+            </div>
+
+            <!-- ── Tags expertise ── -->
+            <div class="bg-[#111] rounded-2xl border border-[#1a1a1a] overflow-hidden">
+                <div class="flex items-center justify-between px-6 py-4 border-b border-[#1a1a1a]">
+                    <span class="font-semibold text-sm">Tags expertise <span class="text-[#555] font-normal">(<?= count($tags_list) ?>)</span></span>
+                    <button onclick="document.getElementById('modal-add-tag').classList.remove('hidden')"
+                        class="text-xs bg-brand text-black font-bold px-3 py-1.5 rounded-lg hover:opacity-90">+ Ajouter</button>
+                </div>
+                <div class="px-6 py-4 flex flex-wrap gap-2">
+                    <?php foreach ($tags_list as $t): ?>
+                    <div class="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#1a1a1a] border border-[#222] text-[#ccc]">
+                        <span><?= htmlspecialchars($t['name']) ?></span>
+                        <button onclick="openEditTag(<?= $t['id'] ?>, '<?= addslashes(htmlspecialchars($t['name'])) ?>')"
+                            class="ml-1 text-[#555] hover:text-brand transition-colors leading-none" title="Modifier">✎</button>
+                        <form method="POST" class="inline" onsubmit="return confirm('Supprimer ce tag ?')">
+                            <input type="hidden" name="action" value="delete_tag">
+                            <input type="hidden" name="id" value="<?= $t['id'] ?>">
+                            <button type="submit" class="text-[#555] hover:text-red-400 transition-colors leading-none ml-0.5" title="Supprimer">✕</button>
+                        </form>
+                    </div>
+                    <?php endforeach; ?>
+                    <?php if (empty($tags_list)): ?>
+                    <p class="text-[#444] text-sm py-4">Aucun tag.</p>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
 
@@ -288,6 +345,41 @@ foreach ($professions as $p) {
     </div>
 </div>
 
+<!-- Modal : ajouter tag -->
+<div id="modal-add-tag" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center">
+    <div class="bg-[#111] rounded-2xl border border-[#222] p-6 w-80">
+        <h3 class="font-bold text-lg mb-4">Nouveau tag</h3>
+        <form method="POST">
+            <input type="hidden" name="action" value="add_tag">
+            <input type="text" name="name" placeholder="Nom du tag" required autofocus
+                class="w-full bg-[#1a1a1a] border border-[#333] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand mb-4">
+            <div class="flex gap-2 justify-end">
+                <button type="button" onclick="document.getElementById('modal-add-tag').classList.add('hidden')"
+                    class="px-4 py-2 rounded-xl text-sm text-[#666] border border-[#222] hover:border-[#333]">Annuler</button>
+                <button type="submit" class="px-4 py-2 rounded-xl text-sm bg-brand text-black font-bold hover:opacity-90">Ajouter</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal : modifier tag -->
+<div id="modal-edit-tag" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center">
+    <div class="bg-[#111] rounded-2xl border border-[#222] p-6 w-80">
+        <h3 class="font-bold text-lg mb-4">Modifier le tag</h3>
+        <form method="POST">
+            <input type="hidden" name="action" value="edit_tag">
+            <input type="hidden" name="id" id="edit-tag-id">
+            <input type="text" name="name" id="edit-tag-name" placeholder="Nom" required
+                class="w-full bg-[#1a1a1a] border border-[#333] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand mb-4">
+            <div class="flex gap-2 justify-end">
+                <button type="button" onclick="document.getElementById('modal-edit-tag').classList.add('hidden')"
+                    class="px-4 py-2 rounded-xl text-sm text-[#666] border border-[#222] hover:border-[#333]">Annuler</button>
+                <button type="submit" class="px-4 py-2 rounded-xl text-sm bg-brand text-black font-bold hover:opacity-90">Enregistrer</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
 function openEditCat(id, name) {
     document.getElementById('edit-cat-id').value = id;
@@ -301,8 +393,13 @@ function openEditProf(id, name, catId, hasMeas) {
     document.getElementById('edit-prof-meas').checked = hasMeas;
     document.getElementById('modal-edit-prof').classList.remove('hidden');
 }
+function openEditTag(id, name) {
+    document.getElementById('edit-tag-id').value = id;
+    document.getElementById('edit-tag-name').value = name;
+    document.getElementById('modal-edit-tag').classList.remove('hidden');
+}
 // Close modals on backdrop click
-['modal-add-cat','modal-edit-cat','modal-add-prof','modal-edit-prof'].forEach(id => {
+['modal-add-cat','modal-edit-cat','modal-add-prof','modal-edit-prof','modal-add-tag','modal-edit-tag'].forEach(id => {
     document.getElementById(id).addEventListener('click', function(e) {
         if (e.target === this) this.classList.add('hidden');
     });

@@ -273,11 +273,31 @@ Brand color: `#d4a5d4` (mauve/purple). Page background: `#000`. Card surface: `#
 - `reports` — signalements utilisateurs : `user_id` (nullable FK), `category VARCHAR(50)` (bug/contenu/compte/autre), `message TEXT`, `is_read BOOLEAN DEFAULT FALSE`, `created_at`
 - `suggestions` — suggestions d'amélioration : `user_id` (nullable FK), `message TEXT`, `is_read BOOLEAN DEFAULT FALSE`, `created_at`
 - `users.remember_token VARCHAR(64)` — token remember me 30 jours, généré après 2FA, effacé au logout
+- `users.password_reset_token VARCHAR(64)` — token reset mot de passe, valide 1h, NULL après utilisation
+- `users.password_reset_expires TIMESTAMP` — expiry du token reset
 - `projects` — projets créés par les utilisateurs : `user_id`, `title`, `project_type VARCHAR(100)`, `description`, `expected_date DATE`, `searched_profiles TEXT` (professions uniques comma-separated, calculé depuis required_profiles), `contact_name/email/phone`, `created_at`
 - `required_profiles` — profils requis pour un projet : `project_id`, `role_name VARCHAR(100)` (nom de la profession), min/max height/age (INT), chest/waist/hip/shoe (VARCHAR), `eye_color_id`, `hair_color_id`, `ethnicity_id` — plusieurs lignes par projet, une par profil ajouté
 - `follows` — système de suivi : `follower_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE`, `following_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE`, UNIQUE(follower_id, following_id)
 
 When adding a column/table, append at the bottom of `sql/init.sql` and run the migration manually on the running container.
+
+### Mot de passe oublié
+
+Flux en deux pages :
+- **`mot_de_passe_oublie.php`** : formulaire email → génère token 64 chars (`bin2hex(random_bytes(32))`), stocké dans `users.password_reset_token` + `users.password_reset_expires` (NOW() + 1h). Envoie email avec lien `reinitialiser_mdp.php?token=...`. Affiche toujours le message de succès (pas d'énumération d'emails). Comptes suspendus exclus.
+- **`reinitialiser_mdp.php`** : vérifie token + expiry (`password_reset_expires > NOW()`). Formulaire nouveau mot de passe (min 8 chars, lettre + chiffre). Après save : `password_reset_token = NULL`, `password_reset_expires = NULL`. Lien invalide/expiré → bouton "Refaire une demande".
+- Lien "Mot de passe oublié ?" ajouté sous le bouton Se connecter dans `connexion.php`.
+- Colonnes DB : `users.password_reset_token VARCHAR(64)`, `users.password_reset_expires TIMESTAMP`.
+
+### Notifications email castings
+
+Déclenchées dans `creer_casting.php` après `$db->commit()`. Pour chaque profil (`casting_profiles`) du casting créé :
+1. Requête `user_professions JOIN professions` pour trouver les users avec la même profession, hors créateur, hors suspendus.
+2. Si `professions.has_measurements = TRUE` : filtre aussi par mensurations via `addMeasurementConditions()` — parse les plages VARCHAR (`"165 - 175"`, `"170+"`, `"< 180"`) avec `parseRange()`, génère des conditions SQL `(expr IS NULL OR expr >= :min)`. **Lénient** : un user sans mensuration renseignée passe quand même (ne pas rater un talent).
+3. Critères exacts : `eye_color_id`, `hair_color_id`, `ethnicity_id`, `gender` — avec `OR IS NULL` pour être lénient.
+4. Email envoyé via `sendCastingNotification()` : société, lieu, profil recherché + mensurations attendues, dates, lien `castings.php?view=offres&highlight=ID`.
+5. `castings.php` : à `DOMContentLoaded`, si `?highlight=ID` présent → `scrollIntoView` + `openModal(card)` après 400ms.
+- Fonctions : `parseRange(?string): [min|null, max|null]`, `addMeasurementConditions(array, array&, array&)`, `sendCastingNotification(array, array, array, string)`.
 
 ### castings.php — key behaviors
 
@@ -344,13 +364,20 @@ The homepage is a professional feed (not carousels). Structure:
 
 The profile page renders one of 3 layouts based on `users.profile_theme`:
 
-- **`classique`** (default): left sidebar (profession, age, location, tags, bio button) centered + masonry 3-col portfolio on the right
+- **`classique`** (default): left sidebar (profession, location, tags, mensurations cards, bio/share buttons) + masonry 3-col portfolio on the right
 - **`editorial`**: full-width hero (first photo as background + dark gradient overlay, name in 6xl at bottom-left) + uniform 3-col square grid below (skips first photo used in hero)
 - **`luxe`**: centered layout, name in 7xl, thin decorative divider with brand dot, 2-col grid (first photo spans full width as banner)
 
 Theme is saved via `edit_profil.php?tab=theme` → `POST update_theme` (hidden input) → `User::updateTheme()`. Allowed values: `classique`, `editorial`, `luxe`.
 
 **Mobile header (Instagram-style) :** `#profil-mobile-header` rendu une seule fois avant les blocs de thème, caché sur desktop. Remplace la sidebar/hero sur mobile avec : avatar 82px + stats (photos/ville/âge) + nom + profession + tags + boutons actions + séparateur. Voir section "Responsive mobile — profil.php" pour le détail complet.
+
+**Tags "voir plus" :** max 3 tags visibles au chargement. Si plus de 3, un bouton `+N voir plus` apparaît. Clic → tous les tags s'affichent + bouton devient "voir moins". Variables PHP : `$tags_visible = array_slice($tags, 0, 3)`, `$tags_hidden = array_slice($tags, 3)`. Fonction JS `toggleTags(suffix)` — suffixes : `mob` (mobile header), `cl` (classique), `ed` (editorial), `lx` (luxe).
+
+**Mensurations sur le profil :** affichées uniquement si `professions.has_measurements = TRUE` pour la profession de l'utilisateur. Données chargées depuis la table `measurements` via requête séparée après `getUserProfile()`. `getUserProfile()` retourne désormais `p.has_measurements`. Variable PHP `$measurements` (null si pas de profession à mensurations, ou pas de ligne en DB).
+- **Desktop (thème classique)** : grille 2 colonnes de mini-cartes dans l'aside — label en gris, valeur en blanc. Classes CSS light-theme : `.cl-meas-card`, `.cl-meas-label`, `.cl-meas-value`.
+- **Desktop (editorial/luxe)** : fonction `renderMeasurementsDesktop($measurements, $centered)` — inline dans la zone tags.
+- **Mobile** : bouton **"Mensurations"** dans les boutons d'action du header (même style que "Bio") → ouvre `#measurements-modal` (sheet du bas, grille 2 colonnes, `border-radius: top only`).
 
 **Bio button:** If `users.bio` is set, a "Biographie" pill button appears (all 3 themes) that opens a popup modal with the full bio text. If no bio, no button is shown (own profile shows "+ Ajouter une biographie" link in classique theme only).
 
@@ -365,6 +392,8 @@ Theme is saved via `edit_profil.php?tab=theme` → `POST update_theme` (hidden i
 **Edit profile modal:** `edit_profil.php` is opened via a direct `<a href="edit_profil.php">` link (pas d'iframe). Après un save réussi (`$message` set, pas d'erreur), `edit_profil.php` fait un `header("Location: profil.php")` redirect automatique.
 
 **Projets (section en bas de toutes les pages profil) :** `profil.php` charge les projets du profil via `SELECT * FROM projects + LEFT JOIN required_profiles` (avec `json_agg`). Section affichée sous le book pour tous les visiteurs. Owner uniquement : bouton "＋ Nouveau projet" → `creer_projet.php`, bouton ✕ par carte → POST `delete_project`. Clic sur une carte → modal de détail (`#project-modal`) avec description, profils recherchés + leurs mensurations, contact.
+
+**Aside classique — design :** sections séparées par des traits fins `#1e1e1e` (classe `.cl-aside-sep`). Tags en pills sobres fond `#161616`. Boutons Bio et Partager en rectangles arrondis `border-radius:10px` (pas `rounded-full`). Light theme : classes `.cl-tag-pill`, `.cl-meas-card`, `.cl-meas-label`, `.cl-meas-value`, `.cl-action-btn` — overridées dans le `<style>` inline de `profil.php` (pas dans `custom.css`) car les éléments ont des styles inline.
 
 **Editorial theme fix:** Actions rendered **outside** the `overflow:hidden` hero container — placed in a separate `<div>` below the hero — so the dropdown is never clipped.
 
@@ -393,8 +422,8 @@ Theme is saved via `edit_profil.php?tab=theme` → `POST update_theme` (hidden i
 - **Tab switching:** pure JS `switchTab(key)` — swaps `.tab-panel.active` et `.nav-item.active`. Sur mobile : `window.scrollTo(0,0)`.
 - **Global sticky bar (`.ep-sticky-bar`):** `position:fixed; bottom:0; right:0` avec **"Annuler"** + **"Valider"**. Sur mobile : `left:0; right:0; border-radius:0`.
 - **`infos` tab:** photo upload (`profile_pic`), nom complet, **date de naissance** (date input → `users.birth_date`), **genre** (4 radio pills: Homme/Femme/Non-binaire/Autre), ville, pays, **toggle switch "Afficher mon âge"** (`show_age`) — `multipart/form-data`, hidden `update_general=1`. Avatar previewed via `FileReader`. `User::updateGeneralInfo()` prend `$show_age`, `$gender`, `$birth_date`.
-- **`expertise` tab:** tag pills (`data-selected` + inline style). Hidden `tags_string` mis à jour par `toggleEditTag()`. Hidden `update_expertise=1`.
-- **`mensurations` tab:** taille, poitrine, taille, hanches, pointure (number inputs) + selects pour yeux/cheveux/ethnicité (lookup tables). `User::upsertMeasurements()` fait INSERT ou UPDATE selon l'existence de la ligne. Hidden `update_measurements=1`.
+- **`expertise` tab:** tag pills (`data-selected` + inline style). Hidden `tags_string` mis à jour par `toggleEditTag()`. Hidden `update_expertise=1`. **Important :** `User::updateExpertise()` met à jour en même temps `users.specific_profession`, `users.expertise_tags`, ET `user_professions` (DELETE + INSERT par nom de profession). Sans ça, `$show_measurements` dans `edit_profil.php` lirait l'ancienne profession après un changement.
+- **`mensurations` tab:** visible uniquement si `$show_measurements = true` (au moins une profession de l'utilisateur a `has_measurements=TRUE` dans `user_professions JOIN professions`). Taille, poitrine, taille, hanches, pointure (number inputs) + selects pour yeux/cheveux/ethnicité (lookup tables). `User::upsertMeasurements()` fait INSERT ou UPDATE selon l'existence de la ligne. Hidden `update_measurements=1`.
 - **`bio`, `theme`, `securite` tabs:** même pattern hidden-input pour leurs handlers respectifs.
 - **`update_password` guard:** PHP vérifie `!empty($_POST['current_password'])` pour éviter le déclenchement sur d'autres soumissions.
 - **Age display:** `profil.php` calcule `$age` uniquement si `users.show_age = TRUE`.
@@ -491,13 +520,15 @@ Uploaded files go to `uploads/` (gitignored). Path relative to webroot stored in
 |---|---|
 | `index.php` | Homepage: feed + dropdown filter + right column 3 blocs + first-visit popup |
 | `inscription.php` | Registration: prenom+nom, birth_date (max = il y a 16 ans, bloqué JS), clickable tag pills, conditional mensurations |
-| `connexion.php` | Login step 1 (email + password) |
+| `connexion.php` | Login step 1 (email + password) + lien "Mot de passe oublié ?" |
 | `verifier_code.php` | Login step 2 (2FA code entry) |
-| `profil.php` | Public talent profile — 3 themes, bio popup, inline photo drag-drop edit (touch+desktop), follow system, followers count, section projets |
-| `edit_profil.php` | Settings: avatar, general info, expertise tags, bio, portfolio upload, theme picker, password — desktop: sidebar + tabs ; mobile: scroll unique toutes sections — redirect vers profil.php après save |
+| `mot_de_passe_oublie.php` | Formulaire email → envoi lien reset (token 1h) |
+| `reinitialiser_mdp.php` | Saisie nouveau mot de passe via token |
+| `profil.php` | Public talent profile — 3 themes, tags "voir plus" (max 3 visibles), mensurations desktop (mini-cartes) + mobile (modal sheet), bio popup, follow system, followers count, section projets |
+| `edit_profil.php` | Settings: avatar, general info, expertise tags (sync user_professions), bio, mensurations (si has_measurements), theme picker, password — desktop: sidebar + tabs ; mobile: scroll unique toutes sections |
 | `creer_projet.php` | Create project: title, type, date, description, dynamic profile cards (profession select + mensurations conditionnelles pour Mannequin/Comédien/Danseur), contact |
 | `castings.php` | Browse/filter castings (filters on right), favorites, own castings, modal detail view |
-| `creer_casting.php` | Create casting: multi-profile builder with ranges, two dates, live preview |
+| `creer_casting.php` | Create casting: multi-profile builder with ranges (tous facultatifs), two dates, live preview, notifications email aux talents correspondants (avec filtrage mensurations) |
 | `edit_casting.php` | Edit existing casting — **not yet migrated to Tailwind** (still uses `src/` CSS) |
 | `trouver_talent.php` | Browse talents by category + profession, grid portrait cards, hover overlay mensurations, filters on right |
 | `recherche.php` | Recherche talents full-text + filtres inline + filtres mensurations (Mannequin/Danseur/Comédien), AJAX dynamique debounced |

@@ -67,12 +67,24 @@ class User
 
     public function updateExpertise($user_id, $profession, $tags)
     {
-        $query = "UPDATE " . $this->table_name . " SET specific_profession = :prof, expertise_tags = :tags WHERE id = :id";
-        $stmt = $this->conn->prepare($query);
+        $stmt = $this->conn->prepare("UPDATE " . $this->table_name . " SET specific_profession = :prof, expertise_tags = :tags WHERE id = :id");
         $stmt->bindParam(":prof", $profession);
         $stmt->bindParam(":tags", $tags);
         $stmt->bindParam(":id", $user_id);
-        return $stmt->execute();
+        $ok = $stmt->execute();
+
+        // Sync user_professions avec la nouvelle profession
+        if ($ok && !empty($profession)) {
+            $stmtP = $this->conn->prepare("SELECT id FROM professions WHERE name = :name LIMIT 1");
+            $stmtP->execute([':name' => $profession]);
+            $prof = $stmtP->fetch(PDO::FETCH_ASSOC);
+            if ($prof) {
+                $this->conn->prepare("DELETE FROM user_professions WHERE user_id = :uid")->execute([':uid' => $user_id]);
+                $this->conn->prepare("INSERT INTO user_professions (user_id, profession_id) VALUES (:uid, :pid)")->execute([':uid' => $user_id, ':pid' => $prof['id']]);
+            }
+        }
+
+        return $ok;
     }
     public function updateProfilePicture($user_id, $image_url)
     {
@@ -85,7 +97,7 @@ class User
     public function getUserProfile($user_id)
     {
 
-        $query = "SELECT u.id, u.full_name, u.email, u.specific_profession, u.expertise_tags, u.city, u.country, u.bio, u.profile_picture_url, u.birth_date, u.profile_theme, u.show_age, u.gender, p.name as profession_name
+        $query = "SELECT u.id, u.full_name, u.email, u.specific_profession, u.expertise_tags, u.city, u.country, u.bio, u.profile_picture_url, u.birth_date, u.profile_theme, u.show_age, u.gender, p.name as profession_name, p.has_measurements
                   FROM " . $this->table_name . " u
                   LEFT JOIN user_professions up ON u.id = up.user_id
                   LEFT JOIN professions p ON up.profession_id = p.id

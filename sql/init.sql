@@ -408,3 +408,27 @@ CREATE TABLE IF NOT EXISTS follows (
 -- Migration: colonnes reset mot de passe
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token VARCHAR(64);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires TIMESTAMP;
+-- Table tags expertise (gérés depuis le back office)
+CREATE TABLE IF NOT EXISTS expertise_tags_list (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    display_order INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Seed tags par défaut
+INSERT INTO expertise_tags_list (name, display_order) VALUES
+('Haute couture',1),('Luxe',2),('Editorial',3),('Créatif',4),('Premium',5),
+('Fashion week',6),('Minimaliste',7),('Streetwear',8),('Avant-garde',9),('Moderne',10),
+('International',11),('Haut de gamme',12),('Commercial',13),('Artistique',14),
+('Perlage',15),('Ornementation',16),('Textile',17),('Broderie',18),('Brodeur',19),
+('Couture',20),('Défilé',21),('Beauté',22),('Hair stylist',23),('Mode',24),
+('Acteur',25),('Campagne',26),('Publicité',27),('Fashion',28),('Film',29),
+('Contemporain',30),('Performance',31),('Mouvement',32),('Designer',33),
+('Sacs',34),('Bijoux',35),('Chaussures',36),('Maroquinerie',37),('Accessoires',38),
+('Imprimés',39),('Maille',40),('Surface',41),('Mannequin',42),('Maquilleur',43),
+('Modéliste',44),('Patronage',45),('Atelier',46),('Photographe',47),('Studio',48),
+('Styliste',49),('Créateur',50),('Photo',51),('Célébrité',52),('Plateau',53),
+('Vidéaste',54),('Backstage',55),('Réalisateur',56),('Contenu',57),
+('Coiffeur',58),('Comédien',59),('Danseur',60)
+ON CONFLICT (name) DO NOTHING;

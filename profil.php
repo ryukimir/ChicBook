@@ -152,6 +152,22 @@ if (!empty($profile_data['birth_date']) && $profile_data['show_age'] === true) {
     $age = (new DateTime())->diff($birth)->y;
 }
 
+// Mensurations (uniquement pour professions has_measurements)
+$measurements = null;
+$has_measurements_prof = (bool)($profile_data['has_measurements'] ?? false);
+if ($has_measurements_prof) {
+    $stmt_m = $db->prepare(
+        "SELECT m.*, ec.name AS eye_color_name, hc.name AS hair_color_name, eth.name AS ethnicity_name
+         FROM measurements m
+         LEFT JOIN eye_colors ec ON ec.id = m.eye_color_id
+         LEFT JOIN hair_colors hc ON hc.id = m.hair_color_id
+         LEFT JOIN ethnicities eth ON eth.id = m.ethnicity_id
+         WHERE m.user_id = :uid"
+    );
+    $stmt_m->execute([':uid' => $profile_id]);
+    $measurements = $stmt_m->fetch(PDO::FETCH_ASSOC) ?: null;
+}
+
 $portfolioModel = new Portfolio($db);
 $photos = $portfolioModel->getPhotos($profile_id);
 $theme = $profile_data['profile_theme'] ?? 'classique';
@@ -183,8 +199,11 @@ $projects = $stmt_proj->fetchAll(PDO::FETCH_ASSOC);
 
 $tags = [];
 if (!empty($profile_data['expertise_tags'])) {
-    $tags = array_filter(array_map('trim', explode(',', $profile_data['expertise_tags'])));
+    $tags = array_values(array_filter(array_map('trim', explode(',', $profile_data['expertise_tags']))));
 }
+$tags_visible = array_slice($tags, 0, 3);
+$tags_hidden  = array_slice($tags, 3);
+$tags_uid     = 'tags-' . $profile_id; // ID unique pour le toggle
 
 $profession = htmlspecialchars($profile_data['specific_profession'] ?? $profile_data['profession_name'] ?? 'Talent');
 $name       = htmlspecialchars($profile_data['full_name']);
@@ -256,6 +275,18 @@ $location   = trim(($profile_data['city'] ?? '') . ($profile_data['country'] ? '
       html.light .pmh-profession { color: #a07aa0 !important; }
       html.light .pmh-sep { background: #e0d8d0 !important; }
     }
+    /* ── Light theme — aside classique ── */
+    html.light .cl-aside-sep       { border-color: #e8e2db !important; }
+    html.light .cl-tag-pill        { background: #ece8e3 !important; border-color: #d8d2cb !important; color: #666 !important; }
+    html.light .cl-meas-card       { background: #f5f0eb !important; border-color: #e0dbd4 !important; }
+    html.light .cl-meas-label      { color: #aaa !important; }
+    html.light .cl-meas-value      { color: #1a1a1a !important; }
+    html.light .cl-meas-title      { color: #bbb !important; }
+    html.light .cl-action-btn      { background: #f5f0eb !important; border-color: #e0dbd4 !important; color: #666 !important; }
+    html.light .cl-action-btn:hover{ border-color: #a060a0 !important; color: #a060a0 !important; }
+    /* Light theme — modal mensurations */
+    html.light #measurements-modal > div { background: #ffffff !important; border-color: #e8e2db !important; }
+    html.light #measurements-modal .meas-modal-item-bg { background: #f5f0eb !important; border-color: #e8e2db !important; }
     </style>
 </head>
 <body class="bg-black text-white">
@@ -296,10 +327,16 @@ elseif ($location) $mob_city = explode(',', $location)[0];
     </div>
     <!-- Tags -->
     <?php if ($tags): ?>
-    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;justify-content:center;">
-      <?php foreach (array_slice($tags, 0, 6) as $t): ?>
+    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;justify-content:center;" id="<?= $tags_uid ?>-mob">
+      <?php foreach ($tags_visible as $t): ?>
         <span class="pmh-tag" style="background:#1a1a1a;border:1px solid #2a2a2a;color:#888;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;">#<?= htmlspecialchars($t) ?></span>
       <?php endforeach; ?>
+      <?php foreach ($tags_hidden as $t): ?>
+        <span class="pmh-tag tags-extra-mob" style="background:#1a1a1a;border:1px solid #2a2a2a;color:#888;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;display:none;">#<?= htmlspecialchars($t) ?></span>
+      <?php endforeach; ?>
+      <?php if ($tags_hidden): ?>
+        <button onclick="toggleTags('mob')" id="<?= $tags_uid ?>-mob-btn" style="background:none;border:1px solid #333;color:#888;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;">+<?= count($tags_hidden) ?> voir plus</button>
+      <?php endif; ?>
     </div>
     <?php endif; ?>
     <!-- Boutons action -->
@@ -330,6 +367,9 @@ elseif ($location) $mob_city = explode(',', $location)[0];
       <?php if (!empty($profile_data['bio'])): ?>
         <button onclick="openBioModal()" style="<?= $lg ?>">Bio</button>
       <?php endif; ?>
+      <?php if ($measurements): ?>
+        <button onclick="openMeasurementsModal()" style="<?= $lg ?>">Mensurations</button>
+      <?php endif; ?>
       <button onclick="doShare()" style="<?= $lg ?>">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
       </button>
@@ -340,6 +380,28 @@ elseif ($location) $mob_city = explode(',', $location)[0];
 </div>
 
 <?php
+// ─── Bloc mensurations desktop ─────────────────────────────────────────────
+function renderMeasurementsDesktop(array $m, bool $centered = false): void {
+    $items = [];
+    if (!empty($m['height']))          $items[] = ['Taille',            $m['height'] . ' cm'];
+    if (!empty($m['chest_size']))      $items[] = ['Poitrine',          $m['chest_size'] . ' cm'];
+    if (!empty($m['waist_size']))      $items[] = ['Tour de taille',    $m['waist_size'] . ' cm'];
+    if (!empty($m['hip_size']))        $items[] = ['Hanches',           $m['hip_size'] . ' cm'];
+    if (!empty($m['shoe_size']))       $items[] = ['Pointure',          $m['shoe_size']];
+    if (!empty($m['eye_color_name']))  $items[] = ['Yeux',              $m['eye_color_name']];
+    if (!empty($m['hair_color_name'])) $items[] = ['Cheveux',           $m['hair_color_name']];
+    if (!empty($m['ethnicity_name']))  $items[] = ['Origine',           $m['ethnicity_name']];
+    if (empty($items)) return;
+    $center = $centered ? 'justify-center ' : '';
+    echo '<div class="mb-4">';
+    echo '<p class="text-[#555] text-xs font-bold uppercase tracking-widest mb-2 ' . ($centered ? 'text-center' : '') . '">Mensurations</p>';
+    echo '<div class="flex flex-wrap gap-x-5 gap-y-1 ' . $center . '">';
+    foreach ($items as [$label, $val]) {
+        echo '<span class="text-xs text-[#777]"><span class="text-[#555] font-semibold">' . htmlspecialchars($label) . '</span> · ' . htmlspecialchars($val) . '</span>';
+    }
+    echo '</div></div>';
+}
+
 // ─── Actions dropdown (commun à tous les thèmes) ───────────────────────────
 function renderActions($is_own_profile, $profile_id = 0, $is_following = false, $followers_count = 0) { ?>
     <div class="flex gap-3 items-center">
@@ -377,32 +439,75 @@ function renderActions($is_own_profile, $profile_id = 0, $is_following = false, 
 ═══════════════════════════════════════════════════════════════ -->
 <main class="max-w-[1400px] mx-auto mt-10 mb-10 px-8 flex gap-12 profil-classique-main">
 
-    <aside class="w-[240px] flex-shrink-0 flex flex-col items-center text-center profil-classique-aside">
-        <p class="text-[#d4a5d4] text-xs font-black uppercase tracking-widest mb-3"><?= $profession ?></p>
-        <?php if ($age): ?><p class="text-[#666] text-sm mb-1"><?= $age ?> ans</p><?php endif; ?>
-        <?php if ($location): ?><p class="text-[#555] text-sm mb-6"><?= htmlspecialchars($location) ?></p><?php endif; ?>
+    <aside class="w-[240px] flex-shrink-0 flex flex-col profil-classique-aside" style="gap:0;">
 
+        <!-- Profession + localisation -->
+        <div class="mb-5">
+            <p class="text-[#d4a5d4] text-[11px] font-black uppercase tracking-[0.2em] mb-1"><?= $profession ?></p>
+            <?php if ($location): ?><p class="text-[#555] text-xs"><?= htmlspecialchars($location) ?><?= $age ? ' · '.$age.' ans' : '' ?></p><?php endif; ?>
+        </div>
+
+        <!-- Tags -->
         <?php if ($tags): ?>
-            <div class="flex flex-wrap gap-2 mb-6 justify-center">
-                <?php foreach ($tags as $t): ?>
-                    <span class="bg-[#1a1a1a] border border-[#2a2a2a] text-[#888] px-3 py-1 rounded-full text-xs font-semibold">#<?= htmlspecialchars($t) ?></span>
+        <div class="cl-aside-sep" style="border-top:1px solid #1e1e1e; padding-top:16px; margin-bottom:16px;">
+            <div class="flex flex-wrap gap-1.5">
+                <?php foreach ($tags_visible as $t): ?>
+                    <span class="cl-tag-pill" style="background:#161616;border:1px solid #272727;color:#666;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;">#<?= htmlspecialchars($t) ?></span>
+                <?php endforeach; ?>
+                <?php foreach ($tags_hidden as $t): ?>
+                    <span class="cl-tag-pill tags-extra-cl" style="background:#161616;border:1px solid #272727;color:#666;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;display:none;">#<?= htmlspecialchars($t) ?></span>
+                <?php endforeach; ?>
+                <?php if ($tags_hidden): ?>
+                    <button onclick="toggleTags('cl')" id="<?= $tags_uid ?>-cl-btn" class="cl-tag-pill" style="background:none;border:1px solid #272727;color:#555;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;">+<?= count($tags_hidden) ?> voir plus</button>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- Mensurations -->
+        <?php if ($measurements): ?>
+        <?php
+        $meas_rows = [];
+        if (!empty($measurements['height']))          $meas_rows[] = ['Taille',      $measurements['height'].' cm'];
+        if (!empty($measurements['chest_size']))      $meas_rows[] = ['Poitrine',    $measurements['chest_size'].' cm'];
+        if (!empty($measurements['waist_size']))      $meas_rows[] = ['Taille',      $measurements['waist_size'].' cm'];
+        if (!empty($measurements['hip_size']))        $meas_rows[] = ['Hanches',     $measurements['hip_size'].' cm'];
+        if (!empty($measurements['shoe_size']))       $meas_rows[] = ['Pointure',    $measurements['shoe_size']];
+        if (!empty($measurements['eye_color_name']))  $meas_rows[] = ['Yeux',        $measurements['eye_color_name']];
+        if (!empty($measurements['hair_color_name'])) $meas_rows[] = ['Cheveux',     $measurements['hair_color_name']];
+        if (!empty($measurements['ethnicity_name']))  $meas_rows[] = ['Origine',     $measurements['ethnicity_name']];
+        ?>
+        <?php if ($meas_rows): ?>
+        <div class="cl-aside-sep" style="border-top:1px solid #1e1e1e; padding-top:16px; margin-bottom:16px;">
+            <p class="cl-meas-title" style="color:#333;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.15em;margin-bottom:10px;">Mensurations</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 6px;">
+                <?php foreach ($meas_rows as [$lbl, $val]): ?>
+                <div class="cl-meas-card" style="background:#111;border:1px solid #1e1e1e;border-radius:8px;padding:7px 10px;">
+                    <p class="cl-meas-label" style="color:#444;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px;"><?= htmlspecialchars($lbl) ?></p>
+                    <p class="cl-meas-value" style="color:#ccc;font-size:13px;font-weight:600;"><?= htmlspecialchars($val) ?></p>
+                </div>
                 <?php endforeach; ?>
             </div>
+        </div>
+        <?php endif; ?>
         <?php endif; ?>
 
-        <?php if (!empty($profile_data['bio'])): ?>
-            <button onclick="openBioModal()" class="mb-6 flex items-center gap-2 text-[#888] text-sm font-semibold border border-[#2a2a2a] rounded-full px-4 py-2 hover:border-[#d4a5d4] hover:text-[#d4a5d4] transition-all bg-[#111]">
-                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                Biographie
+        <!-- Actions -->
+        <div class="cl-aside-sep" style="border-top:1px solid #1e1e1e; padding-top:16px; display:flex; flex-direction:column; gap:8px;">
+            <?php if (!empty($profile_data['bio'])): ?>
+                <button onclick="openBioModal()" class="cl-action-btn" style="display:flex;align-items:center;gap:8px;background:#111;border:1px solid #1e1e1e;border-radius:10px;padding:10px 14px;color:#777;font-size:12px;font-weight:600;cursor:pointer;transition:border-color .15s,color .15s;text-align:left;" onmouseover="this.style.borderColor='#d4a5d4';this.style.color='#d4a5d4'" onmouseout="this.style.borderColor='#1e1e1e';this.style.color='#777'">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                    Biographie
+                </button>
+            <?php elseif ($is_own_profile): ?>
+                <a href="edit_profil.php" class="cl-meas-title" style="color:#333;font-size:12px;text-decoration:none;" onmouseover="this.style.color='#d4a5d4'" onmouseout="this.style.color='#333'">+ Ajouter une biographie</a>
+            <?php endif; ?>
+            <button id="btn-share" class="cl-action-btn" style="display:flex;align-items:center;gap:8px;background:#111;border:1px solid #1e1e1e;border-radius:10px;padding:10px 14px;color:#555;font-size:12px;font-weight:600;cursor:pointer;transition:border-color .15s,color .15s;" onmouseover="this.style.borderColor='#d4a5d4';this.style.color='#d4a5d4'" onmouseout="this.style.borderColor='#1e1e1e';this.style.color='#555'">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                Partager le profil
             </button>
-        <?php elseif ($is_own_profile): ?>
-            <a href="edit_profil.php#section-bio" class="text-[#444] text-sm hover:text-[#d4a5d4] transition-colors mb-6 block">+ Ajouter une biographie</a>
-        <?php endif; ?>
+        </div>
 
-        <button id="btn-share" class="inline-flex items-center gap-2 mt-2 px-4 py-2 rounded-full border border-[#2a2a2a] bg-[#111] text-[#aaa] text-xs font-medium hover:border-[#d4a5d4] hover:text-[#d4a5d4] transition-all">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-            Partager le profil
-        </button>
     </aside>
 
     <section class="flex-grow min-w-0">
@@ -472,9 +577,15 @@ function renderActions($is_own_profile, $profile_id = 0, $is_following = false, 
     <div class="flex items-center gap-4 mb-10 pb-8 border-b border-[#1a1a1a] flex-wrap profil-editorial-tags-row">
         <?php if ($tags): ?>
             <div class="flex flex-wrap gap-2">
-                <?php foreach ($tags as $t): ?>
+                <?php foreach ($tags_visible as $t): ?>
                     <span class="bg-[#1a1a1a] border border-[#2a2a2a] text-[#888] px-3 py-1 rounded-full text-xs font-semibold">#<?= htmlspecialchars($t) ?></span>
                 <?php endforeach; ?>
+                <?php foreach ($tags_hidden as $t): ?>
+                    <span class="tags-extra-ed bg-[#1a1a1a] border border-[#2a2a2a] text-[#888] px-3 py-1 rounded-full text-xs font-semibold" style="display:none;">#<?= htmlspecialchars($t) ?></span>
+                <?php endforeach; ?>
+                <?php if ($tags_hidden): ?>
+                    <button onclick="toggleTags('ed')" id="<?= $tags_uid ?>-ed-btn" class="bg-transparent border border-[#333] text-[#888] px-3 py-1 rounded-full text-xs font-semibold cursor-pointer hover:border-[#888] transition-colors">+<?= count($tags_hidden) ?> voir plus</button>
+                <?php endif; ?>
             </div>
         <?php endif; ?>
         <?php if (!empty($profile_data['bio'])): ?>
@@ -483,6 +594,14 @@ function renderActions($is_own_profile, $profile_id = 0, $is_following = false, 
                 Biographie
             </button>
         <?php endif; ?>
+        <?php if ($measurements): ?>
+            <?php renderMeasurementsDesktop($measurements); ?>
+        <?php endif; ?>
+    </div>
+    <?php endif; ?>
+    <?php if ($measurements && !($tags || !empty($profile_data['bio']))): ?>
+    <div class="mb-10 pb-8 border-b border-[#1a1a1a] profil-editorial-tags-row">
+        <?php renderMeasurementsDesktop($measurements); ?>
     </div>
     <?php endif; ?>
 
@@ -532,9 +651,15 @@ function renderActions($is_own_profile, $profile_id = 0, $is_following = false, 
         </div>
         <?php if ($tags): ?>
             <div class="flex flex-wrap gap-2 justify-center mb-6">
-                <?php foreach ($tags as $t): ?>
+                <?php foreach ($tags_visible as $t): ?>
                     <span class="text-[#444] text-xs font-semibold uppercase tracking-wider"><?= htmlspecialchars($t) ?></span>
                 <?php endforeach; ?>
+                <?php foreach ($tags_hidden as $t): ?>
+                    <span class="tags-extra-lx text-[#444] text-xs font-semibold uppercase tracking-wider" style="display:none;"><?= htmlspecialchars($t) ?></span>
+                <?php endforeach; ?>
+                <?php if ($tags_hidden): ?>
+                    <button onclick="toggleTags('lx')" id="<?= $tags_uid ?>-lx-btn" class="bg-transparent border border-[#333] text-[#555] px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider cursor-pointer hover:border-[#555] transition-colors">+<?= count($tags_hidden) ?> voir plus</button>
+                <?php endif; ?>
             </div>
         <?php endif; ?>
         <?php if (!empty($profile_data['bio'])): ?>
@@ -543,6 +668,11 @@ function renderActions($is_own_profile, $profile_id = 0, $is_following = false, 
                     <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                     Biographie
                 </button>
+            </div>
+        <?php endif; ?>
+        <?php if ($measurements): ?>
+            <div class="flex justify-center mb-6">
+                <?php renderMeasurementsDesktop($measurements, true); ?>
             </div>
         <?php endif; ?>
         <div class="flex justify-center gap-3 mb-4">
@@ -712,6 +842,42 @@ function renderActions($is_own_profile, $profile_id = 0, $is_following = false, 
         </div>
     </div>
 </div>
+<?php endif; ?>
+
+<!-- Modale mensurations (mobile) -->
+<?php if ($measurements): ?>
+<?php
+$meas_modal_items = [];
+if (!empty($measurements['height']))          $meas_modal_items[] = ['Taille',         $measurements['height'] . ' cm'];
+if (!empty($measurements['chest_size']))      $meas_modal_items[] = ['Poitrine',        $measurements['chest_size'] . ' cm'];
+if (!empty($measurements['waist_size']))      $meas_modal_items[] = ['Tour de taille',  $measurements['waist_size'] . ' cm'];
+if (!empty($measurements['hip_size']))        $meas_modal_items[] = ['Hanches',         $measurements['hip_size'] . ' cm'];
+if (!empty($measurements['shoe_size']))       $meas_modal_items[] = ['Pointure',        $measurements['shoe_size']];
+if (!empty($measurements['eye_color_name']))  $meas_modal_items[] = ['Yeux',            $measurements['eye_color_name']];
+if (!empty($measurements['hair_color_name'])) $meas_modal_items[] = ['Cheveux',         $measurements['hair_color_name']];
+if (!empty($measurements['ethnicity_name']))  $meas_modal_items[] = ['Origine',         $measurements['ethnicity_name']];
+?>
+<?php if ($meas_modal_items): ?>
+<div id="measurements-modal" class="hidden fixed inset-0 z-[3000] flex items-end justify-center bg-black/80 backdrop-blur-sm" onclick="if(event.target===this)closeMeasurementsModal()">
+    <div class="relative bg-[#111] rounded-t-2xl w-full max-w-lg shadow-[0_-16px_60px_rgba(0,0,0,0.8)] border-t border-x border-[#1e1e1e]">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-[#1e1e1e]">
+            <div>
+                <div class="text-white font-bold text-base">Mensurations</div>
+                <div class="text-[#d4a5d4] text-xs font-semibold mt-0.5"><?= $name ?></div>
+            </div>
+            <button onclick="closeMeasurementsModal()" class="w-8 h-8 flex items-center justify-center rounded-full bg-[#1e1e1e] hover:bg-[#2a2a2a] text-[#888] hover:text-white transition-colors text-lg leading-none">✕</button>
+        </div>
+        <div class="px-6 py-5 grid grid-cols-2 gap-x-6 gap-y-4 pb-10">
+            <?php foreach ($meas_modal_items as [$label, $val]): ?>
+            <div>
+                <p class="text-[#555] text-xs font-bold uppercase tracking-widest mb-0.5"><?= htmlspecialchars($label) ?></p>
+                <p class="text-white text-base font-semibold"><?= htmlspecialchars($val) ?></p>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 <?php endif; ?>
 
 <!-- Modal Lightbox Photos -->
@@ -934,6 +1100,14 @@ function closeBioModal() {
     document.getElementById('bio-modal')?.classList.add('hidden');
     document.body.style.overflow = '';
 }
+function openMeasurementsModal() {
+    document.getElementById('measurements-modal')?.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+function closeMeasurementsModal() {
+    document.getElementById('measurements-modal')?.classList.add('hidden');
+    document.body.style.overflow = '';
+}
 
 // ─── Modal Projets ────────────────────────────────────────────────────────
 document.querySelectorAll('.project-card').forEach(card => {
@@ -1122,6 +1296,14 @@ async function toggleFollow() {
     });
 }
 
+// Tags "voir plus / voir moins"
+function toggleTags(suffix) {
+    const extras = document.querySelectorAll('.tags-extra-' + suffix);
+    const btn    = document.getElementById('<?= $tags_uid ?>-' + suffix + '-btn');
+    const hidden = extras[0] && extras[0].style.display === 'none';
+    extras.forEach(el => el.style.display = hidden ? '' : 'none');
+    if (btn) btn.textContent = hidden ? 'voir moins' : '+<?= count($tags_hidden) ?> voir plus';
+}
 </script>
 </body>
 </html>

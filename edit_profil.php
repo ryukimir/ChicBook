@@ -81,6 +81,39 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $error = "Les nouveaux mots de passe ne correspondent pas.";
         }
     }
+    if (isset($_POST['delete_account'])) {
+        $pwd1 = $_POST['delete_password_1'] ?? '';
+        $pwd2 = $_POST['delete_password_2'] ?? '';
+        if ($pwd1 !== $pwd2) {
+            $error = "Les deux mots de passe ne correspondent pas.";
+        } elseif (empty($pwd1)) {
+            $error = "Veuillez saisir votre mot de passe.";
+        } else {
+            $stmt_chk = $db->prepare("SELECT password_hash FROM users WHERE id=:id");
+            $stmt_chk->execute([':id' => $_SESSION['user_id']]);
+            $row_chk = $stmt_chk->fetch(PDO::FETCH_ASSOC);
+            if (!$row_chk || !password_verify($pwd1, $row_chk['password_hash'])) {
+                $error = "Mot de passe incorrect.";
+            } else {
+                // Supprime les photos du book sur disque
+                $photos = $db->prepare("SELECT image_url FROM portfolios WHERE user_id=:id");
+                $photos->execute([':id' => $_SESSION['user_id']]);
+                foreach ($photos->fetchAll(PDO::FETCH_COLUMN) as $path) {
+                    if ($path && file_exists($path)) unlink($path);
+                }
+                // Supprime l'avatar
+                $avatar_row = $db->prepare("SELECT profile_picture_url FROM users WHERE id=:id");
+                $avatar_row->execute([':id' => $_SESSION['user_id']]);
+                $avatar_path = $avatar_row->fetchColumn();
+                if ($avatar_path && file_exists($avatar_path)) unlink($avatar_path);
+                // Supprime le compte (CASCADE supprime les données liées)
+                $db->prepare("DELETE FROM users WHERE id=:id")->execute([':id' => $_SESSION['user_id']]);
+                session_destroy();
+                header("Location: index.php");
+                exit();
+            }
+        }
+    }
     if (isset($_POST['update_theme'])) {
         $userModel->updateTheme($_SESSION['user_id'], $_POST['theme'] ?? 'classique');
         $message = "Thème mis à jour !";
@@ -122,6 +155,7 @@ $user         = $userModel->getUserProfile($_SESSION['user_id']);
 $measurements = $userModel->getMeasurements($_SESSION['user_id']);
 
 
+$all_tags_db = $db->query("SELECT name FROM expertise_tags_list ORDER BY name ASC")->fetchAll(PDO::FETCH_COLUMN);
 $professions_with_measurements = $db->query("SELECT name FROM professions WHERE has_measurements=TRUE ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
 $query_user_professions = "SELECT p.name FROM user_professions up
                            JOIN professions p ON up.profession_id = p.id
@@ -404,10 +438,9 @@ if (!isset($tabs[$active_tab])) $active_tab = array_key_first($tabs);
                             <label class="block text-[#888] text-xs font-bold uppercase tracking-widest mb-3">Tags</label>
                             <?php
                             $saved_tags_arr = array_map('trim', explode(',', $user['expertise_tags'] ?? ''));
-                            $all_edit_tags = ['Brodeur', 'Haute couture', 'Luxe', 'Editorial', 'Créatif', 'Premium', 'Fashion week', 'Minimaliste', 'Streetwear', 'Avant-garde', 'Moderne', 'International', 'Haut de gamme', 'Commercial', 'Artistique', 'Perlage', 'Ornementation', 'Textile', 'Broderie', 'Couture', 'Coiffeur', 'Défilé', 'Beauté', 'Hair stylist', 'Mode', 'Comédien', 'Acteur', 'Campagne', 'Publicité', 'Fashion', 'Film', 'Danseur', 'Contemporain', 'Performance', 'Mouvement', 'Designer', 'Sacs', 'Bijoux', 'Chaussures', 'Maroquinerie', 'Accessoires', 'Imprimés', 'Maille', 'Surface', 'Mannequin', 'Maquilleur', 'Modéliste', 'Patronage', 'Atelier', 'Photographe', 'Studio', 'Styliste', 'Créateur', 'Photo', 'Célébrité', 'Plateau', 'Vidéaste', 'Backstage', 'Réalisateur', 'Contenu'];
                             ?>
                             <div class="flex flex-wrap gap-2">
-                                <?php foreach ($all_edit_tags as $t):
+                                <?php foreach ($all_tags_db as $t):
                                     $sel = in_array($t, $saved_tags_arr); ?>
                                     <button type="button" onclick="toggleEditTag(this)" data-tag="<?= htmlspecialchars($t) ?>" data-selected="<?= $sel ? '1' : '0' ?>"
                                         class="tag-pill px-3 py-1.5 rounded-full text-xs font-semibold border cursor-pointer"
@@ -603,6 +636,16 @@ if (!isset($tabs[$active_tab])) $active_tab = array_key_first($tabs);
                             <input type="password" name="confirm_password" minlength="8" class="input-field">
                         </div>
                     </form>
+
+                    <!-- Supprimer le compte -->
+                    <div style="margin-top:40px; padding-top:28px; border-top:1px solid #1e1e1e;">
+                        <h3 style="font-size:15px; font-weight:600; color:#e57373; margin-bottom:6px;">Supprimer mon compte</h3>
+                        <p style="font-size:13px; color:#666; margin-bottom:20px;">Cette action est irréversible. Toutes vos données, photos et messages seront définitivement supprimés.</p>
+                        <button type="button" onclick="document.getElementById('modal-delete-account').style.display='flex';"
+                            style="padding:10px 20px; border-radius:999px; font-size:13px; font-weight:600; border:1px solid #c62828; color:#e57373; background:transparent; cursor:pointer;">
+                            Supprimer mon compte
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Liens bas de page (mobile uniquement) -->
@@ -756,6 +799,39 @@ if (!isset($tabs[$active_tab])) $active_tab = array_key_first($tabs);
             <?php endif; ?>
         }
     </script>
+
+<!-- Modal suppression compte -->
+<div id="modal-delete-account" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:9999; align-items:center; justify-content:center;">
+    <div style="background:#111; border:1px solid #222; border-radius:20px; padding:28px; width:100%; max-width:400px; margin:16px;">
+        <h3 style="font-size:16px; font-weight:700; color:#e57373; margin-bottom:6px;">Supprimer mon compte</h3>
+        <p style="font-size:13px; color:#666; margin-bottom:24px;">Saisissez votre mot de passe deux fois pour confirmer. Cette action est irréversible.</p>
+        <form action="edit_profil.php?tab=securite" method="POST" class="flex flex-col gap-4">
+            <input type="hidden" name="delete_account" value="1">
+            <div>
+                <label style="display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#888; margin-bottom:6px;">Mot de passe</label>
+                <input type="password" name="delete_password_1" required class="input-field" placeholder="Votre mot de passe actuel">
+            </div>
+            <div>
+                <label style="display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#888; margin-bottom:6px;">Confirmer le mot de passe</label>
+                <input type="password" name="delete_password_2" required class="input-field" placeholder="Confirmez votre mot de passe">
+            </div>
+            <div style="display:flex; gap:10px; margin-top:8px;">
+                <button type="submit" style="flex:1; padding:11px; border-radius:999px; font-size:13px; font-weight:700; border:none; background:#c62828; color:#fff; cursor:pointer;">
+                    Confirmer la suppression
+                </button>
+                <button type="button" onclick="document.getElementById('modal-delete-account').style.display='none';"
+                    style="flex:1; padding:11px; border-radius:999px; font-size:13px; font-weight:600; border:1px solid #333; color:#aaa; background:transparent; cursor:pointer;">
+                    Annuler
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+document.getElementById('modal-delete-account').addEventListener('click', function(e) {
+    if (e.target === this) this.style.display = 'none';
+});
+</script>
 </body>
 
 </html>

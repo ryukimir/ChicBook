@@ -14,6 +14,7 @@ $eye_colors = $db->query("SELECT * FROM eye_colors ORDER BY name ASC")->fetchAll
 $hair_colors = $db->query("SELECT * FROM hair_colors ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
 $ethnicities = $db->query("SELECT * FROM ethnicities ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
 $languages = $db->query("SELECT * FROM languages ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
+$all_tags_db = $db->query("SELECT name FROM expertise_tags_list ORDER BY name ASC")->fetchAll(PDO::FETCH_COLUMN);
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
   $authController = new AuthController();
@@ -153,7 +154,7 @@ function get_post_value($key)
               </ul>
             </div>
             <div class="flex-1">
-              <select name="pays" id="pays-select" required class="input-field">
+              <select name="pays" id="pays-select" required class="input-field" data-saved="<?= htmlspecialchars(get_post_value('pays')) ?>">
                 <option value="" disabled selected>Pays</option>
               </select>
             </div>
@@ -179,9 +180,8 @@ function get_post_value($key)
             <label class="block text-white mb-2.5 text-sm">Mots-clés qui vous décrivent <span class="text-[#666]">(sélectionnez ceux qui vous correspondent)</span></label>
             <div id="tags-container" class="flex flex-wrap gap-2">
               <?php
-              $all_tags = ['Brodeur','Haute couture','Luxe','Editorial','Créatif','Premium','Fashion week','Minimaliste','Streetwear','Avant-garde','Moderne','International','Haut de gamme','Commercial','Artistique','Perlage','Ornementation','Textile','Broderie','Couture','Défilé','Beauté','Hair stylist','Mode','Acteur','Campagne','Publicité','Fashion','Film','Contemporain','Performance','Mouvement','Designer','Sacs','Bijoux','Chaussures','Maroquinerie','Accessoires','Imprimés','Maille','Surface','Mannequin','Maquilleur','Modéliste','Patronage','Atelier','Photographe','Studio','Styliste','Créateur','Photo','Célébrité','Plateau','Vidéaste','Backstage','Réalisateur','Contenu','Coiffeur','Comédien','Danseur'];
               $selected_tags = array_filter(array_map('trim', explode(',', get_post_value('expertise_tags'))));
-              foreach ($all_tags as $tag): $sel = in_array($tag, $selected_tags); ?>
+              foreach ($all_tags_db as $tag): $sel = in_array($tag, $selected_tags); ?>
               <button type="button" onclick="toggleTag(this)"
                 data-tag="<?= htmlspecialchars($tag) ?>"
                 class="tag-pill px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150 cursor-pointer <?= $sel ? 'bg-[#d4a5d4] text-black border-[#d4a5d4]' : 'bg-transparent text-[#888] border-[#333] hover:border-[#d4a5d4] hover:text-[#d4a5d4]' ?>">
