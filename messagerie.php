@@ -363,7 +363,7 @@ scrollToBottom();
 function renderMessage(msg) {
     const isMine = (msg.sender_id == ME);
     const time = new Date(msg.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
-    const content = msg.content.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+    const content = msg.content.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/\n/g,'<br>');
     const wrap = document.createElement('div');
     wrap.style.cssText = 'display:flex;justify-content:' + (isMine ? 'flex-end' : 'flex-start') + ';';
     wrap.dataset.msgId = msg.id;

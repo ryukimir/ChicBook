@@ -22,6 +22,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         if ($userModel->verifyLoginCode($_SESSION['temp_user_id'], $code_saisi)) {
             $_SESSION['user_id'] = $_SESSION['temp_user_id'];
+            session_regenerate_id(true);
             $userData = $userModel->getUserProfile($_SESSION['user_id']);
             $_SESSION['user_avatar'] = $userData['profile_picture_url'];
             $userModel->clearLoginCode($_SESSION['user_id']);

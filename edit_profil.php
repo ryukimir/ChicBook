@@ -20,7 +20,19 @@ $ethnicities   = $db->query("SELECT id, name FROM ethnicities ORDER BY id")->fet
 $message = "";
 $error = "";
 
+// Génération du token CSRF si absent
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    // Vérification CSRF sur toutes les actions sensibles
+    $csrf_actions = ['delete_account', 'update_password'];
+    $is_csrf_action = array_intersect($csrf_actions, array_keys($_POST));
+    if (!empty($is_csrf_action) && ($_POST['csrf_token'] ?? '') !== $_SESSION['csrf_token']) {
+        $error = "Requête invalide. Veuillez recharger la page.";
+        goto skip_post;
+    }
     if (isset($_POST['update_general'])) {
         $show_age   = isset($_POST['show_age']) && $_POST['show_age'] === '1';
         $gender     = trim($_POST['gender'] ?? '');
@@ -150,8 +162,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         exit();
     }
 }
-
-$user         = $userModel->getUserProfile($_SESSION['user_id']);
+skip_post:
+$user = $userModel->getUserProfile($_SESSION['user_id']);
 $measurements = $userModel->getMeasurements($_SESSION['user_id']);
 
 
@@ -807,6 +819,7 @@ if (!isset($tabs[$active_tab])) $active_tab = array_key_first($tabs);
         <p style="font-size:13px; color:#666; margin-bottom:24px;">Saisissez votre mot de passe deux fois pour confirmer. Cette action est irréversible.</p>
         <form action="edit_profil.php?tab=securite" method="POST" class="flex flex-col gap-4">
             <input type="hidden" name="delete_account" value="1">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
             <div>
                 <label style="display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#888; margin-bottom:6px;">Mot de passe</label>
                 <input type="password" name="delete_password_1" required class="input-field" placeholder="Votre mot de passe actuel">

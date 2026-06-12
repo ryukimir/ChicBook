@@ -11,6 +11,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     if (empty($email) || empty($password)) {
         $errors[] = "Veuillez remplir tous les champs.";
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = "Format d'email invalide.";
     } else {
         $db = Database::getInstance()->getConnection();
         $userModel = new User($db);

@@ -40,6 +40,13 @@ if ($is_logged_in && isset($_POST['photo_action'])) {
             $upload_dir = 'uploads/';
             if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
             $ext  = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
+            $allowed_exts = ['jpg','jpeg','png','gif','webp'];
+            $img_info = @getimagesize($_FILES['photo']['tmp_name']);
+            $allowed_mimes = ['image/jpeg','image/png','image/gif','image/webp'];
+            if (!in_array($ext, $allowed_exts) || !$img_info || !in_array($img_info['mime'], $allowed_mimes)) {
+                echo json_encode(['ok' => false, 'err' => 'Type de fichier non autorisé']);
+                exit;
+            }
             $name = 'portfolio_' . $_SESSION['user_id'] . '_' . time() . '.' . $ext;
             $path = $upload_dir . $name;
             if (move_uploaded_file($_FILES['photo']['tmp_name'], $path)) {

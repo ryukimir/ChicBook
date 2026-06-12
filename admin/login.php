@@ -17,6 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($user && $user['is_admin'] && password_verify($password, $user['password_hash'])) {
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['is_admin'] = true;
+        session_regenerate_id(true);
         header('Location: index.php');
         exit;
     } else {
