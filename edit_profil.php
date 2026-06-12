@@ -147,7 +147,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
     if (isset($_FILES['portfolio_image']) && $_FILES['portfolio_image']['error'] == 0) {
         $target_dir = "uploads/";
-        $file_name = time() . "_" . basename($_FILES["portfolio_image"]["name"]);
+        $ext_ep = strtolower(pathinfo($_FILES['portfolio_image']['name'], PATHINFO_EXTENSION));
+        $allowed_exts_ep = ['jpg','jpeg','png','gif','webp'];
+        $img_info_ep = @getimagesize($_FILES['portfolio_image']['tmp_name']);
+        $allowed_mimes_ep = ['image/jpeg','image/png','image/gif','image/webp'];
+        if (!in_array($ext_ep, $allowed_exts_ep) || !$img_info_ep || !in_array($img_info_ep['mime'], $allowed_mimes_ep)) {
+            $error = "Type de fichier non autorisé.";
+        } else {
+        $file_name = bin2hex(random_bytes(12)) . '.' . $ext_ep;
         $target_file = $target_dir . $file_name;
         if (move_uploaded_file($_FILES["portfolio_image"]["tmp_name"], $target_file)) {
             $portfolioModel->addPhoto($_SESSION['user_id'], $target_file);
@@ -155,6 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         } else {
             $error = "Erreur lors du téléchargement de l'image.";
         }
+        } // end else mime check
     }
 
     if ($message && !$error) {

@@ -29,7 +29,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             unset($_SESSION['temp_user_id']);
             // Remember me : token 30 jours
             $remember_token = bin2hex(random_bytes(32));
-            $db->prepare("UPDATE users SET remember_token=:t WHERE id=:id")->execute(['t' => $remember_token, 'id' => $_SESSION['user_id']]);
+            $db->prepare("UPDATE users SET remember_token=:t WHERE id=:id")->execute(['t' => hash('sha256', $remember_token), 'id' => $_SESSION['user_id']]);
             setcookie('chicbook_remember', $remember_token, time() + 30 * 24 * 3600, '/', '', false, true);
             header("Location: index.php");
             exit();

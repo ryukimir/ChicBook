@@ -47,7 +47,7 @@ if ($is_logged_in && isset($_POST['photo_action'])) {
                 echo json_encode(['ok' => false, 'err' => 'Type de fichier non autorisé']);
                 exit;
             }
-            $name = 'portfolio_' . $_SESSION['user_id'] . '_' . time() . '.' . $ext;
+            $name = bin2hex(random_bytes(12)) . '.' . $ext;
             $path = $upload_dir . $name;
             if (move_uploaded_file($_FILES['photo']['tmp_name'], $path)) {
                 // position = max actuel + 1

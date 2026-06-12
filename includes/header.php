@@ -5,7 +5,7 @@ $user_avatar = $_SESSION['user_avatar'] ?? null;
 // Auto-login via cookie remember me
 if (!$current_user_id && !empty($_COOKIE['chicbook_remember']) && isset($db)) {
     $stmt = $db->prepare("SELECT id, profile_picture_url FROM users WHERE remember_token=:t AND is_suspended=FALSE LIMIT 1");
-    $stmt->execute(['t' => $_COOKIE['chicbook_remember']]);
+    $stmt->execute(['t' => hash('sha256', $_COOKIE['chicbook_remember'])]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($row) {
         $_SESSION['user_id'] = $row['id'];
