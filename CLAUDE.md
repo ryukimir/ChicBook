@@ -241,6 +241,8 @@ Le site supporte deux thèmes. Le sombre est le défaut.
 
 **CSS :** `assets/css/custom.css` contient une section `/* ===== LIGHT THEME ===== */` avec des overrides `html.light .bg-black`, `html.light .text-white`, etc. pour toutes les classes Tailwind sombres courantes. La palette claire est warm off-white (`#f2ede8`) avec cartes `#ffffff`/`#ece8e3`.
 
+**Attention inline styles :** les overrides Tailwind dans `custom.css` ne couvrent que les classes CSS — pas les `style="background:#xxx"` inline. Pour les éléments avec inline styles sombres (ex: `messagerie.php` panels, widgets `index.php`), les overrides light theme sont dans un `<style>` block de la page concernée, ciblant les éléments par ID (`#conv-list-panel`, `#chat-header-bar`, `#chat-input-bar`, etc.) ou par classe ajoutée (`fashion-widget`, `events-widget`). Pattern : `html.light #element-id { background: #faf7f4 !important; }`
+
 **Toggle :** `preferences.php` — toggle iOS-style qui sauvegarde cookie + localStorage puis recharge la page (`window.location.reload()`). Le rechargement est nécessaire pour que PHP applique `class="light"` sans flash — la mise à jour CSS instantanée via JS seul entrait en conflit avec l'injection de styles de Tailwind CDN.
 
 - Card surfaces sombres : `#111` (page bg), `#1a1a1a` (cards), `#222` (nested)
@@ -265,7 +267,7 @@ Brand color: `#d4a5d4` (mauve/purple). Page background: `#000`. Card surface: `#
 - `castings` — has `casting_date DATE` (audition day) and `performance_date DATE` (realization day), `city`, `country`, `collaboration_type`, `cover_image`
 - `casting_profiles` — multiple profiles per casting (role, quantity, age range, gender, measurements as min-max strings like "165 - 175", eye/hair/ethnicity FKs)
 - `casting_favorites` — many-to-many: users save castings as favorites
-- `portfolios` — images per user, path under `uploads/`, `position INT` for ordering (ORDER BY position ASC, created_at DESC)
+- `portfolios` — images and YouTube videos per user. `image_url VARCHAR` (path under `uploads/`, nullable), `video_url VARCHAR(255)` (YouTube watch URL, nullable), `position INT` for ordering (ORDER BY position ASC, created_at DESC). An item is a photo if `image_url` is set, a video if `video_url` is set.
 - `events` — title, type, organizer, city, country, event_date, cover_image, description, price, capacity, tags (comma-separated), user_id
 - `event_registrations` — many-to-many: users register interest in events
 - `conversations` — one row per pair of users; `user1_id = MIN(id)`, `user2_id = MAX(id)`, UNIQUE(user1_id, user2_id) prevents duplicates
@@ -398,13 +400,16 @@ Theme is saved via `edit_profil.php?tab=theme` → `POST update_theme` (hidden i
 
 **Editorial theme fix:** Actions rendered **outside** the `overflow:hidden` hero container — placed in a separate `<div>` below the hero — so the dropdown is never clipped.
 
-**Inline photo editing (`includes/photos_edit_grid.php`):** Toggled by the "Photos" button. Shows a uniform grid (auto-fill minmax 180px desktop, 3 colonnes fixes sur mobile) with:
+**Inline photo/video editing (`includes/photos_edit_grid.php`):** Toggled by the "Photos" button. Shows a uniform grid (auto-fill minmax 180px desktop, 3 colonnes fixes sur mobile) with:
 - **Drag & drop reorder** — HTML5 dragstart/dragover/drop sur desktop ; touch events (touchstart/touchmove/touchend + clone flottant) sur mobile. Saves order via AJAX `photo_action=reorder` (JSON array of IDs → `portfolios.position`)
-- **Delete ✕** — toujours visible sur mobile (opacity:1), hover-reveal sur desktop. Confirms then removes via AJAX `photo_action=delete` + `unlink()` on disk
-- **Add tile** — last cell, dashed border, clicks hidden `<input type="file" multiple>`, uploads via AJAX `photo_action=upload`, animates new tile in
+- **Delete ✕** — toujours visible sur mobile (opacity:1), hover-reveal sur desktop. Confirms then removes via AJAX `photo_action=delete` + `unlink()` on disk (only for photos; videos have no file on disk)
+- **Photo add tile** — dashed border, clicks hidden `<input type="file" multiple>`, uploads via AJAX `photo_action=upload`, animates new tile in
+- **Video add tile** — "Vidéo YouTube" dashed tile, opens inline modal with URL input → AJAX `photo_action=add_video`. PHP extracts YouTube ID via `extractYoutubeId()` (supports `watch?v=`, `youtu.be/`, `embed/`, `shorts/`). Returns `{ok, id, video_url, yt_id, thumb}`. Tile shows YouTube thumbnail + mauve play icon overlay.
 - All AJAX calls POST to `profil.php?id=<profile_id>`, handled at the top of the file before HTML output
 - Clicking "Terminer" or Échap exits edit mode and reloads the page to reflect new order
 - **Fix mobile CSS :** `#photos-view.hidden { display: none !important }` nécessaire car le CSS mobile force `display: grid !important` sur `.profil-masonry` — sans ce override, les photos normales restent visibles sous la grille d'édition
+
+**Vidéos YouTube dans le book :** les 3 thèmes affichent les vidéos avec thumbnail `https://img.youtube.com/vi/ID/hqdefault.jpg` + icône play (pas d'iframe dans la grille pour éviter les conflits click). Clic → lightbox avec `<iframe id="lightbox-iframe">` en `16:9`, autoplay. Fermer le lightbox vide `iframe.src` pour stopper la lecture. Bouton like masqué sur les items vidéo (`likeBtn.style.display='none'`). `extractYoutubeId()` est une fonction PHP globale définie en haut de `profil.php`.
 
 **Portfolio management:** `Portfolio::getPhotos()` orders by `position ASC, created_at DESC`. `Portfolio::deletePhoto()` + `Portfolio::getPhotoById()` for ownership-checked deletion.
 
