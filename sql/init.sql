@@ -441,3 +441,4 @@ CREATE TABLE IF NOT EXISTS photo_likes (
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE(user_id, photo_id)
 );
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_url VARCHAR(255);

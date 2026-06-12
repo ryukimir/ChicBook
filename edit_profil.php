@@ -270,6 +270,10 @@ if (!isset($tabs[$active_tab])) $active_tab = array_key_first($tabs);
             display: block;
         }
 
+        .ep-section-title {
+            display: none;
+        }
+
         .nav-item {
             display: block;
             width: 100%;

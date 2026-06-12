@@ -18,14 +18,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'send') {
         $conv_id = intval($_POST['conversation_id'] ?? 0);
         $content = trim($_POST['content'] ?? '');
-        if (!$conv_id || $content === '') { echo json_encode(['ok' => false]); exit; }
+        $image_url = null;
+
+        // Handle image upload
+        if (isset($_FILES['image']) && $_FILES['image']['error'] === 0) {
+            $allowed_mimes = ['image/jpeg','image/png','image/gif','image/webp'];
+            $img_info = @getimagesize($_FILES['image']['tmp_name']);
+            $ext = strtolower(pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION));
+            $allowed_exts = ['jpg','jpeg','png','gif','webp'];
+            if ($img_info && in_array($img_info['mime'], $allowed_mimes) && in_array($ext, $allowed_exts)) {
+                $filename = 'msg_' . bin2hex(random_bytes(10)) . '.' . $ext;
+                if (move_uploaded_file($_FILES['image']['tmp_name'], 'uploads/' . $filename)) {
+                    $image_url = 'uploads/' . $filename;
+                }
+            }
+        }
+
+        if (!$conv_id || ($content === '' && !$image_url)) { echo json_encode(['ok' => false]); exit; }
         $check = $db->prepare("SELECT id FROM conversations WHERE id=:id AND (user1_id=:me OR user2_id=:me)");
         $check->execute(['id' => $conv_id, 'me' => $me]);
         if (!$check->rowCount()) { echo json_encode(['ok' => false]); exit; }
-        $stmt = $db->prepare("INSERT INTO messages (conversation_id, sender_id, content) VALUES (:conv, :sender, :content) RETURNING id, created_at");
-        $stmt->execute(['conv' => $conv_id, 'sender' => $me, 'content' => $content]);
+        $stmt = $db->prepare("INSERT INTO messages (conversation_id, sender_id, content, image_url) VALUES (:conv, :sender, :content, :img) RETURNING id, created_at");
+        $stmt->execute(['conv' => $conv_id, 'sender' => $me, 'content' => $content ?: '', 'img' => $image_url]);
         $msg = $stmt->fetch(PDO::FETCH_ASSOC);
-        echo json_encode(['ok' => true, 'id' => $msg['id'], 'created_at' => $msg['created_at']]);
+        echo json_encode(['ok' => true, 'id' => $msg['id'], 'created_at' => $msg['created_at'], 'image_url' => $image_url]);
         exit;
     }
 
@@ -36,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $check->execute(['id' => $conv_id, 'me' => $me]);
         if (!$check->rowCount()) { echo json_encode(['ok' => false]); exit; }
         $db->prepare("UPDATE messages SET is_read=TRUE WHERE conversation_id=:conv AND sender_id!=:me AND is_read=FALSE")->execute(['conv' => $conv_id, 'me' => $me]);
-        $stmt = $db->prepare("SELECT m.id, m.sender_id, m.content, m.created_at FROM messages m WHERE m.conversation_id=:conv AND m.id > :last ORDER BY m.id ASC");
+        $stmt = $db->prepare("SELECT m.id, m.sender_id, m.content, m.image_url, m.created_at FROM messages m WHERE m.conversation_id=:conv AND m.id > :last ORDER BY m.id ASC");
         $stmt->execute(['conv' => $conv_id, 'last' => $last_id]);
         $msgs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         // Also return updated unread counts for sidebar
@@ -124,7 +140,7 @@ $conversations = $convs_stmt->fetchAll(PDO::FETCH_ASSOC);
 // ── Load messages for the open conversation ──────────────────────────────────
 $open_messages = [];
 if ($open_conv_id) {
-    $msg_stmt = $db->prepare("SELECT m.id, m.sender_id, m.content, m.created_at FROM messages m WHERE m.conversation_id=:conv ORDER BY m.id ASC");
+    $msg_stmt = $db->prepare("SELECT m.id, m.sender_id, m.content, m.image_url, m.created_at FROM messages m WHERE m.conversation_id=:conv ORDER BY m.id ASC");
     $msg_stmt->execute(['conv' => $open_conv_id]);
     $open_messages = $msg_stmt->fetchAll(PDO::FETCH_ASSOC);
 }
@@ -296,10 +312,21 @@ $my_info = (new User($db))->getUserProfile($me);
             <div id="chat-messages" style="flex:1;min-height:0;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:10px;">
                 <?php foreach ($open_messages as $msg): ?>
                     <?php $is_mine = ($msg['sender_id'] == $me); ?>
-                    <div style="display:flex;justify-content:<?= $is_mine ? 'flex-end' : 'flex-start' ?>;" data-msg-id="<?= $msg['id'] ?>">
-                        <div class="msg-bubble" style="max-width:70%;padding:10px 14px;border-radius:18px;font-size:13px;line-height:1.5;<?= $is_mine ? 'background:#d4a5d4;color:#000;border-bottom-right-radius:4px;' : 'background:#1a1a1a;color:#fff;border-bottom-left-radius:4px;' ?>">
-                            <?= nl2br(htmlspecialchars($msg['content'])) ?>
-                            <div style="font-size:10px;margin-top:4px;text-align:right;<?= $is_mine ? 'color:rgba(0,0,0,0.4)' : 'color:#555' ?>"><?= date('H:i', strtotime($msg['created_at'])) ?></div>
+                    <div style="display:flex;justify-content:<?= $is_mine ? 'flex-end' : 'flex-start' ?>;margin-bottom:4px;" data-msg-id="<?= $msg['id'] ?>">
+                        <div class="msg-bubble" style="max-width:70%;border-radius:18px;font-size:13px;line-height:1.5;overflow:hidden;<?= $is_mine ? 'background:#d4a5d4;color:#000;border-bottom-right-radius:4px;' : 'background:#1a1a1a;color:#fff;border-bottom-left-radius:4px;' ?>">
+                            <?php if (!empty($msg['image_url'])): ?>
+                            <a href="<?= htmlspecialchars($msg['image_url']) ?>" target="_blank">
+                                <img src="<?= htmlspecialchars($msg['image_url']) ?>" style="display:block;max-width:240px;max-height:240px;width:100%;<?= $msg['content'] ? '' : 'border-radius:14px;' ?>">
+                            </a>
+                            <?php endif; ?>
+                            <?php if ($msg['content']): ?>
+                            <div style="padding:10px 14px;">
+                                <?= nl2br(htmlspecialchars($msg['content'])) ?>
+                                <div style="font-size:10px;margin-top:4px;text-align:right;<?= $is_mine ? 'color:rgba(0,0,0,0.4)' : 'color:#555' ?>"><?= date('H:i', strtotime($msg['created_at'])) ?></div>
+                            </div>
+                            <?php else: ?>
+                            <div style="padding:4px 10px 6px;font-size:10px;text-align:right;<?= $is_mine ? 'color:rgba(0,0,0,0.4)' : 'color:#555' ?>"><?= date('H:i', strtotime($msg['created_at'])) ?></div>
+                            <?php endif; ?>
                         </div>
                     </div>
                 <?php endforeach; ?>
@@ -307,7 +334,18 @@ $my_info = (new User($db))->getUserProfile($me);
 
             <!-- Zone de saisie -->
             <div style="flex-shrink:0;border-top:1px solid #1a1a1a;padding:12px 20px;background:#0a0a0a;">
+                <!-- Preview image sélectionnée -->
+                <div id="img-preview-wrap" style="display:none;margin-bottom:8px;position:relative;width:fit-content;">
+                    <img id="img-preview" style="max-height:80px;max-width:180px;border-radius:10px;border:1px solid #333;" src="" alt="">
+                    <button onclick="cancelImage()" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:#333;border:1px solid #555;color:#fff;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">✕</button>
+                </div>
                 <div style="display:flex;align-items:flex-end;gap:10px;">
+                    <input type="file" id="msg-image-input" accept="image/*" style="display:none;" onchange="previewImage(this)">
+                    <button onclick="document.getElementById('msg-image-input').click()"
+                            style="width:36px;height:36px;border-radius:50%;background:#1a1a1a;border:1px solid #2a2a2a;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:border-color .15s;"
+                            onmouseover="this.style.borderColor='#d4a5d4'" onmouseout="this.style.borderColor='#2a2a2a'" title="Envoyer une image">
+                        <svg width="16" height="16" fill="none" stroke="#888" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 15l-5-5L5 21"/></svg>
+                    </button>
                     <textarea id="msg-input" placeholder="Écrivez un message…" rows="1"
                               style="flex:1;background:#111;border:1px solid #2a2a2a;color:#fff;font-size:13px;border-radius:20px;padding:10px 16px;outline:none;font-family:inherit;transition:border-color .15s;"
                               onfocus="this.style.borderColor='#d4a5d4'" onblur="this.style.borderColor='#2a2a2a'"></textarea>
@@ -363,31 +401,65 @@ scrollToBottom();
 function renderMessage(msg) {
     const isMine = (msg.sender_id == ME);
     const time = new Date(msg.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
-    const content = msg.content.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/\n/g,'<br>');
     const wrap = document.createElement('div');
-    wrap.style.cssText = 'display:flex;justify-content:' + (isMine ? 'flex-end' : 'flex-start') + ';';
+    wrap.style.cssText = 'display:flex;justify-content:' + (isMine ? 'flex-end' : 'flex-start') + ';margin-bottom:4px;';
     wrap.dataset.msgId = msg.id;
-    const bubble = isMine
-        ? 'max-width:70%;padding:10px 14px;border-radius:18px;border-bottom-right-radius:4px;font-size:13px;line-height:1.5;background:#d4a5d4;color:#000;'
-        : 'max-width:70%;padding:10px 14px;border-radius:18px;border-bottom-left-radius:4px;font-size:13px;line-height:1.5;background:#1a1a1a;color:#fff;';
-    wrap.innerHTML = `<div class="msg-bubble" style="${bubble}">${content}<div style="font-size:10px;margin-top:4px;text-align:right;color:${isMine?'rgba(0,0,0,0.4)':'#555'}">${time}</div></div>`;
+    const bubbleBase = isMine
+        ? 'max-width:70%;border-radius:18px;border-bottom-right-radius:4px;font-size:13px;line-height:1.5;background:#d4a5d4;color:#000;overflow:hidden;'
+        : 'max-width:70%;border-radius:18px;border-bottom-left-radius:4px;font-size:13px;line-height:1.5;background:#1a1a1a;color:#fff;overflow:hidden;';
+    const timeHtml = `<div style="font-size:10px;margin-top:4px;text-align:right;color:${isMine?'rgba(0,0,0,0.4)':'#555'}">${time}</div>`;
+    let inner = '';
+    if (msg.image_url) {
+        inner += `<a href="${msg.image_url}" target="_blank"><img src="${msg.image_url}" style="display:block;max-width:240px;max-height:240px;border-radius:${msg.content?'0':'14px'};width:100%;"></a>`;
+    }
+    if (msg.content) {
+        const text = msg.content.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/\n/g,'<br>');
+        inner += `<div style="padding:10px 14px;">${text}${timeHtml}</div>`;
+    } else if (msg.image_url) {
+        inner += `<div style="padding:4px 10px 6px;">${timeHtml}</div>`;
+    }
+    wrap.innerHTML = `<div class="msg-bubble" style="${bubbleBase}">${inner}</div>`;
     return wrap;
+}
+
+// ── Image preview ─────────────────────────────────────────────────────────
+function previewImage(input) {
+    if (!input.files || !input.files[0]) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        document.getElementById('img-preview').src = e.target.result;
+        document.getElementById('img-preview-wrap').style.display = 'block';
+    };
+    reader.readAsDataURL(input.files[0]);
+}
+function cancelImage() {
+    document.getElementById('msg-image-input').value = '';
+    document.getElementById('img-preview').src = '';
+    document.getElementById('img-preview-wrap').style.display = 'none';
 }
 
 // ── Send message ──────────────────────────────────────────────────────────
 function sendMessage() {
     if (!currentConvId) return;
     const content = msgInput.value.trim();
-    if (!content) return;
+    const imageInput = document.getElementById('msg-image-input');
+    const hasImage = imageInput.files && imageInput.files[0];
+    if (!content && !hasImage) return;
+
+    const fd = new FormData();
+    fd.append('action', 'send');
+    fd.append('conversation_id', currentConvId);
+    fd.append('content', content);
+    if (hasImage) fd.append('image', imageInput.files[0]);
+
     msgInput.value = '';
     msgInput.style.height = 'auto';
-    fetch('messagerie.php', {
-        method: 'POST',
-        headers: {'Content-Type':'application/x-www-form-urlencoded'},
-        body: `action=send&conversation_id=${currentConvId}&content=${encodeURIComponent(content)}`
-    }).then(r => r.json()).then(data => {
+    cancelImage();
+
+    fetch('messagerie.php', { method: 'POST', body: fd })
+    .then(r => r.json()).then(data => {
         if (data.ok) {
-            const el = renderMessage({id: data.id, sender_id: ME, content, created_at: data.created_at});
+            const el = renderMessage({id: data.id, sender_id: ME, content, image_url: data.image_url || null, created_at: data.created_at});
             document.getElementById('chat-messages').appendChild(el);
             lastMsgId = data.id;
             scrollToBottom();
