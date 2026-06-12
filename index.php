@@ -52,9 +52,13 @@ $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM eve
       letter-spacing: 0.03em;
       text-transform: uppercase;
     }
-    html.light .fashion-widget { background: linear-gradient(145deg,#ece8e3,#f5f0eb) !important; box-shadow: 0 1px 0 rgba(255,255,255,0.8) inset, 0 2px 12px rgba(0,0,0,0.08) !important; }
-    html.light .fashion-widget .text-white { color: #1a1a1a !important; }
-    html.light .fashion-widget .text-\[\#777\] { color: #555 !important; }
+    html.light .fashion-widget,
+    html.light .events-widget { background: linear-gradient(145deg,#ece8e3,#f5f0eb) !important; box-shadow: 0 1px 0 rgba(255,255,255,0.8) inset, 0 2px 12px rgba(0,0,0,0.08) !important; }
+    html.light .fashion-widget .text-white,
+    html.light .events-widget .text-white { color: #1a1a1a !important; }
+    html.light .fashion-widget .text-\[\#777\],
+    html.light .events-widget .text-\[\#555\] { color: #666 !important; }
+    html.light .events-widget .bg-\[\#2a2a2a\] { background: #e0dbd4 !important; }
   </style>
 </head>
 <body class="bg-black text-white font-['Arial',sans-serif]">
@@ -257,7 +261,7 @@ $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM eve
 
       <?php if ($is_logged_in): ?>
       <!-- Bloc événements à venir -->
-      <div class="rounded-3xl p-6 flex flex-col gap-4" style="background: linear-gradient(145deg,#1e1e1e,#111); box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 -2px 0 rgba(0,0,0,0.8), 0 12px 32px rgba(0,0,0,0.6);">
+      <div class="rounded-3xl p-6 flex flex-col gap-4 events-widget" style="background: linear-gradient(145deg,#1e1e1e,#111); box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 -2px 0 rgba(0,0,0,0.8), 0 12px 32px rgba(0,0,0,0.6);">
         <div class="flex items-center justify-between">
           <span class="text-white text-sm font-black uppercase tracking-[0.15em]"><?= t('feed.upcoming_events') ?></span>
           <a href="evenements.php" class="text-[#d4a5d4] text-xs font-semibold hover:opacity-75 transition-opacity">Voir tout →</a>
