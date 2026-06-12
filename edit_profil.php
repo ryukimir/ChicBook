@@ -122,7 +122,7 @@ $user         = $userModel->getUserProfile($_SESSION['user_id']);
 $measurements = $userModel->getMeasurements($_SESSION['user_id']);
 
 
-$professions_with_measurements = $db->query("SELECT name FROM professions WHERE has_measurements=TRUE ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
+$professions_with_measurements = ['Mannequin', 'Danseur', 'Comédien'];
 $query_user_professions = "SELECT p.name FROM user_professions up
                            JOIN professions p ON up.profession_id = p.id
                            WHERE up.user_id = :user_id";
@@ -242,13 +242,37 @@ if (!isset($tabs[$active_tab])) $active_tab = array_key_first($tabs);
         }
 
         @media (max-width: 768px) {
-            html, body { height: auto; overflow: auto; }
-            .ep-layout { flex-direction: column !important; height: auto !important; }
-            .ep-sidebar { display: none !important; }
-            .ep-content { overflow-y: visible !important; padding-bottom: 120px !important; }
-            .ep-content > div { max-width: 100% !important; padding: 16px !important; }
+
+            html,
+            body {
+                height: auto;
+                overflow: auto;
+            }
+
+            .ep-layout {
+                flex-direction: column !important;
+                height: auto !important;
+            }
+
+            .ep-sidebar {
+                display: none !important;
+            }
+
+            .ep-content {
+                overflow-y: visible !important;
+                padding-bottom: 120px !important;
+            }
+
+            .ep-content>div {
+                max-width: 100% !important;
+                padding: 16px !important;
+            }
+
             /* Sur mobile tous les onglets sont visibles et empilés */
-            .tab-panel { display: block !important; }
+            .tab-panel {
+                display: block !important;
+            }
+
             .ep-section-title {
                 display: flex !important;
                 align-items: center;
@@ -262,16 +286,29 @@ if (!isset($tabs[$active_tab])) $active_tab = array_key_first($tabs);
                 padding-bottom: 10px;
                 border-bottom: 1px solid #1e1e1e;
             }
-            .ep-section-title:first-child { margin-top: 8px; }
+
+            .ep-section-title:first-child {
+                margin-top: 8px;
+            }
+
             /* Sticky bottom bar */
-            .ep-sticky-bar { left: 0 !important; right: 0 !important; bottom: 0 !important; border-radius: 0 !important; padding: 12px 16px !important; }
-            .ep-mobile-footer { display: flex !important; }
+            .ep-sticky-bar {
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                border-radius: 0 !important;
+                padding: 12px 16px !important;
+            }
+
+            .ep-mobile-footer {
+                display: flex !important;
+            }
         }
     </style>
 </head>
 
 <body class="bg-[#1a1a1a] text-white" style="font-family:'Open Sans',sans-serif;">
-<div class="flex h-screen ep-layout">
+    <div class="flex h-screen ep-layout">
 
         <!-- Menu latéral onglets -->
         <aside class="w-[240px] bg-[#111] border-r border-[#222] flex flex-col flex-shrink-0 p-6 ep-sidebar">
