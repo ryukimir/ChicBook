@@ -269,7 +269,7 @@ Brand color: `#d4a5d4` (mauve/purple). Page background: `#000`. Card surface: `#
 - `events` — title, type, organizer, city, country, event_date, cover_image, description, price, capacity, tags (comma-separated), user_id
 - `event_registrations` — many-to-many: users register interest in events
 - `conversations` — one row per pair of users; `user1_id = MIN(id)`, `user2_id = MAX(id)`, UNIQUE(user1_id, user2_id) prevents duplicates
-- `messages` — `conversation_id`, `sender_id`, `content TEXT`, `is_read BOOLEAN DEFAULT FALSE`
+- `messages` — `conversation_id`, `sender_id`, `content TEXT`, `image_url VARCHAR(255)` (nullable, chemin relatif upload), `is_read BOOLEAN DEFAULT FALSE`
 - `reports` — signalements utilisateurs : `user_id` (nullable FK), `category VARCHAR(50)` (bug/contenu/compte/autre), `message TEXT`, `is_read BOOLEAN DEFAULT FALSE`, `created_at`
 - `suggestions` — suggestions d'amélioration : `user_id` (nullable FK), `message TEXT`, `is_read BOOLEAN DEFAULT FALSE`, `created_at`
 - `expertise_tags_list` — tags expertise gérés depuis le BO : `name VARCHAR(100) UNIQUE`, `display_order INT`. Chargés dans `inscription.php` et `edit_profil.php` via requête DB (ORDER BY name ASC).
@@ -418,6 +418,7 @@ Theme is saved via `edit_profil.php?tab=theme` → `POST update_theme` (hidden i
 
 - **Layout desktop:** fixed sidebar (240px, `bg-[#111]`, classe `.ep-sidebar`) on the left + scrollable content area on the right (`.ep-content`). No `header.php` included.
 - **Layout mobile:** sidebar masquée (`.ep-sidebar { display:none }`), `html/body` passe en `height:auto; overflow:auto`. Tous les onglets affichés à la suite avec titres de section `.ep-section-title` (labels uppercase). Liens "Retour au profil" + "Se déconnecter" en bas du scroll (`.ep-mobile-footer`). Barre sticky Annuler/Valider pleine largeur (`left:0; right:0` via classe `.ep-sticky-bar`).
+- **`.ep-section-title` :** `display: none` par défaut (desktop) — visible uniquement sur mobile via `display: flex !important` dans la media query. **Ne pas supprimer le `display:none` du CSS base**, sinon les titres apparaissent en double sur desktop (bug corrigé).
 - **`$tabs` et `$active_tab`** définis avant `<!doctype html>` (pas dans l'`<aside>`) pour être disponibles partout dans la page.
 - **Tabs:** `infos`, `expertise`, `bio`, `mensurations`, `theme`, `securite` — stored in `?tab=` URL param so the correct tab is restored after a POST redirect.
 - **Tab switching:** pure JS `switchTab(key)` — swaps `.tab-panel.active` et `.nav-item.active`. Sur mobile : `window.scrollTo(0,0)`.
@@ -455,9 +456,11 @@ Theme is saved via `edit_profil.php?tab=theme` → `POST update_theme` (hidden i
 - **Liste de conversations (`#conv-list-panel`):** header "Messages" (sans "Demandes"). Chaque `.conv-row` : avatar 54px, nom (bold si non lu), preview dernier message tronqué, timestamp relatif, point mauve si non lu. Classe `.unread` sur la row si `$c['unread'] > 0`.
 - **Ouverture depuis un profil:** `?with=USER_ID` → trouve ou crée la conversation (`MIN/MAX` pour garantir l'unicité), marque comme lue, charge les messages. Sur mobile ouvre directement le chat (slide-in + `body.chat-open`).
 - **AJAX handlers** (POST `action=`):
-  - `send` — insère un message, retourne `id` + `created_at`
-  - `poll` — retourne les messages `> last_id`, marque les reçus comme lus, retourne aussi la map `unread` par conv pour mettre à jour les badges
+  - `send` — insère un message texte et/ou image (`FormData`, pas `application/x-www-form-urlencoded`), retourne `id` + `created_at` + `image_url`
+  - `poll` — retourne les messages `> last_id` (avec `image_url`), marque les reçus comme lus, retourne aussi la map `unread` par conv pour mettre à jour les badges
   - `open_conversation` — trouve ou crée une conv entre `$me` et `other_id`
+- **Envoi d'images :** bouton 🖼 à gauche de la textarea → `<input type="file" accept="image/*">` caché. Preview au-dessus de la zone de saisie avec bouton ✕. Upload via `FormData`. Validation MIME + extension côté PHP. Fichier stocké dans `uploads/msg_<random>.ext`. Colonne `messages.image_url VARCHAR(255)`.
+- **Rendu des images :** dans `renderMessage()` (JS) et le rendu PHP initial — image cliquable (`target="_blank"`), `max-width: 240px`. Si message texte + image : image en haut, texte en bas dans la bulle.
 - **Polling:** `setInterval(poll, 2500)` sur la conv active
 - **Envoi:** Entrée (sans Shift) ou bouton. Textarea auto-resize via JS.
 - **Rows JS:** `data-conv-id`, `data-other-id`, `data-name`, `data-avatar`, `data-profession` sur chaque `.conv-row`. Listener `click` délégué en JS.
@@ -590,7 +593,7 @@ Uploaded files go to `uploads/` (gitignored). Path relative to webroot stored in
 | `edit_casting.php` | Edit existing casting — **not yet migrated to Tailwind** (still uses `src/` CSS) |
 | `trouver_talent.php` | Browse talents by category + profession, grid portrait cards, hover overlay mensurations, filters on right |
 | `recherche.php` | Recherche talents full-text + filtres inline + filtres mensurations (Mannequin/Danseur/Comédien), AJAX dynamique debounced |
-| `messagerie.php` | Messagerie temps réel — liste conversations (style iMessage) à gauche/plein écran mobile, chat à droite/slide-over mobile, polling AJAX 2.5s, `?with=USER_ID` ouvre/crée une conv |
+| `messagerie.php` | Messagerie temps réel — liste conversations (style iMessage) à gauche/plein écran mobile, chat à droite/slide-over mobile, polling AJAX 2.5s, `?with=USER_ID` ouvre/crée une conv. **Envoi d'images** (bouton 🖼, preview, upload `FormData`, colonne `messages.image_url`) |
 | `evenements.php` | Events: tabs, card grid, right filters, AJAX registration toggle, modal — login required |
 | `creer_evenement.php` | Create event: title, type, organizer, city/country, date, price, capacity, description, tags, image |
 | `preferences.php` | Plus : toggle thème + **sélecteur de langue FR/EN/ES** (cookie `chicbook_lang`) + signaler un problème (`reports`) + suggérer une amélioration (`suggestions`) + déconnexion |
