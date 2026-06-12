@@ -2,6 +2,7 @@
 session_start();
 require_once 'config/database.php';
 require_once 'models/user.php';
+require_once 'config/i18n.php';
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: connexion.php");
@@ -182,18 +183,18 @@ foreach ($locRows as $r) {
                     <a href="castings.php?view=offres"
                        class="flex-shrink-0 flex-1 text-center py-2 px-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap
                               <?= $view === 'offres' ? 'bg-[#d4a5d4] text-black' : 'text-[#888] hover:text-white' ?>">
-                        Opportunités
+                        <?= t('castings.opportunities') ?>
                     </a>
                     <a href="castings.php?view=favoris"
                        class="flex-shrink-0 flex-1 text-center py-2 px-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap
                               <?= $view === 'favoris' ? 'bg-[#d4a5d4] text-black' : 'text-[#888] hover:text-white' ?>">
-                        ♡ Favoris<?= count($favoritedIds) > 0 ? ' <span style="opacity:.7">('.count($favoritedIds).')</span>' : '' ?>
+                        <?= t('castings.favorites') ?><?= count($favoritedIds) > 0 ? ' <span style="opacity:.7">('.count($favoritedIds).')</span>' : '' ?>
                     </a>
                     <?php if ($has_my_castings || $view === 'mes_castings'): ?>
                     <a href="castings.php?view=mes_castings"
                        class="flex-shrink-0 flex-1 text-center py-2 px-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap
                               <?= $view === 'mes_castings' ? 'bg-[#d4a5d4] text-black' : 'text-[#888] hover:text-white' ?>">
-                        Mes castings
+                        <?= t('castings.mine') ?>
                     </a>
                     <?php endif; ?>
                 </div>
@@ -225,7 +226,7 @@ foreach ($locRows as $r) {
                 <button onclick="openCastFilters()"
                         class="flex items-center gap-2 px-4 py-2.5 bg-[#111] border <?= $has_active_cast_filters ? 'border-[#d4a5d4] text-[#d4a5d4]' : 'border-[#333] text-white' ?> rounded-xl text-sm font-semibold">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/></svg>
-                    Filtres<?= $has_active_cast_filters ? ' ●' : '' ?>
+                    <?= t('castings.filters') ?><?= $has_active_cast_filters ? ' ●' : '' ?>
                 </button>
                 <?php if ($has_active_cast_filters): ?>
                     <a href="castings.php?view=<?= $view ?>" class="text-[#555] text-xs hover:text-[#d4a5d4] transition-colors">✕ Effacer</a>
@@ -237,19 +238,19 @@ foreach ($locRows as $r) {
                 <div class="flex gap-2 flex-wrap">
                     <a href="castings.php?view=offres<?= $filter_country ? '&country='.urlencode($filter_country) : '' ?><?= $filter_city ? '&city='.urlencode($filter_city) : '' ?><?= $filter_date_from ? '&date_from='.urlencode($filter_date_from) : '' ?><?= $filter_date_to ? '&date_to='.urlencode($filter_date_to) : '' ?>"
                        class="px-6 py-2.5 rounded-2xl font-bold text-base border transition-all <?= $view === 'offres' ? 'bg-[#d4a5d4] text-[#1a1a1a] border-[#d4a5d4]' : 'text-[#aaa] border-[#444] hover:bg-[#333] hover:text-white' ?>">
-                        Opportunités pour <?= htmlspecialchars($user_profession) ?>
+                        <?= t('castings.opportunities') ?> <?= htmlspecialchars($user_profession) ?>
                     </a>
                     <a href="castings.php?view=favoris<?= $filter_country ? '&country='.urlencode($filter_country) : '' ?><?= $filter_date_from ? '&date_from='.urlencode($filter_date_from) : '' ?><?= $filter_date_to ? '&date_to='.urlencode($filter_date_to) : '' ?>"
                        class="px-6 py-2.5 rounded-2xl font-bold text-base border transition-all <?= $view === 'favoris' ? 'bg-[#d4a5d4] text-[#1a1a1a] border-[#d4a5d4]' : 'text-[#aaa] border-[#444] hover:bg-[#333] hover:text-white' ?>">
-                        ♡ Favoris <span class="text-xs">(<?= count($favoritedIds) ?>)</span>
+                        <?= t('castings.favorites') ?> <span class="text-xs">(<?= count($favoritedIds) ?>)</span>
                     </a>
                     <a href="castings.php?view=mes_castings<?= $filter_country ? '&country='.urlencode($filter_country) : '' ?><?= $filter_date_from ? '&date_from='.urlencode($filter_date_from) : '' ?><?= $filter_date_to ? '&date_to='.urlencode($filter_date_to) : '' ?>"
                        class="px-6 py-2.5 rounded-2xl font-bold text-base border transition-all <?= $view === 'mes_castings' ? 'bg-[#d4a5d4] text-[#1a1a1a] border-[#d4a5d4]' : 'text-[#aaa] border-[#444] hover:bg-[#333] hover:text-white' ?>">
-                        Mes Castings créés
+                        <?= t('castings.mine') ?>
                     </a>
                 </div>
                 <?php if ($view !== 'mes_castings'): ?>
-                    <a href="creer_casting.php" class="inline-block bg-[#d4a5d4] text-[#111] px-6 py-3 rounded-xl font-bold text-sm no-underline uppercase hover:bg-[#c08bc0] hover:-translate-y-0.5 transition-all">+ Créer un casting</a>
+                    <a href="creer_casting.php" class="inline-block bg-[#d4a5d4] text-[#111] px-6 py-3 rounded-xl font-bold text-sm no-underline uppercase hover:bg-[#c08bc0] hover:-translate-y-0.5 transition-all"><?= t('castings.create') ?></a>
                 <?php endif; ?>
             </div>
 
@@ -315,13 +316,13 @@ foreach ($locRows as $r) {
                 <input type="hidden" name="view" value="<?= htmlspecialchars($view) ?>">
                 <div class="bg-[#1a1a1a] p-6 rounded-2xl border border-[#333] sticky top-8 flex flex-col gap-5">
                     <div class="flex items-center justify-between">
-                        <h2 class="text-xl font-bold">Filtres</h2>
+                        <h2 class="text-xl font-bold"><?= t('castings.filters') ?></h2>
                         <button type="button" onclick="closeCastFilters()" class="cast-filter-toggle w-7 h-7 flex items-center justify-center rounded-full bg-[#222] text-[#666] hover:text-white transition-colors text-base leading-none">✕</button>
                     </div>
 
                     <!-- Pays -->
                     <div>
-                        <label class="block text-[#aaa] text-sm mb-2 font-bold uppercase tracking-wider">Pays</label>
+                        <label class="block text-[#aaa] text-sm mb-2 font-bold uppercase tracking-wider"><?= t('register.country') ?></label>
                         <select name="country" id="filter-country" class="w-full rounded-lg border border-[#444] bg-black text-white text-base outline-none focus:border-[#d4a5d4] p-3" onchange="updateCities()">
                             <option value="">Tous les pays</option>
                             <?php foreach ($countries as $c): ?>
@@ -332,7 +333,7 @@ foreach ($locRows as $r) {
 
                     <!-- Ville -->
                     <div>
-                        <label class="block text-[#aaa] text-sm mb-2 font-bold uppercase tracking-wider">Ville</label>
+                        <label class="block text-[#aaa] text-sm mb-2 font-bold uppercase tracking-wider"><?= t('register.city') ?></label>
                         <select name="city" id="filter-city" class="w-full rounded-lg border border-[#444] bg-black text-white text-base outline-none focus:border-[#d4a5d4] p-3">
                             <option value="">Toutes les villes</option>
                             <?php
@@ -348,7 +349,7 @@ foreach ($locRows as $r) {
 
                     <!-- Date de prestation -->
                     <div>
-                        <label class="block text-[#aaa] text-sm mb-2 font-bold uppercase tracking-wider">Date de prestation</label>
+                        <label class="block text-[#aaa] text-sm mb-2 font-bold uppercase tracking-wider"><?= t('castings.filter_date') ?></label>
                         <div class="flex flex-col gap-2">
                             <div>
                                 <span class="text-[#888] text-sm mb-1 block">Du</span>
@@ -363,7 +364,7 @@ foreach ($locRows as $r) {
                         </div>
                     </div>
 
-                    <button type="submit" onclick="closeCastFilters()" class="w-full py-3 bg-[#d4a5d4] text-[#111] rounded-xl font-bold text-base border-none cursor-pointer hover:opacity-90 transition-opacity">Appliquer</button>
+                    <button type="submit" onclick="closeCastFilters()" class="w-full py-3 bg-[#d4a5d4] text-[#111] rounded-xl font-bold text-base border-none cursor-pointer hover:opacity-90 transition-opacity"><?= t('castings.apply_filters') ?></button>
                     <?php if ($filter_country || $filter_city || $filter_date_from || $filter_date_to): ?>
                         <a href="castings.php?view=<?= $view ?>" class="text-center text-[#888] text-sm hover:text-[#d4a5d4] transition-colors">✕ Effacer les filtres</a>
                     <?php endif; ?>

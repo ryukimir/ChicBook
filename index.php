@@ -2,6 +2,7 @@
 session_start();
 $is_logged_in = isset($_SESSION['user_id']);
 require_once 'config/database.php';
+require_once 'config/i18n.php';
 $db = Database::getInstance()->getConnection();
 
 // ── AJAX toggle like ──────────────────────────────────────────────────────────
@@ -66,13 +67,13 @@ $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM eve
         <div class="relative flex-1" id="filter-dropdown-wrapper">
         <button id="filter-toggle" class="flex items-center gap-3 px-5 py-3 bg-[#111] border border-[#2a2a2a] rounded-2xl text-white font-semibold text-sm hover:border-[#555] transition-colors w-full justify-between">
           <span>
-            <span class="text-[#666] font-normal mr-2">Fil d'actualité ·</span>
-            <span id="filter-label">Tous les talents</span>
+            <span class="text-[#666] font-normal mr-2"><?= t('feed.filter_label') ?> ·</span>
+            <span id="filter-label"><?= t('feed.filter_all') ?></span>
           </span>
           <svg id="filter-chevron" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-[#666] transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
         </button>
         <div id="filter-menu" class="hidden absolute left-0 right-0 mt-2 bg-[#111] border border-[#2a2a2a] rounded-2xl overflow-hidden z-50 shadow-[0_8px_32px_rgba(0,0,0,0.6)]">
-          <button class="filter-option w-full text-left px-5 py-3.5 text-sm font-semibold text-white hover:bg-[#1e1e1e] transition-colors active-option" data-filter="all" data-label="Tous les talents">Tous les talents</button>
+          <button class="filter-option w-full text-left px-5 py-3.5 text-sm font-semibold text-white hover:bg-[#1e1e1e] transition-colors active-option" data-filter="all" data-label="<?= t('feed.filter_all') ?>"><?= t('feed.filter_all') ?></button>
           <button class="filter-option w-full text-left px-5 py-3.5 text-sm font-semibold text-[#aaa] hover:bg-[#1e1e1e] hover:text-white transition-colors" data-filter="mannequin" data-label="Mannequins">Mannequins</button>
           <button class="filter-option w-full text-left px-5 py-3.5 text-sm font-semibold text-[#aaa] hover:bg-[#1e1e1e] hover:text-white transition-colors" data-filter="photographe" data-label="Photographes">Photographes</button>
           <button class="filter-option w-full text-left px-5 py-3.5 text-sm font-semibold text-[#aaa] hover:bg-[#1e1e1e] hover:text-white transition-colors" data-filter="styliste" data-label="Stylistes">Stylistes</button>
@@ -245,9 +246,9 @@ $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM eve
       <?php if (!$is_logged_in): ?>
       <!-- Bloc inscription (non connecté seulement) -->
       <div class="rounded-3xl p-8 flex flex-col items-center text-center gap-4" style="background: linear-gradient(145deg,#1e1e1e,#111); box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 -2px 0 rgba(0,0,0,0.8), 0 12px 32px rgba(0,0,0,0.6);">
-        <span class="text-white text-lg font-black uppercase tracking-[0.2em]">Rejoindre ChicBook</span>
+        <span class="text-white text-lg font-black uppercase tracking-[0.2em]"><?= t('feed.join_title') ?></span>
         <p class="text-[#777] text-[13px] leading-relaxed">Créez votre book, trouvez des castings et connectez-vous aux talents de la mode.</p>
-        <a href="inscription.php" class="mt-1 inline-block bg-[#d4a5d4] text-black px-7 py-2.5 rounded-full font-bold text-sm hover:opacity-90 transition-opacity">S'inscrire gratuitement</a>
+        <a href="inscription.php" class="mt-1 inline-block bg-[#d4a5d4] text-black px-7 py-2.5 rounded-full font-bold text-sm hover:opacity-90 transition-opacity"><?= t('feed.join_cta') ?></a>
       </div>
       <?php endif; ?>
 
@@ -255,7 +256,7 @@ $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM eve
       <!-- Bloc événements à venir -->
       <div class="rounded-3xl p-6 flex flex-col gap-4" style="background: linear-gradient(145deg,#1e1e1e,#111); box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 -2px 0 rgba(0,0,0,0.8), 0 12px 32px rgba(0,0,0,0.6);">
         <div class="flex items-center justify-between">
-          <span class="text-white text-sm font-black uppercase tracking-[0.15em]">Événements</span>
+          <span class="text-white text-sm font-black uppercase tracking-[0.15em]"><?= t('feed.upcoming_events') ?></span>
           <a href="evenements.php" class="text-[#d4a5d4] text-xs font-semibold hover:opacity-75 transition-opacity">Voir tout →</a>
         </div>
         <?php if (empty($upcoming_events)): ?>
@@ -287,7 +288,7 @@ $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM eve
 
       <!-- Bloc La mode en mouvement -->
       <div class="rounded-3xl p-8 flex flex-col items-center text-center gap-4" style="background: linear-gradient(145deg,#1e1e1e,#111); box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 -2px 0 rgba(0,0,0,0.8), 0 12px 32px rgba(0,0,0,0.6);">
-        <span class="text-white text-lg font-black uppercase tracking-[0.2em]">La mode en mouvement</span>
+        <span class="text-white text-lg font-black uppercase tracking-[0.2em]"><?= t('feed.fashion_movement') ?></span>
         <p class="text-[#777] text-[13px] leading-relaxed">Créatifs, marques, agences… ne manquez rien de la communauté ChicBook.</p>
       </div>
 

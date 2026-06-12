@@ -78,18 +78,18 @@ if (!empty($_POST['submit_suggestion'])) {
 
 <div class="max-w-[860px] mx-auto px-6 pt-10 pb-20">
 
-    <h1 class="text-2xl font-bold mb-1">Préférences</h1>
+    <h1 class="text-2xl font-bold mb-1"><?= t('prefs.title') ?></h1>
     <p class="text-[#555] text-sm mb-8">Personnalisez votre expérience ChicBook.</p>
 
     <!-- ══ APPARENCE ══ -->
     <section class="bg-[#111] border border-[#1a1a1a] rounded-2xl mb-10 overflow-hidden">
         <div class="px-6 py-4 border-b border-[#1a1a1a]">
-            <h2 class="font-semibold text-xs uppercase tracking-widest text-[#666]">Apparence</h2>
+            <h2 class="font-semibold text-xs uppercase tracking-widest text-[#666]"><?= t('prefs.appearance') ?></h2>
         </div>
         <div class="px-6 py-5 flex items-center justify-between">
             <div>
-                <p class="font-semibold text-[15px]">Thème de l'interface</p>
-                <p class="text-[#555] text-sm mt-0.5"><?= $is_light ? 'Thème clair activé' : 'Thème sombre activé' ?></p>
+                <p class="font-semibold text-[15px]"><?= t('prefs.theme_label') ?></p>
+                <p class="text-[#555] text-sm mt-0.5"><?= $is_light ? t('prefs.theme_light_on') : t('prefs.theme_dark_on') ?></p>
             </div>
             <div class="flex items-center gap-3">
                 <svg id="icon-dark" class="w-5 h-5" style="color:<?= $is_light ? '#bbb' : '#d4a5d4' ?>" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -129,7 +129,7 @@ if (!empty($_POST['submit_suggestion'])) {
     <!-- ══ SIGNALER UN PROBLÈME ══ -->
     <section class="bg-[#111] border border-[#1a1a1a] rounded-2xl overflow-hidden mb-8">
         <div class="px-6 py-4 border-b border-[#1a1a1a]">
-            <h2 class="font-semibold text-xs uppercase tracking-widest text-[#666]">Signaler un problème</h2>
+            <h2 class="font-semibold text-xs uppercase tracking-widest text-[#666]"><?= t('prefs.report') ?></h2>
         </div>
         <div class="px-6 py-6">
             <?php if (!empty($report_success)): ?>
@@ -144,7 +144,7 @@ if (!empty($_POST['submit_suggestion'])) {
             <form method="POST" action="preferences.php">
                 <input type="hidden" name="submit_report" value="1">
                 <div class="mb-4">
-                    <label class="block text-xs font-semibold text-[#555] uppercase tracking-widest mb-2">Catégorie</label>
+                    <label class="block text-xs font-semibold text-[#555] uppercase tracking-widest mb-2"><?= t('prefs.report_category') ?></label>
                     <select name="report_category" class="w-full bg-[#1a1a1a] border border-[#2a2a2a] text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#444] pr-8">
                         <option value="bug">Bug technique</option>
                         <option value="contenu">Contenu inapproprié</option>
@@ -153,12 +153,12 @@ if (!empty($_POST['submit_suggestion'])) {
                     </select>
                 </div>
                 <div class="mb-5">
-                    <label class="block text-xs font-semibold text-[#555] uppercase tracking-widest mb-2">Description</label>
+                    <label class="block text-xs font-semibold text-[#555] uppercase tracking-widest mb-2"><?= t('prefs.report_description') ?></label>
                     <textarea name="report_message" rows="4" placeholder="Décrivez le problème en détail…" class="w-full bg-[#1a1a1a] border border-[#2a2a2a] text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#444] resize-none" maxlength="2000"></textarea>
                 </div>
                 <button type="submit" class="inline-flex items-center gap-2 bg-[#1a1a1a] border border-[#2a2a2a] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:border-[#444] transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
-                    Envoyer le signalement
+                    <?= t('prefs.report_send') ?>
                 </button>
             </form>
         </div>
@@ -167,7 +167,7 @@ if (!empty($_POST['submit_suggestion'])) {
     <!-- ══ SUGGÉRER UNE AMÉLIORATION ══ -->
     <section class="bg-[#111] border border-[#1a1a1a] rounded-2xl overflow-hidden mb-8">
         <div class="px-6 py-4 border-b border-[#1a1a1a]">
-            <h2 class="font-semibold text-xs uppercase tracking-widest text-[#666]">Suggérer une amélioration</h2>
+            <h2 class="font-semibold text-xs uppercase tracking-widest text-[#666]"><?= t('prefs.suggest') ?></h2>
         </div>
         <div class="px-6 py-6">
             <?php if (!empty($suggestion_success)): ?>
@@ -182,12 +182,12 @@ if (!empty($_POST['submit_suggestion'])) {
             <form method="POST" action="preferences.php">
                 <input type="hidden" name="submit_suggestion" value="1">
                 <div class="mb-5">
-                    <label class="block text-xs font-semibold text-[#555] uppercase tracking-widest mb-2">Votre idée</label>
+                    <label class="block text-xs font-semibold text-[#555] uppercase tracking-widest mb-2"><?= t('prefs.suggest_label') ?></label>
                     <textarea name="suggestion_message" rows="4" placeholder="Décrivez votre idée ou suggestion…" class="w-full bg-[#1a1a1a] border border-[#2a2a2a] text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#444] resize-none" maxlength="2000"></textarea>
                 </div>
                 <button type="submit" class="inline-flex items-center gap-2 bg-[#1a1a1a] border border-[#2a2a2a] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:border-[#444] transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.347.347a3.001 3.001 0 00-.184 3.187A2 2 0 0118 20H6a2 2 0 01-1.94-1.487 3.001 3.001 0 00-.184-3.187l-.347-.347z"/></svg>
-                    Envoyer ma suggestion
+                    <?= t('prefs.suggest_send') ?>
                 </button>
             </form>
         </div>
@@ -196,18 +196,18 @@ if (!empty($_POST['submit_suggestion'])) {
     <!-- ══ COMPTE ══ -->
     <section class="bg-[#111] border border-[#1a1a1a] rounded-2xl overflow-hidden mb-8">
         <div class="px-6 py-4 border-b border-[#1a1a1a]">
-            <h2 class="font-semibold text-xs uppercase tracking-widest text-[#666]">Compte</h2>
+            <h2 class="font-semibold text-xs uppercase tracking-widest text-[#666]"><?= t('prefs.account') ?></h2>
         </div>
         <div class="px-6 py-5 flex items-center justify-between">
             <div>
-                <p class="font-semibold text-[15px]">Déconnexion</p>
-                <p class="text-[#555] text-sm mt-0.5">Vous serez redirigé vers la page d'accueil.</p>
+                <p class="font-semibold text-[15px]"><?= t('prefs.logout') ?></p>
+                <p class="text-[#555] text-sm mt-0.5"><?= t('prefs.logout_desc') ?></p>
             </div>
             <a href="logout.php" class="inline-flex items-center gap-2 bg-[#1a1a1a] border border-[#2a2a2a] text-[#e05555] text-sm font-semibold px-5 py-2.5 rounded-xl hover:border-[#e05555] hover:bg-[#1f1313] transition-colors">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
                 </svg>
-                Se déconnecter
+                <?= t('prefs.logout') ?>
             </a>
         </div>
     </section>

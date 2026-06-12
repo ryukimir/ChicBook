@@ -2,6 +2,7 @@
 session_start();
 require_once 'config/database.php';
 require_once 'models/User.php';
+require_once 'config/i18n.php';
 
 $is_logged_in = isset($_SESSION['user_id']);
 $db = Database::getInstance()->getConnection();
@@ -353,7 +354,7 @@ function buildUrl($params) {
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
             <input type="text" name="search" value="<?= htmlspecialchars($filter_search) ?>"
-                   placeholder="Rechercher un talent…"
+                   placeholder="<?= t('talents.search_placeholder') ?>"
                    style="width:100%; background:#111; border:1px solid #2a2a2a; border-radius:12px; padding:10px 12px 10px 34px; color:#fff; font-size:13px; outline:none; font-family:inherit;"
                    onfocus="this.style.borderColor='#d4a5d4'" onblur="this.style.borderColor='#2a2a2a'">
         </div>
@@ -361,7 +362,7 @@ function buildUrl($params) {
         <button type="button" onclick="openTTFilters()"
                 style="flex-shrink:0; display:flex; align-items:center; gap:6px; padding:10px 14px; background:#111; border:1px solid <?= $has_active_filters_mobile ? '#d4a5d4' : '#333' ?>; border-radius:12px; color:<?= $has_active_filters_mobile ? '#d4a5d4' : '#fff' ?>; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/></svg>
-            Filtres<?= $has_active_filters_mobile ? ' ●' : '' ?>
+            <?= t('castings.filters') ?><?= $has_active_filters_mobile ? ' ●' : '' ?>
         </button>
     </form>
 
@@ -481,14 +482,14 @@ function buildUrl($params) {
                 <input type="hidden" name="profession" value="<?= htmlspecialchars($profession) ?>">
                 <div class="bg-[#0e0e0e] rounded-2xl p-6 flex flex-col gap-5" style="box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 -2px 0 rgba(0,0,0,0.8), 0 8px 24px rgba(0,0,0,0.5);">
                     <div class="flex items-center justify-between">
-                        <h3 class="text-white font-bold text-base">Filtres</h3>
+                        <h3 class="text-white font-bold text-base"><?= t('castings.filters') ?></h3>
                         <button type="button" onclick="closeTTFilters()" class="tt-filter-toggle w-7 h-7 flex items-center justify-center rounded-full bg-[#1a1a1a] text-[#666] hover:text-white transition-colors text-base leading-none">✕</button>
                     </div>
 
                     <div>
-                        <label class="block text-[#555] text-xs font-bold uppercase tracking-widest mb-2">Mot-clé</label>
+                        <label class="block text-[#555] text-xs font-bold uppercase tracking-widest mb-2"><?= t('talents.filter_keyword') ?></label>
                         <select name="tag" class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-[#d4a5d4] transition-colors">
-                            <option value="">Tous les tags</option>
+                            <option value=""><?= t('talents.all_tags') ?></option>
                             <?php foreach ($all_tags as $t): ?>
                                 <option value="<?= htmlspecialchars($t) ?>" <?= $filter_tag === $t ? 'selected' : '' ?>><?= htmlspecialchars($t) ?></option>
                             <?php endforeach; ?>
@@ -496,9 +497,9 @@ function buildUrl($params) {
                     </div>
 
                     <div>
-                        <label class="block text-[#555] text-xs font-bold uppercase tracking-widest mb-2">Pays</label>
+                        <label class="block text-[#555] text-xs font-bold uppercase tracking-widest mb-2"><?= t('register.country') ?></label>
                         <select name="country" class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-[#d4a5d4] transition-colors">
-                            <option value="">Tous les pays</option>
+                            <option value=""><?= t('talents.all_countries') ?></option>
                             <?php foreach ($countries as $c): ?>
                                 <option value="<?= htmlspecialchars($c) ?>" <?= $filter_country === $c ? 'selected' : '' ?>><?= htmlspecialchars($c) ?></option>
                             <?php endforeach; ?>
@@ -506,7 +507,7 @@ function buildUrl($params) {
                     </div>
 
                     <div>
-                        <label class="block text-[#555] text-xs font-bold uppercase tracking-widest mb-2">Ville</label>
+                        <label class="block text-[#555] text-xs font-bold uppercase tracking-widest mb-2"><?= t('register.city') ?></label>
                         <input type="text" name="city" value="<?= htmlspecialchars($filter_city) ?>"
                                placeholder="Paris, Lyon…"
                                class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-[#d4a5d4] transition-colors placeholder:text-[#444]">
@@ -570,7 +571,7 @@ function buildUrl($params) {
                     <?php endif; ?>
 
                     <button type="submit" onclick="closeTTFilters()" class="w-full py-2.5 bg-[#d4a5d4] text-black rounded-xl font-bold text-sm hover:opacity-90 transition-opacity border-none cursor-pointer">
-                        Appliquer les filtres
+                        <?= t('castings.apply_filters') ?>
                     </button>
 
                     <?php

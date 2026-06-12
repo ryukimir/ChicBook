@@ -2,6 +2,7 @@
 
 require_once 'controllers/AuthController.php';
 require_once 'models/Profession.php';
+require_once 'config/i18n.php';
 
 $db = Database::getInstance()->getConnection();
 $professionModel = new Profession($db);
@@ -66,8 +67,8 @@ function get_post_value($key)
 
   <main class="pt-16 pb-20 min-h-screen flex flex-col items-center bg-black">
     <div class="text-center mb-10 text-white">
-      <h1 class="text-5xl mb-3 font-bold">Rejoindre ChicBook</h1>
-      <h2 class="text-lg font-normal mb-2.5">Créez votre profil talent et rejoignez le réseau</h2>
+      <h1 class="text-5xl mb-3 font-bold"><?= t('register.title') ?></h1>
+      <h2 class="text-lg font-normal mb-2.5"><?= t('register.subtitle') ?></h2>
       <p class="text-sm text-[#aaa]">Commencez simplement avec vos informations essentielles.</p>
     </div>
 
@@ -96,9 +97,9 @@ function get_post_value($key)
 
           <!-- Genre -->
           <div>
-            <label class="block text-white mb-2.5 text-sm">Genre</label>
+            <label class="block text-white mb-2.5 text-sm"><?= t('register.gender') ?></label>
             <div class="flex gap-2.5 mb-4">
-              <?php foreach (['femme' => 'Femme', 'homme' => 'Homme', 'non_binaire' => 'Non-binaire'] as $val => $label): ?>
+              <?php foreach (['femme' => t('register.female'), 'homme' => t('register.male'), 'non_binaire' => t('register.nonbinary')] as $val => $label): ?>
                 <label class="gender-radio flex-1 cursor-pointer">
                   <input type="radio" name="gender" value="<?= $val ?>" <?= get_post_value('gender') == $val ? 'checked' : '' ?> <?= $val === 'femme' ? 'required' : '' ?> class="hidden">
                   <span class="block bg-white text-[#1a1a1a] py-3 text-center rounded-lg text-sm border-2 border-transparent hover:bg-[#f0f0f0] transition-all duration-300"><?= $label ?></span>
@@ -110,23 +111,23 @@ function get_post_value($key)
           <!-- Prénom / Nom -->
           <div class="flex gap-4">
             <div class="flex-1">
-              <input type="text" name="prenom" placeholder="Prénom" value="<?= get_post_value('prenom') ?>" required class="input-field">
+              <input type="text" name="prenom" placeholder="<?= t('register.firstname') ?>" value="<?= get_post_value('prenom') ?>" required class="input-field">
             </div>
             <div class="flex-1">
-              <input type="text" name="nom" placeholder="Nom" value="<?= get_post_value('nom') ?>" required class="input-field">
+              <input type="text" name="nom" placeholder="<?= t('register.lastname') ?>" value="<?= get_post_value('nom') ?>" required class="input-field">
             </div>
           </div>
 
           <!-- Date de naissance -->
           <div>
-            <label class="block text-white mb-2 text-sm">Date de naissance</label>
+            <label class="block text-white mb-2 text-sm"><?= t('register.birthdate') ?></label>
             <input type="date" name="birth_date" value="<?= get_post_value('birth_date') ?>" required class="input-field">
           </div>
 
           <!-- Langues -->
           <div>
             <select name="langues" required class="input-field">
-              <option value="" disabled <?= empty(get_post_value('langues')) ? 'selected' : '' ?>>Langues parlées</option>
+              <option value="" disabled <?= empty(get_post_value('langues')) ? 'selected' : '' ?>><?= t('register.language') ?></option>
               <?php foreach ($languages as $lang): ?>
                 <option value="<?= $lang['id'] ?>" <?= get_post_value('langues') == $lang['id'] ? 'selected' : '' ?>><?= htmlspecialchars($lang['name']) ?></option>
               <?php endforeach; ?>
@@ -135,7 +136,7 @@ function get_post_value($key)
 
           <!-- Email -->
           <div>
-            <input type="email" name="email" placeholder="Email" value="<?= get_post_value('email') ?>" required class="input-field">
+            <input type="email" name="email" placeholder="<?= t('auth.email') ?>" value="<?= get_post_value('email') ?>" required class="input-field">
           </div>
 
           <!-- Mot de passe -->
@@ -149,7 +150,7 @@ function get_post_value($key)
           <!-- Ville / Pays -->
           <div class="flex gap-4">
             <div class="flex-1 relative">
-              <input type="text" name="ville" id="ville-input" placeholder="Ville" value="<?= get_post_value('ville') ?>" autocomplete="off" required class="input-field">
+              <input type="text" name="ville" id="ville-input" placeholder="<?= t('register.city') ?>" value="<?= get_post_value('ville') ?>" autocomplete="off" required class="input-field">
               <ul id="ville-suggestions" class="absolute top-full left-0 right-0 bg-white rounded-lg shadow-[0_5px_15px_rgba(0,0,0,0.2)] list-none mt-1 p-0 max-h-[200px] overflow-y-auto z-[1000] hidden">
               </ul>
             </div>
@@ -171,7 +172,7 @@ function get_post_value($key)
           <!-- Métier -->
           <div>
             <select name="metier" id="metier-select" required class="input-field">
-              <option value="" disabled <?= empty(get_post_value('metier')) ? 'selected' : '' ?>>Votre métier</option>
+              <option value="" disabled <?= empty(get_post_value('metier')) ? 'selected' : '' ?>><?= t('register.job') ?></option>
               <?php
               foreach ($professions as $metier):
                 $requires_measurements = !empty($metier['has_measurements']) ? 'true' : 'false';
@@ -185,7 +186,7 @@ function get_post_value($key)
 
           <!-- Tags expertise -->
           <div>
-            <label class="block text-white mb-2.5 text-sm">Mots-clés qui vous décrivent <span class="text-[#666]">(sélectionnez ceux qui vous correspondent)</span></label>
+            <label class="block text-white mb-2.5 text-sm"><?= t('register.tags_label') ?> <span class="text-[#666]"><?= t('register.tags_hint') ?></span></label>
             <div id="tags-container" class="flex flex-wrap gap-2">
               <?php
               $selected_tags = array_filter(array_map('trim', explode(',', get_post_value('expertise_tags'))));
@@ -202,7 +203,7 @@ function get_post_value($key)
 
           <!-- Bloc mensurations (affiché seulement pour Mannequin/Comédien/Danseur) -->
           <div id="mensurations-bloc" style="display: none;" class="bg-[#2a2a2a] p-5 rounded-lg mt-2.5">
-            <h4 class="text-[#d4a5d4] mb-4 font-medium">Vos mensurations</h4>
+            <h4 class="text-[#d4a5d4] mb-4 font-medium"><?= t('register.measurements') ?></h4>
 
             <div class="flex gap-4 mb-4">
               <div class="flex-1">
@@ -242,9 +243,9 @@ function get_post_value($key)
             <input type="hidden" name="has_measurements" id="has_measurements" value="0">
           </div>
 
-          <button type="submit" class="bg-[#d4a5d4] text-[#1a1a1a] py-4 rounded-full text-base font-bold mt-2.5 hover:opacity-90 transition-opacity cursor-pointer border-none">Créer mon compte</button>
+          <button type="submit" class="bg-[#d4a5d4] text-[#1a1a1a] py-4 rounded-full text-base font-bold mt-2.5 hover:opacity-90 transition-opacity cursor-pointer border-none"><?= t('register.btn') ?></button>
           <p class="text-center text-[#888] text-sm mt-4">
-            Déjà un compte ? <a href="connexion.php" class="text-[#888] underline hover:text-[#d4a5d4] transition-colors">Se connecter</a>
+            <?= t('register.already') ?> <a href="connexion.php" class="text-[#888] underline hover:text-[#d4a5d4] transition-colors"><?= t('auth.login_btn') ?></a>
           </p>
         </form>
 

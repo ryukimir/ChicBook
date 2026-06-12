@@ -49,6 +49,7 @@ $_TRANSLATIONS = [
 'register.nonbinary'    => ['fr'=>'Non-binaire','en'=>'Non-binary','es'=>'No binario'],
 
 // ── Feed / Index ────────────────────────────────────────────────────────────
+'feed.filter_label'     => ['fr'=>'Fil d\'actualité',       'en'=>'Feed',                   'es'=>'Noticias'],
 'feed.filter_all'       => ['fr'=>'Tous les talents',       'en'=>'All talents',            'es'=>'Todos los talentos'],
 'feed.join_title'       => ['fr'=>'Rejoindre ChicBook',     'en'=>'Join ChicBook',          'es'=>'Únete a ChicBook'],
 'feed.join_cta'         => ['fr'=>"S'inscrire gratuitement",'en'=>'Sign up for free',       'es'=>'Regístrate gratis'],
@@ -65,6 +66,7 @@ $_TRANSLATIONS = [
 'profile.share'         => ['fr'=>'Partager',        'en'=>'Share',          'es'=>'Compartir'],
 'profile.measurements'  => ['fr'=>'Mensurations',    'en'=>'Measurements',   'es'=>'Medidas'],
 'profile.new_project'   => ['fr'=>'＋ Nouveau projet','en'=>'＋ New project', 'es'=>'＋ Nuevo proyecto'],
+'profile.projects'      => ['fr'=>'Projets',         'en'=>'Projects',       'es'=>'Proyectos'],
 
 // ── Castings ────────────────────────────────────────────────────────────────
 'castings.opportunities'=> ['fr'=>'Opportunités',    'en'=>'Opportunities',  'es'=>'Oportunidades'],
@@ -73,6 +75,7 @@ $_TRANSLATIONS = [
 'castings.create'       => ['fr'=>'＋ Créer',         'en'=>'＋ Create',       'es'=>'＋ Crear'],
 'castings.filters'      => ['fr'=>'Filtres',         'en'=>'Filters',        'es'=>'Filtros'],
 'castings.apply_filters'=> ['fr'=>'Appliquer les filtres','en'=>'Apply filters','es'=>'Aplicar filtros'],
+'castings.filter_date'  => ['fr'=>'Date de prestation','en'=>'Performance date','es'=>'Fecha de actuación'],
 
 // ── Events ──────────────────────────────────────────────────────────────────
 'events.all'            => ['fr'=>'Tous',            'en'=>'All',            'es'=>'Todos'],
@@ -81,19 +84,39 @@ $_TRANSLATIONS = [
 'events.my_events'      => ['fr'=>'Mes événements',  'en'=>'My events',      'es'=>'Mis eventos'],
 'events.interested'     => ['fr'=>"Je suis intéressé(e)",'en'=>"I'm interested",'es'=>'Me interesa'],
 'events.create'         => ['fr'=>'＋ Proposer un événement','en'=>'＋ Propose an event','es'=>'＋ Proponer evento'],
+'events.create_short'   => ['fr'=>'+ Proposer',      'en'=>'+ Propose',      'es'=>'+ Proponer'],
+'events.filters'        => ['fr'=>'Filtres',         'en'=>'Filters',        'es'=>'Filtros'],
+'events.apply_filters'  => ['fr'=>'Appliquer les filtres','en'=>'Apply filters','es'=>'Aplicar filtros'],
+'events.filter_type'    => ['fr'=>'Type',            'en'=>'Type',           'es'=>'Tipo'],
+'events.all_types'      => ['fr'=>'Tous les types',  'en'=>'All types',      'es'=>'Todos los tipos'],
 
 // ── Preferences ─────────────────────────────────────────────────────────────
 'prefs.title'           => ['fr'=>'Préférences',     'en'=>'Preferences',    'es'=>'Preferencias'],
 'prefs.appearance'      => ['fr'=>'Apparence',       'en'=>'Appearance',     'es'=>'Apariencia'],
 'prefs.dark_mode'       => ['fr'=>'Mode sombre',     'en'=>'Dark mode',      'es'=>'Modo oscuro'],
+'prefs.theme_label'     => ['fr'=>"Thème de l'interface",'en'=>'Interface theme','es'=>'Tema de la interfaz'],
+'prefs.theme_light_on'  => ['fr'=>'Thème clair activé','en'=>'Light theme active','es'=>'Tema claro activo'],
+'prefs.theme_dark_on'   => ['fr'=>'Thème sombre activé','en'=>'Dark theme active','es'=>'Tema oscuro activo'],
 'prefs.language'        => ['fr'=>'Langue',          'en'=>'Language',       'es'=>'Idioma'],
 'prefs.report'          => ['fr'=>'Signaler un problème','en'=>'Report an issue','es'=>'Reportar un problema'],
+'prefs.report_category' => ['fr'=>'Catégorie',       'en'=>'Category',       'es'=>'Categoría'],
+'prefs.report_description'=>['fr'=>'Description',    'en'=>'Description',    'es'=>'Descripción'],
+'prefs.report_send'     => ['fr'=>'Envoyer le signalement','en'=>'Send report','es'=>'Enviar reporte'],
 'prefs.suggest'         => ['fr'=>"Suggérer une amélioration",'en'=>'Suggest an improvement','es'=>'Sugerir una mejora'],
+'prefs.suggest_label'   => ['fr'=>'Votre idée',      'en'=>'Your idea',      'es'=>'Tu idea'],
+'prefs.suggest_send'    => ['fr'=>'Envoyer ma suggestion','en'=>'Send my suggestion','es'=>'Enviar sugerencia'],
 'prefs.logout'          => ['fr'=>'Se déconnecter',  'en'=>'Log out',        'es'=>'Cerrar sesión'],
+'prefs.logout_desc'     => ['fr'=>"Vous serez redirigé vers la page d'accueil.",'en'=>'You will be redirected to the home page.','es'=>'Serás redirigido a la página de inicio.'],
 'prefs.account'         => ['fr'=>'Compte',          'en'=>'Account',        'es'=>'Cuenta'],
 'prefs.lang_fr'         => ['fr'=>'Français',        'en'=>'French',         'es'=>'Francés'],
 'prefs.lang_en'         => ['fr'=>'Anglais',         'en'=>'English',        'es'=>'Inglés'],
 'prefs.lang_es'         => ['fr'=>'Espagnol',        'en'=>'Spanish',        'es'=>'Español'],
+
+// ── Talents (trouver_talent) ─────────────────────────────────────────────────
+'talents.search_placeholder' => ['fr'=>'Rechercher un talent…','en'=>'Search a talent…','es'=>'Buscar un talento…'],
+'talents.filter_keyword'     => ['fr'=>'Mot-clé',              'en'=>'Keyword',           'es'=>'Palabra clave'],
+'talents.all_tags'           => ['fr'=>'Tous les tags',         'en'=>'All tags',          'es'=>'Todos los tags'],
+'talents.all_countries'      => ['fr'=>'Tous les pays',         'en'=>'All countries',     'es'=>'Todos los países'],
 
 // ── Common ───────────────────────────────────────────────────────────────────
 'common.save'           => ['fr'=>'Enregistrer',     'en'=>'Save',           'es'=>'Guardar'],

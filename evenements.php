@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'config/database.php';
+require_once 'config/i18n.php';
 
 $is_logged_in = isset($_SESSION['user_id']);
 if (!$is_logged_in) {
@@ -184,7 +185,7 @@ function fmtDate($d) {
         <main class="flex-grow min-w-0">
 
             <?php
-            $tabs = ['tous' => 'Tous', 'a_venir' => 'À venir', 'mes_evenements' => 'Mes inscriptions', 'mes_creations' => 'Mes événements'];
+            $tabs = ['tous' => t('events.all'), 'a_venir' => t('events.upcoming'), 'mes_evenements' => t('events.my_registrations'), 'mes_creations' => t('events.my_events')];
             $active_tab_label = $tabs[$view] ?? 'Tous';
             $has_active_ev_filters = $filter_type || $filter_city;
             ?>
@@ -242,14 +243,14 @@ function fmtDate($d) {
                 <button id="ev-filter-btn" onclick="openEvFilters()"
                         class="flex items-center gap-2 px-4 py-2.5 bg-[#111] border <?= $has_active_ev_filters ? 'border-brand text-brand' : 'border-[#333] text-white' ?> rounded-xl text-sm font-semibold">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/></svg>
-                  Filtres<?= $has_active_ev_filters ? ' ●' : '' ?>
+                  <?= t('events.filters') ?><?= $has_active_ev_filters ? ' ●' : '' ?>
                 </button>
                 <?php if ($has_active_ev_filters): ?>
                   <a href="evenements.php?view=<?= $view ?>" class="text-[#555] text-xs hover:text-brand transition-colors">✕ Effacer</a>
                 <?php endif; ?>
               </div>
               <?php if ($is_logged_in): ?>
-                <a href="creer_evenement.php" class="bg-brand text-[#111] px-4 py-2.5 rounded-xl font-bold text-sm hover:opacity-90 transition-opacity whitespace-nowrap">+ Proposer</a>
+                <a href="creer_evenement.php" class="bg-brand text-[#111] px-4 py-2.5 rounded-xl font-bold text-sm hover:opacity-90 transition-opacity whitespace-nowrap"><?= t('events.create_short') ?></a>
               <?php endif; ?>
             </div>
 
@@ -266,7 +267,7 @@ function fmtDate($d) {
                     <?php endforeach; ?>
                 </div>
                 <?php if ($is_logged_in): ?>
-                <a href="creer_evenement.php" class="bg-brand text-[#111] px-6 py-3 rounded-xl font-bold text-sm hover:opacity-90 transition-opacity ev-desktop-cta">+ Proposer un événement</a>
+                <a href="creer_evenement.php" class="bg-brand text-[#111] px-6 py-3 rounded-xl font-bold text-sm hover:opacity-90 transition-opacity ev-desktop-cta"><?= t('events.create') ?></a>
                 <?php endif; ?>
             </div>
 
@@ -357,14 +358,14 @@ function fmtDate($d) {
                 <input type="hidden" name="view" value="<?= htmlspecialchars($view) ?>">
                 <div class="bg-[#111] p-6 rounded-2xl border border-[#1a1a1a] sticky top-8 flex flex-col gap-5">
                     <div class="flex items-center justify-between">
-                      <h2 class="text-base font-bold">Filtres</h2>
+                      <h2 class="text-base font-bold"><?= t('events.filters') ?></h2>
                       <button type="button" onclick="closeEvFilters()" class="ev-filter-toggle w-7 h-7 flex items-center justify-center rounded-full bg-[#222] text-[#888] hover:text-white text-sm border-none cursor-pointer">✕</button>
                     </div>
 
                     <div>
-                        <label class="block text-[#555] text-xs font-bold uppercase tracking-wider mb-2">Type</label>
+                        <label class="block text-[#555] text-xs font-bold uppercase tracking-wider mb-2"><?= t('events.filter_type') ?></label>
                         <select name="type" class="w-full rounded-xl border border-[#222] bg-[#0a0a0a] text-white text-sm outline-none focus:border-brand p-3" style="appearance:none;">
-                            <option value="">Tous les types</option>
+                            <option value=""><?= t('events.all_types') ?></option>
                             <?php foreach ($all_types as $t): ?>
                             <option value="<?= htmlspecialchars($t) ?>" <?= $filter_type===$t ? 'selected' : '' ?>><?= htmlspecialchars($t) ?></option>
                             <?php endforeach; ?>
@@ -372,12 +373,12 @@ function fmtDate($d) {
                     </div>
 
                     <div>
-                        <label class="block text-[#555] text-xs font-bold uppercase tracking-wider mb-2">Ville</label>
+                        <label class="block text-[#555] text-xs font-bold uppercase tracking-wider mb-2"><?= t('register.city') ?></label>
                         <input type="text" name="city" value="<?= htmlspecialchars($filter_city) ?>" placeholder="Paris, Lyon…"
                                class="w-full rounded-xl border border-[#222] bg-[#0a0a0a] text-white text-sm outline-none focus:border-brand p-3 placeholder-[#444]">
                     </div>
 
-                    <button type="submit" onclick="closeEvFilters()" class="w-full py-3 bg-brand text-black rounded-xl font-bold text-sm hover:opacity-90 transition-opacity">Appliquer les filtres</button>
+                    <button type="submit" onclick="closeEvFilters()" class="w-full py-3 bg-brand text-black rounded-xl font-bold text-sm hover:opacity-90 transition-opacity"><?= t('events.apply_filters') ?></button>
                     <?php if ($filter_type || $filter_city): ?>
                     <a href="evenements.php?view=<?= $view ?>" class="text-center text-[#555] text-xs hover:text-brand transition-colors">✕ Effacer les filtres</a>
                     <?php endif; ?>

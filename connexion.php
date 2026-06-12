@@ -2,6 +2,7 @@
 session_start();
 require_once 'config/Database.php';
 require_once 'models/User.php';
+require_once 'config/i18n.php';
 
 $errors = [];
 
@@ -64,8 +65,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     <main class="pt-16 pb-20 min-h-screen flex flex-col items-center bg-black">
         <div class="text-center mb-10 text-white">
-            <h1 class="text-5xl mb-3 font-bold">Bon retour parmi nous</h1>
-            <p class="text-base text-[#aaa]">Connectez-vous pour accéder à votre espace talent ou recruteur.</p>
+            <h1 class="text-5xl mb-3 font-bold"><?= t('auth.login_title') ?></h1>
+            <p class="text-base text-[#aaa]"><?= t('auth.login_subtitle') ?></p>
         </div>
 
         <div class="bg-[#1a1a1a] w-full max-w-[620px] rounded-xl p-10 shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
@@ -78,14 +79,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <?php endif; ?>
 
             <form class="flex flex-col gap-5" action="connexion.php" method="POST">
-                <div><input type="email" name="email" placeholder="Adresse email" required class="input-field"></div>
-                <div><input type="password" name="password" placeholder="Mot de passe" required class="input-field"></div>
-                <button type="submit" class="bg-[#d4a5d4] text-[#1a1a1a] py-4 rounded-full text-base font-bold mt-2.5 hover:opacity-90 transition-opacity cursor-pointer border-none">Se connecter</button>
+                <div><input type="email" name="email" placeholder="<?= t('auth.email') ?>" required class="input-field"></div>
+                <div><input type="password" name="password" placeholder="<?= t('auth.password') ?>" required class="input-field"></div>
+                <button type="submit" class="bg-[#d4a5d4] text-[#1a1a1a] py-4 rounded-full text-base font-bold mt-2.5 hover:opacity-90 transition-opacity cursor-pointer border-none"><?= t('auth.login_btn') ?></button>
                 <p class="text-center mt-2">
-                    <a href="mot_de_passe_oublie.php" class="text-[#888] text-sm hover:text-[#d4a5d4] transition-colors">Mot de passe oublié ?</a>
+                    <a href="mot_de_passe_oublie.php" class="text-[#888] text-sm hover:text-[#d4a5d4] transition-colors"><?= t('auth.forgot') ?></a>
                 </p>
                 <p class="text-center text-[#888] text-sm mt-2">
-                    Pas encore de compte ? <a href="inscription.php" class="text-[#888] underline hover:text-[#d4a5d4] transition-colors">S'inscrire</a>
+                    <?= t('auth.no_account') ?> <a href="inscription.php" class="text-[#888] underline hover:text-[#d4a5d4] transition-colors"><?= t('auth.register') ?></a>
                 </p>
             </form>
         </div>

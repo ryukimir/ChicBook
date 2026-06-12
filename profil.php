@@ -3,6 +3,7 @@ session_start();
 require_once 'config/Database.php';
 require_once 'models/User.php';
 require_once 'models/Portfolio.php';
+require_once 'config/i18n.php';
 
 $is_logged_in = isset($_SESSION['user_id']);
 
@@ -393,9 +394,9 @@ elseif ($location) $mob_city = explode(',', $location)[0];
             style="flex:1;<?= $is_following ? 'backdrop-filter:blur(16px) saturate(180%);-webkit-backdrop-filter:blur(16px) saturate(180%);background:rgba(212,165,212,0.35);border:1px solid rgba(212,165,212,0.5);border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;color:#d4a5d4;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;' : $lg ?>"
             data-following="<?= $is_following ? '1' : '0' ?>"
             data-target="<?= $profile_id ?>">
-            <?= $is_following ? 'Suivi ✓' : 'Suivre' ?>
+            <?= $is_following ? t('profile.following') : t('profile.follow') ?>
         </button>
-        <a href="messagerie.php?with=<?= $profile_id ?>" style="flex:1;<?= $lg_accent ?>">Contacter</a>
+        <a href="messagerie.php?with=<?= $profile_id ?>" style="flex:1;<?= $lg_accent ?>"><?= t('profile.contact') ?></a>
         <?php if ($followers_count > 0): ?>
           <span id="followers-count-mobile" style="font-size:11px;color:#888;text-align:center;width:100%;display:block;margin-top:-6px;margin-bottom:4px;">
             <strong style="color:#fff;"><?= $followers_count ?></strong> follower<?= $followers_count > 1 ? 's' : '' ?>
@@ -404,14 +405,14 @@ elseif ($location) $mob_city = explode(',', $location)[0];
           <span id="followers-count-mobile" style="font-size:11px;color:#888;display:none;width:100%;text-align:center;"></span>
         <?php endif; ?>
       <?php else: ?>
-        <button onclick="toggleEditMode()" id="edit-photos-btn-mob" style="<?= $lg ?>">Photos</button>
-        <a href="edit_profil.php" style="flex:1;<?= $lg ?>">Modifier le profil</a>
+        <button onclick="toggleEditMode()" id="edit-photos-btn-mob" style="<?= $lg ?>"><?= t('profile.photos') ?></button>
+        <a href="edit_profil.php" style="flex:1;<?= $lg ?>"><?= t('profile.edit') ?></a>
       <?php endif; ?>
       <?php if (!empty($profile_data['bio'])): ?>
-        <button onclick="openBioModal()" style="<?= $lg ?>">Bio</button>
+        <button onclick="openBioModal()" style="<?= $lg ?>"><?= t('profile.bio') ?></button>
       <?php endif; ?>
       <?php if ($measurements): ?>
-        <button onclick="openMeasurementsModal()" style="<?= $lg ?>">Mensurations</button>
+        <button onclick="openMeasurementsModal()" style="<?= $lg ?>"><?= t('profile.measurements') ?></button>
       <?php endif; ?>
       <button onclick="doShare()" style="<?= $lg ?>">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
@@ -455,9 +456,9 @@ function renderActions($is_own_profile, $profile_id = 0, $is_following = false, 
                 style="<?= $is_following ? 'background:#d4a5d4;color:#000;border-color:#d4a5d4;' : 'background:#1e1e1e;color:#fff;border-color:#333;' ?>"
                 data-following="<?= $is_following ? '1' : '0' ?>"
                 data-target="<?= $profile_id ?>">
-                <?= $is_following ? 'Suivi ✓' : 'Suivre' ?>
+                <?= $is_following ? t('profile.following') : t('profile.follow') ?>
             </button>
-            <a href="messagerie.php?with=<?= $profile_id ?>" class="bg-[#d4a5d4] text-black px-5 py-2 rounded-full text-sm font-bold hover:opacity-90 transition-opacity inline-flex items-center">Contacter</a>
+            <a href="messagerie.php?with=<?= $profile_id ?>" class="bg-[#d4a5d4] text-black px-5 py-2 rounded-full text-sm font-bold hover:opacity-90 transition-opacity inline-flex items-center"><?= t('profile.contact') ?></a>
             <?php if ($followers_count > 0): ?>
                 <span id="followers-count-desktop" class="text-[#666] text-sm"><span class="text-white font-bold"><?= $followers_count ?></span> follower<?= $followers_count > 1 ? 's' : '' ?></span>
             <?php else: ?>
@@ -466,9 +467,9 @@ function renderActions($is_own_profile, $profile_id = 0, $is_following = false, 
         <?php else: ?>
             <button onclick="toggleEditMode()" id="edit-photos-btn" class="flex items-center gap-2 bg-[#1e1e1e] text-white px-5 py-2 rounded-full text-sm font-semibold border border-[#333] hover:border-brand hover:text-brand transition-all">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                Photos
+                <?= t('profile.photos') ?>
             </button>
-            <a href="edit_profil.php" class="bg-[#1e1e1e] text-white px-5 py-2 rounded-full text-sm font-semibold border border-[#333] hover:border-[#d4a5d4] hover:text-[#d4a5d4] transition-all">Gérer mon profil</a>
+            <a href="edit_profil.php" class="bg-[#1e1e1e] text-white px-5 py-2 rounded-full text-sm font-semibold border border-[#333] hover:border-[#d4a5d4] hover:text-[#d4a5d4] transition-all"><?= t('profile.edit') ?></a>
             <?php if ($followers_count > 0): ?>
                 <span class="text-[#666] text-sm"><span class="text-white font-bold"><?= $followers_count ?></span> follower<?= $followers_count > 1 ? 's' : '' ?></span>
             <?php endif; ?>
@@ -540,14 +541,14 @@ function renderActions($is_own_profile, $profile_id = 0, $is_following = false, 
             <?php if (!empty($profile_data['bio'])): ?>
                 <button onclick="openBioModal()" class="cl-action-btn" style="display:flex;align-items:center;gap:8px;background:#111;border:1px solid #1e1e1e;border-radius:10px;padding:10px 14px;color:#777;font-size:12px;font-weight:600;cursor:pointer;transition:border-color .15s,color .15s;text-align:left;" onmouseover="this.style.borderColor='#d4a5d4';this.style.color='#d4a5d4'" onmouseout="this.style.borderColor='#1e1e1e';this.style.color='#777'">
                     <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                    Biographie
+                    <?= t('profile.bio') ?>
                 </button>
             <?php elseif ($is_own_profile): ?>
                 <a href="edit_profil.php" class="cl-meas-title" style="color:#333;font-size:12px;text-decoration:none;" onmouseover="this.style.color='#d4a5d4'" onmouseout="this.style.color='#333'">+ Ajouter une biographie</a>
             <?php endif; ?>
             <button id="btn-share" class="cl-action-btn" style="display:flex;align-items:center;gap:8px;background:#111;border:1px solid #1e1e1e;border-radius:10px;padding:10px 14px;color:#555;font-size:12px;font-weight:600;cursor:pointer;transition:border-color .15s,color .15s;" onmouseover="this.style.borderColor='#d4a5d4';this.style.color='#d4a5d4'" onmouseout="this.style.borderColor='#1e1e1e';this.style.color='#555'">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-                Partager le profil
+                <?= t('profile.share') ?>
             </button>
         </div>
 
@@ -709,7 +710,7 @@ function renderActions($is_own_profile, $profile_id = 0, $is_following = false, 
             <div class="flex justify-center mb-6">
                 <button onclick="openBioModal()" class="flex items-center gap-2 text-[#888] text-sm font-semibold border border-[#2a2a2a] rounded-full px-4 py-2 hover:border-[#d4a5d4] hover:text-[#d4a5d4] transition-all bg-[#111]">
                     <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                    Biographie
+                    <?= t('profile.bio') ?>
                 </button>
             </div>
         <?php endif; ?>
@@ -769,13 +770,13 @@ function renderActions($is_own_profile, $profile_id = 0, $is_following = false, 
 
     <div class="flex items-center justify-between mb-6 pb-4 border-b border-[#1a1a1a]">
         <div>
-            <h2 class="text-xl font-bold text-white">Projets</h2>
+            <h2 class="text-xl font-bold text-white"><?= t('profile.projects') ?></h2>
             <p class="text-[#555] text-sm mt-0.5">Collaborations et projets en cours de constitution</p>
         </div>
         <?php if ($is_own_profile): ?>
             <a href="creer_projet.php" class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#d4a5d4] text-black text-sm font-bold hover:opacity-90 transition-opacity">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m7-7H5"/></svg>
-                Nouveau projet
+                <?= t('profile.new_project') ?>
             </a>
         <?php endif; ?>
     </div>
