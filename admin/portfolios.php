@@ -11,14 +11,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $photo_id = intval($_POST['photo_id'] ?? 0);
 
     if ($action === 'delete' && $photo_id) {
-        $photo = $db->prepare("SELECT image_url FROM portfolios WHERE id = :id");
+        $photo = $db->prepare("SELECT p.image_url, u.email, u.full_name FROM portfolios p JOIN users u ON u.id=p.user_id WHERE p.id = :id");
         $photo->execute([':id' => $photo_id]);
         $row = $photo->fetch(PDO::FETCH_ASSOC);
         if ($row) {
+            $reason = trim($_POST['reason'] ?? '');
             $db->prepare("DELETE FROM portfolios WHERE id = :id")->execute([':id' => $photo_id]);
             $path = '../' . $row['image_url'];
             if (file_exists($path)) unlink($path);
-            $message = 'Photo supprimée.';
+            if ($row['email'] && $reason) {
+                $subject = "Suppression d'une photo de votre portfolio — ChicBook";
+                $body = "Bonjour " . $row['full_name'] . ",\n\n";
+                $body .= "Une photo de votre portfolio a été supprimée par notre équipe de modération.\n\n";
+                $body .= "Raison : " . $reason . "\n\n";
+                $body .= "Si vous avez des questions, contactez-nous à contact@chicbook.com.\n\nL'équipe ChicBook.";
+                mail($row['email'], $subject, $body, "From: admin@chicbook.fr\r\nContent-Type: text/plain; charset=UTF-8");
+            }
+            $message = 'Photo supprimée' . ($reason ? ' — email envoyé.' : '.');
         }
     }
 }
@@ -92,13 +101,10 @@ $photos = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </a>
                 <div class="text-[#666] text-[10px] mt-0.5"><?= date('d/m/Y', strtotime($p['created_at'])) ?></div>
             </div>
-            <form method="POST" onsubmit="return confirm('Supprimer cette photo ?')">
-                <input type="hidden" name="action" value="delete">
-                <input type="hidden" name="photo_id" value="<?= $p['id'] ?>">
-                <button type="submit" class="w-full py-1.5 rounded-lg text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors">
-                    Supprimer
-                </button>
-            </form>
+            <button onclick="openDeletePhotoModal(<?= $p['id'] ?>, '<?= htmlspecialchars(addslashes($p['full_name'])) ?>')"
+                    class="w-full py-1.5 rounded-lg text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors">
+                Supprimer
+            </button>
         </div>
     </div>
     <?php endforeach; ?>
@@ -119,5 +125,38 @@ $photos = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <?php endif; ?>
 </main>
 
+<!-- Modal suppression photo avec raison -->
+<div id="modal-delete-photo" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:9999; align-items:center; justify-content:center;">
+    <div style="background:#111; border:1px solid #222; border-radius:16px; padding:28px; width:100%; max-width:440px; margin:16px;">
+        <h3 style="font-size:15px; font-weight:700; color:#fff; margin-bottom:6px;">Supprimer la photo</h3>
+        <p id="del-photo-owner" style="font-size:13px; color:#666; margin-bottom:16px;"></p>
+        <form method="POST" id="form-delete-photo">
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="photo_id" id="del-photo-id" value="">
+            <label style="display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#888; margin-bottom:6px;">Raison de suppression <span style="color:#e57373;">*</span></label>
+            <textarea name="reason" id="del-photo-reason" rows="4" required placeholder="Expliquez pourquoi cette photo est supprimée…" style="width:100%; background:#0a0a0a; border:1px solid #222; border-radius:10px; padding:12px; color:#fff; font-size:13px; resize:vertical; font-family:inherit; outline:none; box-sizing:border-box;"></textarea>
+            <p style="font-size:11px; color:#555; margin:8px 0 20px;">Un email sera envoyé automatiquement à l'utilisateur avec cette raison.</p>
+            <div style="display:flex; gap:10px;">
+                <button type="button" onclick="closeDeletePhotoModal()" style="flex:1; padding:10px; background:#1a1a1a; color:#aaa; border:1px solid #222; border-radius:10px; cursor:pointer; font-size:13px;">Annuler</button>
+                <button type="submit" style="flex:1; padding:10px; background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.3); border-radius:10px; cursor:pointer; font-size:13px; font-weight:700;">Supprimer</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+function openDeletePhotoModal(id, owner) {
+    document.getElementById('del-photo-id').value = id;
+    document.getElementById('del-photo-owner').textContent = 'Photo de : ' + owner;
+    document.getElementById('del-photo-reason').value = '';
+    const m = document.getElementById('modal-delete-photo');
+    m.style.display = 'flex';
+}
+function closeDeletePhotoModal() {
+    document.getElementById('modal-delete-photo').style.display = 'none';
+}
+document.getElementById('modal-delete-photo').addEventListener('click', function(e) {
+    if (e.target === this) closeDeletePhotoModal();
+});
+</script>
 </body>
 </html>

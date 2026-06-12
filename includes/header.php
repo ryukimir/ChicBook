@@ -1,6 +1,7 @@
 <?php
 $current_user_id = $_SESSION['user_id'] ?? null;
 $user_avatar = $_SESSION['user_avatar'] ?? null;
+if (!function_exists('t')) require_once __DIR__ . '/../config/i18n.php';
 
 // Auto-login via cookie remember me
 if (!$current_user_id && !empty($_COOKIE['chicbook_remember']) && isset($db)) {
@@ -107,35 +108,35 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
         </svg>
-        <span class="sidebar-label">Accueil</span>
+        <span class="sidebar-label"><?= t('nav.home') ?></span>
     </a>
 
     <a href="trouver_talent.php" class="sidebar-item <?= $current_page === 'trouver_talent.php' ? 'active' : '' ?>">
         <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
         </svg>
-        <span class="sidebar-label">Trouver un talent</span>
+        <span class="sidebar-label"><?= t('nav.talents') ?></span>
     </a>
 
     <a href="recherche.php" class="sidebar-item <?= $current_page === 'recherche.php' ? 'active' : '' ?>">
         <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35"/>
         </svg>
-        <span class="sidebar-label">Recherche</span>
+        <span class="sidebar-label"><?= t('nav.search') ?></span>
     </a>
 
     <a href="castings.php" class="sidebar-item <?= $current_page === 'castings.php' ? 'active' : '' ?>">
         <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M7 4v16M17 4v16M3 8h4m10 0h4M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/>
         </svg>
-        <span class="sidebar-label">Castings</span>
+        <span class="sidebar-label"><?= t('nav.castings') ?></span>
     </a>
 
     <a href="messagerie.php" class="sidebar-item <?= $current_page === 'messagerie.php' ? 'active' : '' ?>">
         <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
         </svg>
-        <span class="sidebar-label">Messagerie</span>
+        <span class="sidebar-label"><?= t('nav.messages') ?></span>
     </a>
 
     <a href="evenements.php" class="sidebar-item <?= $current_page === 'evenements.php' ? 'active' : '' ?>">
@@ -143,7 +144,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
             <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
             <path d="M16 2v4M8 2v4M3 10h18"/>
         </svg>
-        <span class="sidebar-label">Événements</span>
+        <span class="sidebar-label"><?= t('nav.events') ?></span>
     </a>
 
     <?php if ($is_admin_user): ?>
@@ -151,7 +152,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
         </svg>
-        <span class="sidebar-label">Back Office</span>
+        <span class="sidebar-label"><?= t('nav.backoffice') ?></span>
     </a>
     <script>
     if (window.innerWidth >= 1024) document.getElementById('sidebar-admin-link').style.display = '';
@@ -166,7 +167,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
             <circle cx="12" cy="12" r="3"/>
             <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
         </svg>
-        <span class="sidebar-label">Plus</span>
+        <span class="sidebar-label"><?= t('nav.preferences') ?></span>
     </a>
 
     <?php if ($current_user_id): ?>
@@ -179,14 +180,14 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     <circle cx="12" cy="7" r="4"/>
                 </svg>
             <?php endif; ?>
-            <span class="sidebar-label">Mon Profil</span>
+            <span class="sidebar-label"><?= t('nav.profile') ?></span>
         </a>
     <?php else: ?>
         <a href="connexion.php" class="sidebar-item sidebar-item-accent sidebar-mobile-hide">
             <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
             </svg>
-            <span class="sidebar-label">S'identifier</span>
+            <span class="sidebar-label"><?= t('nav.login') ?></span>
         </a>
     <?php endif; ?>
 
@@ -198,32 +199,32 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
         </svg>
-        <span>Accueil</span>
+        <span><?= t('nav.home') ?></span>
     </a>
     <a href="trouver_talent.php" class="mnav-item <?= $current_page === 'trouver_talent.php' ? 'mnav-active' : '' ?>">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
         </svg>
-        <span>Talents</span>
+        <span><?= t('nav.talents') ?></span>
     </a>
     <a href="castings.php" class="mnav-item <?= $current_page === 'castings.php' ? 'mnav-active' : '' ?>">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M7 4v16M17 4v16M3 8h4m10 0h4M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/>
         </svg>
-        <span>Castings</span>
+        <span><?= t('nav.castings') ?></span>
     </a>
     <a href="messagerie.php" class="mnav-item <?= $current_page === 'messagerie.php' ? 'mnav-active' : '' ?>">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
         </svg>
-        <span>Messages</span>
+        <span><?= t('nav.messages') ?></span>
     </a>
     <a href="evenements.php" class="mnav-item <?= $current_page === 'evenements.php' ? 'mnav-active' : '' ?>">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
             <path d="M16 2v4M8 2v4M3 10h18"/>
         </svg>
-        <span>Événements</span>
+        <span><?= t('nav.events') ?></span>
     </a>
 </nav>
 

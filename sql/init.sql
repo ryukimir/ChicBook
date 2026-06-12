@@ -432,3 +432,12 @@ INSERT INTO expertise_tags_list (name, display_order) VALUES
 ('Vidéaste',54),('Backstage',55),('Réalisateur',56),('Contenu',57),
 ('Coiffeur',58),('Comédien',59),('Danseur',60)
 ON CONFLICT (name) DO NOTHING;
+
+-- Migration: table likes photos
+CREATE TABLE IF NOT EXISTS photo_likes (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    photo_id INT NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(user_id, photo_id)
+);

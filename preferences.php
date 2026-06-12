@@ -5,6 +5,18 @@ require_once 'config/database.php';
 $db = Database::getInstance()->getConnection();
 $is_light = (($_COOKIE['chicbook_theme'] ?? 'dark') === 'light');
 
+require_once 'config/i18n.php';
+
+// Language switcher
+if (!empty($_POST['set_lang'])) {
+    $new_lang = $_POST['set_lang'];
+    if (in_array($new_lang, ['fr','en','es'])) {
+        setcookie('chicbook_lang', $new_lang, time() + 365*24*3600, '/', '', false, false);
+        header('Location: preferences.php');
+        exit;
+    }
+}
+
 $report_success = false;
 if (!empty($_POST['submit_report'])) {
     $msg = trim($_POST['report_message'] ?? '');
@@ -91,6 +103,25 @@ if (!empty($_POST['submit_suggestion'])) {
                     <circle cx="12" cy="12" r="5"/>
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
                 </svg>
+            </div>
+        </div>
+    </section>
+
+    <!-- ══ LANGUE ══ -->
+    <section class="bg-[#111] border border-[#1a1a1a] rounded-2xl mb-10 overflow-hidden">
+        <div class="px-6 py-4 border-b border-[#1a1a1a]">
+            <h2 class="font-semibold text-xs uppercase tracking-widest text-[#666]"><?= t('prefs.language') ?></h2>
+        </div>
+        <div class="px-6 py-5">
+            <div class="flex gap-3 flex-wrap">
+                <?php foreach ([['fr','🇫🇷','Français'],['en','🇬🇧','English'],['es','🇪🇸','Español']] as [$code,$flag,$label]): ?>
+                <form method="POST" action="preferences.php">
+                    <input type="hidden" name="set_lang" value="<?= $code ?>">
+                    <button type="submit" style="padding:8px 20px; border-radius:20px; font-size:14px; cursor:pointer; border:1px solid <?= $_LANG === $code ? '#d4a5d4' : '#333' ?>; background:<?= $_LANG === $code ? 'rgba(212,165,212,0.15)' : '#1a1a1a' ?>; color:<?= $_LANG === $code ? '#d4a5d4' : '#888' ?>; font-weight:<?= $_LANG === $code ? '700' : '400' ?>;">
+                        <?= $flag ?> <?= $label ?>
+                    </button>
+                </form>
+                <?php endforeach; ?>
             </div>
         </div>
     </section>

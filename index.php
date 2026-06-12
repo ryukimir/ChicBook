@@ -3,6 +3,28 @@ session_start();
 $is_logged_in = isset($_SESSION['user_id']);
 require_once 'config/database.php';
 $db = Database::getInstance()->getConnection();
+
+// ── AJAX toggle like ──────────────────────────────────────────────────────────
+if ($is_logged_in && isset($_POST['action']) && $_POST['action'] === 'toggle_like') {
+    header('Content-Type: application/json');
+    $photo_id = intval($_POST['photo_id'] ?? 0);
+    $me = $_SESSION['user_id'];
+    if (!$photo_id) { echo json_encode(['ok' => false]); exit; }
+    $check = $db->prepare("SELECT id FROM photo_likes WHERE user_id=:u AND photo_id=:p");
+    $check->execute([':u' => $me, ':p' => $photo_id]);
+    if ($check->fetch()) {
+        $db->prepare("DELETE FROM photo_likes WHERE user_id=:u AND photo_id=:p")->execute([':u' => $me, ':p' => $photo_id]);
+        $liked = false;
+    } else {
+        $db->prepare("INSERT INTO photo_likes (user_id, photo_id) VALUES (:u,:p)")->execute([':u' => $me, ':p' => $photo_id]);
+        $liked = true;
+    }
+    $count = $db->prepare("SELECT COUNT(*) FROM photo_likes WHERE photo_id=:p");
+    $count->execute([':p' => $photo_id]);
+    echo json_encode(['ok' => true, 'liked' => $liked, 'count' => (int)$count->fetchColumn()]);
+    exit;
+}
+
 $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM events WHERE event_date >= CURRENT_DATE ORDER BY event_date ASC LIMIT 4")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!doctype html>
@@ -102,7 +124,8 @@ $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM eve
               po.id AS photo_id, po.image_url, po.created_at,
               u.id AS user_id, u.full_name, u.specific_profession,
               u.city, u.expertise_tags, u.profile_picture_url,
-              (SELECT image_url FROM portfolios WHERE user_id=u.id ORDER BY position ASC, created_at DESC LIMIT 1) AS fallback_avatar
+              (SELECT image_url FROM portfolios WHERE user_id=u.id ORDER BY position ASC, created_at DESC LIMIT 1) AS fallback_avatar,
+              (SELECT COUNT(*) FROM photo_likes WHERE photo_id=po.id) AS likes_count
           FROM portfolios po
           JOIN users u ON u.id = po.user_id
           WHERE po.image_url IS NOT NULL AND po.image_url != ''
@@ -111,6 +134,13 @@ $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM eve
       $feed_raw = $feed_stmt->fetchAll(PDO::FETCH_ASSOC);
       // Re-trier par date d'ajout décroissante
       usort($feed_raw, fn($a,$b) => strtotime($b['created_at']) - strtotime($a['created_at']));
+      // Likes de l'utilisateur connecté
+      $user_liked_ids = [];
+      if ($is_logged_in) {
+          $lk = $db->prepare("SELECT photo_id FROM photo_likes WHERE user_id=:u");
+          $lk->execute([':u' => $_SESSION['user_id']]);
+          $user_liked_ids = array_flip($lk->fetchAll(PDO::FETCH_COLUMN));
+      }
 
       function timeAgo($datetime) {
           $diff = time() - strtotime($datetime);
@@ -187,11 +217,19 @@ $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM eve
               <span class="tag-badge bg-[#1e1e1e] text-[#aaa] border border-[#2a2a2a]"><?= htmlspecialchars($tag) ?></span>
             <?php endforeach; ?>
             
-            <button class="like-btn flex items-center gap-1.5 text-[#555] hover:text-[#d4a5d4] transition-colors text-sm font-semibold ml-auto flex-shrink-0" onclick="toggleLike(this)">
-              <svg class="like-icon w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <?php
+              $photo_liked = isset($user_liked_ids[$p['photo_id']]);
+              $likes_count = (int)($p['likes_count'] ?? 0);
+            ?>
+            <button class="like-btn flex items-center gap-1.5 transition-colors text-sm font-semibold ml-auto flex-shrink-0 <?= $photo_liked ? 'text-[#d4a5d4]' : 'text-[#555] hover:text-[#d4a5d4]' ?>"
+                    onclick="toggleLike(this)"
+                    data-photo-id="<?= $p['photo_id'] ?>"
+                    data-liked="<?= $photo_liked ? '1' : '0' ?>"
+                    <?php if (!$is_logged_in): ?>data-require-login="1"<?php endif; ?>>
+              <svg class="like-icon w-4 h-4" viewBox="0 0 24 24" fill="<?= $photo_liked ? '#d4a5d4' : 'none' ?>" stroke="<?= $photo_liked ? '#d4a5d4' : 'currentColor' ?>" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
               </svg>
-              <span class="like-count">0</span>
+              <span class="like-count"><?= $likes_count ?></span>
             </button>
           </div>
         </div>
@@ -346,24 +384,41 @@ $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM eve
     }
 
     function toggleLike(btn) {
+      if (btn.dataset.requireLogin) { window.location.href = 'connexion.php'; return; }
+      const photoId = btn.dataset.photoId;
+      if (!photoId) return;
       const icon = btn.querySelector('.like-icon');
       const count = btn.querySelector('.like-count');
+      // Optimistic update
       const liked = btn.dataset.liked === '1';
-      if (liked) {
-        btn.dataset.liked = '0';
-        icon.setAttribute('fill', 'none');
-        icon.setAttribute('stroke', 'currentColor');
-        btn.classList.remove('text-[#d4a5d4]');
-        btn.classList.add('text-[#555]');
-        count.textContent = Math.max(0, parseInt(count.textContent) - 1);
-      } else {
-        btn.dataset.liked = '1';
-        icon.setAttribute('fill', '#d4a5d4');
-        icon.setAttribute('stroke', '#d4a5d4');
-        btn.classList.remove('text-[#555]');
-        btn.classList.add('text-[#d4a5d4]');
-        count.textContent = parseInt(count.textContent) + 1;
-      }
+      btn.dataset.liked = liked ? '0' : '1';
+      icon.setAttribute('fill', liked ? 'none' : '#d4a5d4');
+      icon.setAttribute('stroke', liked ? 'currentColor' : '#d4a5d4');
+      btn.classList.toggle('text-[#d4a5d4]', !liked);
+      btn.classList.toggle('text-[#555]', liked);
+      count.textContent = liked ? Math.max(0, parseInt(count.textContent) - 1) : parseInt(count.textContent) + 1;
+      fetch('index.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'action=toggle_like&photo_id=' + photoId
+      }).then(r => r.json()).then(data => {
+        if (data.ok) {
+          btn.dataset.liked = data.liked ? '1' : '0';
+          count.textContent = data.count;
+          icon.setAttribute('fill', data.liked ? '#d4a5d4' : 'none');
+          icon.setAttribute('stroke', data.liked ? '#d4a5d4' : 'currentColor');
+          btn.classList.toggle('text-[#d4a5d4]', data.liked);
+          btn.classList.toggle('text-[#555]', !data.liked);
+        }
+      }).catch(() => {
+        // rollback on error
+        btn.dataset.liked = liked ? '1' : '0';
+        icon.setAttribute('fill', liked ? '#d4a5d4' : 'none');
+        icon.setAttribute('stroke', liked ? '#d4a5d4' : 'currentColor');
+        btn.classList.toggle('text-[#d4a5d4]', liked);
+        btn.classList.toggle('text-[#555]', !liked);
+        count.textContent = liked ? parseInt(count.textContent) + 1 : Math.max(0, parseInt(count.textContent) - 1);
+      });
     }
 
     document.getElementById('welcome-modal').addEventListener('click', function(e) {

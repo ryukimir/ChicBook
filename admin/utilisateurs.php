@@ -12,8 +12,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user_id = intval($_POST['user_id'] ?? 0);
 
     if ($action === 'delete' && $user_id && $user_id !== (int)$_SESSION['user_id']) {
+        $reason = trim($_POST['reason'] ?? '');
+        $u_info = $db->prepare("SELECT email, full_name FROM users WHERE id=:id");
+        $u_info->execute([':id' => $user_id]);
+        $u_row = $u_info->fetch(PDO::FETCH_ASSOC);
+        if ($u_row && $reason) {
+            $subject = "Suppression de votre compte ChicBook";
+            $body = "Bonjour " . $u_row['full_name'] . ",\n\n";
+            $body .= "Votre compte ChicBook a été supprimé par notre équipe de modération.\n\n";
+            $body .= "Raison : " . $reason . "\n\n";
+            $body .= "Si vous pensez qu'il s'agit d'une erreur, contactez-nous à contact@chicbook.com.\n\nL'équipe ChicBook.";
+            mail($u_row['email'], $subject, $body, "From: admin@chicbook.fr\r\nContent-Type: text/plain; charset=UTF-8");
+        }
         $db->prepare("DELETE FROM users WHERE id = :id")->execute([':id' => $user_id]);
-        $message = 'Utilisateur supprimé.';
+        $message = 'Utilisateur supprimé' . ($reason ? ' — email envoyé.' : '.');
     } elseif ($action === 'toggle_admin' && $user_id && $user_id !== (int)$_SESSION['user_id']) {
         $db->prepare("UPDATE users SET is_admin = NOT is_admin WHERE id = :id")->execute([':id' => $user_id]);
         $message = 'Droits admin modifiés.';
@@ -156,13 +168,10 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             </button>
                         </form>
                         <!-- Delete -->
-                        <form method="POST" class="inline" onsubmit="return confirm('Supprimer définitivement cet utilisateur ?')">
-                            <input type="hidden" name="action" value="delete">
-                            <input type="hidden" name="user_id" value="<?= $u['id'] ?>">
-                            <button type="submit" class="px-3 py-1.5 rounded-lg text-xs border border-[#222] text-[#666] hover:border-red-500/50 hover:text-red-400 transition-colors">
-                                Supprimer
-                            </button>
-                        </form>
+                        <button onclick="openDeleteUserModal(<?= $u['id'] ?>, '<?= htmlspecialchars(addslashes($u['full_name'])) ?>', '<?= htmlspecialchars(addslashes($u['email'])) ?>')"
+                                class="px-3 py-1.5 rounded-lg text-xs border border-[#222] text-[#666] hover:border-red-500/50 hover:text-red-400 transition-colors">
+                            Supprimer
+                        </button>
                         <?php endif; ?>
                     </div>
                 </td>
@@ -205,7 +214,39 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </div>
     </div>
 
+    <!-- Modal suppression avec raison -->
+    <div id="modal-delete-user" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:9999; align-items:center; justify-content:center;">
+        <div style="background:#111; border:1px solid #222; border-radius:16px; padding:28px; width:100%; max-width:440px; margin:16px;">
+            <h3 style="font-size:15px; font-weight:700; color:#fff; margin-bottom:4px;">Supprimer le compte</h3>
+            <p id="del-user-name" style="font-size:13px; color:#d4a5d4; margin-bottom:16px;"></p>
+            <form method="POST" id="form-delete-user">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="user_id" id="del-user-id" value="">
+                <label style="display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#888; margin-bottom:6px;">Raison de suppression <span style="color:#e57373;">*</span></label>
+                <textarea name="reason" id="del-user-reason" rows="4" required placeholder="Expliquez pourquoi ce compte est supprimé…" style="width:100%; background:#0a0a0a; border:1px solid #222; border-radius:10px; padding:12px; color:#fff; font-size:13px; resize:vertical; font-family:inherit; outline:none; box-sizing:border-box;"></textarea>
+                <p style="font-size:11px; color:#555; margin:8px 0 20px;">Un email sera envoyé automatiquement à l'utilisateur avec cette raison.</p>
+                <div style="display:flex; gap:10px;">
+                    <button type="button" onclick="closeDeleteUserModal()" style="flex:1; padding:10px; background:#1a1a1a; color:#aaa; border:1px solid #222; border-radius:10px; cursor:pointer; font-size:13px;">Annuler</button>
+                    <button type="submit" style="flex:1; padding:10px; background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.3); border-radius:10px; cursor:pointer; font-size:13px; font-weight:700;">Supprimer le compte</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
+    function openDeleteUserModal(id, name, email) {
+        document.getElementById('del-user-id').value = id;
+        document.getElementById('del-user-name').textContent = name + ' — ' + email;
+        document.getElementById('del-user-reason').value = '';
+        document.getElementById('modal-delete-user').style.display = 'flex';
+    }
+    function closeDeleteUserModal() {
+        document.getElementById('modal-delete-user').style.display = 'none';
+    }
+    document.getElementById('modal-delete-user').addEventListener('click', function(e) {
+        if (e.target === this) closeDeleteUserModal();
+    });
+
     function openContact(email, name) {
         document.getElementById('contact-to').value = email;
         document.getElementById('contact-to-display').textContent = name + ' <' + email + '>';

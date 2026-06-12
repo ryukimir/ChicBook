@@ -103,6 +103,27 @@ if ($is_logged_in && isset($_POST['delete_project'])) {
     exit;
 }
 
+// ── Toggle like photo ─────────────────────────────────────────────────────
+if ($is_logged_in && isset($_POST['toggle_photo_like'])) {
+    $db = Database::getInstance()->getConnection();
+    $photo_id = intval($_POST['photo_id'] ?? 0);
+    $me = $_SESSION['user_id'];
+    if (!$photo_id) { echo json_encode(['ok' => false]); exit; }
+    $check = $db->prepare("SELECT id FROM photo_likes WHERE user_id=:u AND photo_id=:p");
+    $check->execute([':u' => $me, ':p' => $photo_id]);
+    if ($check->fetch()) {
+        $db->prepare("DELETE FROM photo_likes WHERE user_id=:u AND photo_id=:p")->execute([':u' => $me, ':p' => $photo_id]);
+        $liked = false;
+    } else {
+        $db->prepare("INSERT INTO photo_likes (user_id, photo_id) VALUES (:u,:p)")->execute([':u' => $me, ':p' => $photo_id]);
+        $liked = true;
+    }
+    $cnt = $db->prepare("SELECT COUNT(*) FROM photo_likes WHERE photo_id=:p");
+    $cnt->execute([':p' => $photo_id]);
+    echo json_encode(['ok' => true, 'liked' => $liked, 'count' => (int)$cnt->fetchColumn()]);
+    exit;
+}
+
 // ── Édition description/tags photo ─────────────────────────────────────────
 if ($is_logged_in && isset($_POST['edit_photo'])) {
     $db = Database::getInstance()->getConnection();
@@ -178,6 +199,21 @@ if ($has_measurements_prof) {
 $portfolioModel = new Portfolio($db);
 $photos = $portfolioModel->getPhotos($profile_id);
 $theme = $profile_data['profile_theme'] ?? 'classique';
+
+// Likes par photo
+$photo_ids = array_column($photos, 'id');
+$likes_by_photo = [];
+$user_liked_photos = [];
+if (!empty($photo_ids)) {
+    $in = implode(',', array_map('intval', $photo_ids));
+    $lk_counts = $db->query("SELECT photo_id, COUNT(*) AS cnt FROM photo_likes WHERE photo_id IN ($in) GROUP BY photo_id")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($lk_counts as $row) $likes_by_photo[$row['photo_id']] = (int)$row['cnt'];
+    if ($is_logged_in) {
+        $lk_user = $db->prepare("SELECT photo_id FROM photo_likes WHERE user_id=:u AND photo_id IN ($in)");
+        $lk_user->execute([':u' => $_SESSION['user_id']]);
+        $user_liked_photos = array_flip($lk_user->fetchAll(PDO::FETCH_COLUMN));
+    }
+}
 
 // Projets + required_profiles
 $stmt_proj = $db->prepare(
@@ -916,11 +952,20 @@ if (!empty($measurements['ethnicity_name']))  $meas_modal_items[] = ['Origine', 
                     <div id="lightbox-description" class="text-[#aaa] text-sm mb-4"></div>
                     <div id="lightbox-tags" class="flex flex-wrap gap-2"></div>
                 </div>
-                <?php if ($is_own_profile): ?>
-                    <button onclick="openPhotoEditor()" class="flex-shrink-0 px-4 py-2 bg-[#1e1e1e] text-white rounded-lg text-sm font-semibold hover:bg-[#2a2a2a] transition-colors">
+                <div class="flex items-center gap-3 flex-shrink-0">
+                    <!-- Bouton like lightbox -->
+                    <button id="lightbox-like-btn" onclick="toggleLightboxLike()" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1e1e1e] hover:bg-[#2a2a2a] transition-colors text-sm font-semibold">
+                        <svg id="lightbox-like-icon" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                        </svg>
+                        <span id="lightbox-like-count">0</span>
+                    </button>
+                    <?php if ($is_own_profile): ?>
+                    <button onclick="openPhotoEditor()" class="px-4 py-2 bg-[#1e1e1e] text-white rounded-lg text-sm font-semibold hover:bg-[#2a2a2a] transition-colors">
                         ✎ Éditer
                     </button>
-                <?php endif; ?>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
     </div>
@@ -964,7 +1009,17 @@ if (!empty($measurements['ethnicity_name']))  $meas_modal_items[] = ['Origine', 
 <script>
 // ─── Lightbox Photos ───────────────────────────────────────────────────────
 let currentPhotoIdx = 0;
-const allPhotos = <?= json_encode($photos) ?>;
+<?php
+// Enrichir chaque photo avec likes_count + user_liked
+$photos_with_likes = array_map(function($ph) use ($likes_by_photo, $user_liked_photos) {
+    $ph['likes_count'] = $likes_by_photo[$ph['id']] ?? 0;
+    $ph['user_liked']  = isset($user_liked_photos[$ph['id']]);
+    return $ph;
+}, $photos);
+?>
+const allPhotos = <?= json_encode($photos_with_likes) ?>;
+const PROFILE_PAGE_URL = 'profil.php?id=<?= $profile_id ?>';
+const IS_LOGGED_IN = <?= $is_logged_in ? 'true' : 'false' ?>;
 
 function openPhotoLightbox(idx) {
     if (!allPhotos || allPhotos.length === 0) return;
@@ -1019,6 +1074,47 @@ function updateLightbox() {
             tagsDiv.appendChild(span);
         });
     }
+    // Likes
+    const likeCount = document.getElementById('lightbox-like-count');
+    const likeIcon  = document.getElementById('lightbox-like-icon');
+    const likeBtn   = document.getElementById('lightbox-like-btn');
+    if (likeCount) likeCount.textContent = photo.likes_count || 0;
+    if (likeIcon && likeBtn) {
+        const liked = photo.user_liked;
+        likeIcon.setAttribute('fill', liked ? '#d4a5d4' : 'none');
+        likeIcon.setAttribute('stroke', liked ? '#d4a5d4' : '#888');
+        likeBtn.style.color = liked ? '#d4a5d4' : '#888';
+    }
+}
+
+function toggleLightboxLike() {
+    if (!IS_LOGGED_IN) { window.location.href = 'connexion.php'; return; }
+    const photo = allPhotos[currentPhotoIdx];
+    if (!photo) return;
+    const likeIcon  = document.getElementById('lightbox-like-icon');
+    const likeCount = document.getElementById('lightbox-like-count');
+    const likeBtn   = document.getElementById('lightbox-like-btn');
+    // Optimistic update
+    photo.user_liked = !photo.user_liked;
+    photo.likes_count = photo.user_liked ? (photo.likes_count || 0) + 1 : Math.max(0, (photo.likes_count || 0) - 1);
+    likeIcon.setAttribute('fill', photo.user_liked ? '#d4a5d4' : 'none');
+    likeIcon.setAttribute('stroke', photo.user_liked ? '#d4a5d4' : '#888');
+    likeBtn.style.color = photo.user_liked ? '#d4a5d4' : '#888';
+    likeCount.textContent = photo.likes_count;
+    fetch(PROFILE_PAGE_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'toggle_photo_like=1&photo_id=' + photo.id
+    }).then(r => r.json()).then(data => {
+        if (data.ok) {
+            photo.user_liked = data.liked;
+            photo.likes_count = data.count;
+            likeCount.textContent = data.count;
+            likeIcon.setAttribute('fill', data.liked ? '#d4a5d4' : 'none');
+            likeIcon.setAttribute('stroke', data.liked ? '#d4a5d4' : '#888');
+            likeBtn.style.color = data.liked ? '#d4a5d4' : '#888';
+        }
+    });
 }
 
 function openPhotoEditor() {
