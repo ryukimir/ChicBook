@@ -142,23 +142,121 @@ function fmtDate($d) {
 <html lang="fr" <?php if((($_COOKIE['chicbook_theme']??'dark')==='light'))echo' class="light"';?>>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Événements — ChicBook</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { theme: { extend: { colors: { brand:'#d4a5d4' } } } }</script>
     <link rel="stylesheet" href="assets/css/custom.css">
+    <style>
+    .ev-tabs-mobile { display: none; }
+    .ev-filter-toggle { display: none; }
+    @media (max-width: 768px) {
+      .ev-wrapper { flex-direction: column !important; padding: 12px 12px 100px !important; margin-top: 0 !important; }
+      .ev-grid { grid-template-columns: 1fr !important; }
+      .ev-tabs { display: none !important; }
+      .ev-tabs-mobile { display: block; }
+      .ev-filter-toggle { display: flex !important; }
+      #mobile-topbar { display: none !important; }
+      /* Filtres : overlay flottant */
+      .ev-aside {
+        position: fixed !important;
+        bottom: 90px; left: 12px; right: 12px;
+        width: auto !important;
+        max-height: 78vh; overflow-y: auto;
+        z-index: 600; border-radius: 20px;
+        visibility: hidden; opacity: 0; transform: translateY(12px);
+        transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s;
+      }
+      .ev-aside.open { visibility: visible; opacity: 1; transform: translateY(0); }
+      #ev-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 599; backdrop-filter: blur(2px); }
+      #ev-backdrop.open { display: block; }
+      .ev-desktop-cta { display: none !important; }
+    }
+    </style>
 </head>
 <body class="bg-black text-white">
     <?php include 'includes/header.php'; ?>
 
-    <div class="max-w-[1400px] mx-auto mt-10 mb-10 px-8 flex gap-10">
+    <div id="ev-backdrop" onclick="closeEvFilters()"></div>
+
+    <div class="max-w-[1400px] mx-auto mt-10 mb-10 px-8 flex gap-10 ev-wrapper">
 
         <main class="flex-grow min-w-0">
-            <!-- Tabs + CTA -->
-            <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
-                <div class="flex gap-2 flex-wrap">
+
+            <?php
+            $tabs = ['tous' => 'Tous', 'a_venir' => 'À venir', 'mes_evenements' => 'Mes inscriptions', 'mes_creations' => 'Mes événements'];
+            $active_tab_label = $tabs[$view] ?? 'Tous';
+            $has_active_ev_filters = $filter_type || $filter_city;
+            ?>
+
+            <!-- Dropdown onglets mobile + boutons Plus/Avatar -->
+            <div class="ev-tabs-mobile mb-3">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <div class="relative" id="ev-tabs-dd-wrap" style="flex:1; min-width:0;">
+                  <button id="ev-tabs-btn"
+                          class="flex items-center justify-between gap-3 w-full px-4 py-3 bg-[#111] border border-[#2a2a2a] rounded-2xl text-white font-bold text-sm">
+                    <span><?= htmlspecialchars($active_tab_label) ?></span>
+                    <svg id="ev-tabs-chevron" class="w-4 h-4 text-[#666] transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                  </button>
+                  <div id="ev-tabs-menu" class="hidden absolute left-0 right-0 mt-2 bg-[#111] border border-[#2a2a2a] rounded-2xl overflow-hidden z-50 shadow-[0_8px_32px_rgba(0,0,0,0.7)]">
+                    <?php foreach ($tabs as $k => $label):
+                      $q = http_build_query(array_filter(['view'=>$k,'type'=>$filter_type,'city'=>$filter_city]));
+                    ?>
+                    <a href="evenements.php?<?= $q ?>"
+                       class="flex items-center justify-between px-4 py-3.5 text-sm font-semibold transition-colors hover:bg-[#1e1e1e] <?= $k === $view ? 'text-white' : 'text-[#888] hover:text-white' ?>">
+                      <?= htmlspecialchars($label) ?>
+                      <?php if ($k === $view): ?><svg class="w-4 h-4 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><?php endif; ?>
+                    </a>
+                    <?php endforeach; ?>
+                  </div>
+                </div>
+                <!-- Boutons Plus + Avatar -->
+                <a href="preferences.php" class="mtop-btn flex-shrink-0" title="Plus">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+                </a>
+                <?php if ($is_logged_in): ?>
+                  <a href="profil.php" class="mtop-avatar flex-shrink-0" title="Mon profil">
                     <?php
-                    $tabs = ['tous' => 'Tous', 'a_venir' => 'À venir', 'mes_evenements' => 'Mes inscriptions', 'mes_creations' => 'Mes événements'];
-                    foreach ($tabs as $k => $label):
+                      $av_ev = $_SESSION['user_avatar'] ?? null;
+                      if (!$av_ev && isset($db)) {
+                        $fae = $db->prepare("SELECT image_url FROM portfolios WHERE user_id=:id ORDER BY position ASC, created_at DESC LIMIT 1");
+                        $fae->execute(['id'=>$_SESSION['user_id']]); $faer = $fae->fetch(PDO::FETCH_ASSOC);
+                        if ($faer) $av_ev = $faer['image_url'];
+                      }
+                    ?>
+                    <?php if ($av_ev): ?><img src="<?= htmlspecialchars($av_ev) ?>" alt="Profil"><?php else: ?>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <?php endif; ?>
+                  </a>
+                <?php else: ?>
+                  <a href="connexion.php" class="mtop-avatar flex-shrink-0" title="Se connecter">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
+                  </a>
+                <?php endif; ?>
+              </div>
+            </div><!-- /ev-tabs-mobile -->
+
+            <!-- Bouton filtres mobile -->
+            <div class="ev-filter-toggle items-center justify-between gap-2 mb-4">
+              <div class="flex items-center gap-2">
+                <button id="ev-filter-btn" onclick="openEvFilters()"
+                        class="flex items-center gap-2 px-4 py-2.5 bg-[#111] border <?= $has_active_ev_filters ? 'border-brand text-brand' : 'border-[#333] text-white' ?> rounded-xl text-sm font-semibold">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/></svg>
+                  Filtres<?= $has_active_ev_filters ? ' ●' : '' ?>
+                </button>
+                <?php if ($has_active_ev_filters): ?>
+                  <a href="evenements.php?view=<?= $view ?>" class="text-[#555] text-xs hover:text-brand transition-colors">✕ Effacer</a>
+                <?php endif; ?>
+              </div>
+              <?php if ($is_logged_in): ?>
+                <a href="creer_evenement.php" class="bg-brand text-[#111] px-4 py-2.5 rounded-xl font-bold text-sm hover:opacity-90 transition-opacity whitespace-nowrap">+ Proposer</a>
+              <?php endif; ?>
+            </div>
+
+            <!-- Tabs + CTA (desktop) -->
+            <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
+                <div class="flex gap-2 flex-wrap ev-tabs">
+                    <?php foreach ($tabs as $k => $label):
                         $q = http_build_query(array_filter(['view'=>$k,'type'=>$filter_type,'city'=>$filter_city]));
                     ?>
                     <a href="evenements.php?<?= $q ?>"
@@ -168,7 +266,7 @@ function fmtDate($d) {
                     <?php endforeach; ?>
                 </div>
                 <?php if ($is_logged_in): ?>
-                <a href="creer_evenement.php" class="bg-brand text-[#111] px-6 py-3 rounded-xl font-bold text-sm hover:opacity-90 transition-opacity">+ Proposer un événement</a>
+                <a href="creer_evenement.php" class="bg-brand text-[#111] px-6 py-3 rounded-xl font-bold text-sm hover:opacity-90 transition-opacity ev-desktop-cta">+ Proposer un événement</a>
                 <?php endif; ?>
             </div>
 
@@ -185,7 +283,7 @@ function fmtDate($d) {
                     </p>
                 </div>
             <?php else: ?>
-                <div class="grid gap-6" style="grid-template-columns: repeat(auto-fill, minmax(360px,1fr));">
+                <div class="grid gap-6 ev-grid" style="grid-template-columns: repeat(auto-fill, minmax(300px,1fr));">
                     <?php foreach ($events as $ev):
                         $typeColor   = $type_colors[$ev['type'] ?? ''] ?? '#888';
                         $is_reg      = in_array($ev['id'], $my_registrations);
@@ -254,11 +352,14 @@ function fmtDate($d) {
         </main>
 
         <!-- Filtres -->
-        <aside class="w-[280px] flex-shrink-0">
+        <aside class="w-[280px] flex-shrink-0 ev-aside">
             <form method="GET" action="evenements.php">
                 <input type="hidden" name="view" value="<?= htmlspecialchars($view) ?>">
                 <div class="bg-[#111] p-6 rounded-2xl border border-[#1a1a1a] sticky top-8 flex flex-col gap-5">
-                    <h2 class="text-base font-bold">Filtres</h2>
+                    <div class="flex items-center justify-between">
+                      <h2 class="text-base font-bold">Filtres</h2>
+                      <button type="button" onclick="closeEvFilters()" class="ev-filter-toggle w-7 h-7 flex items-center justify-center rounded-full bg-[#222] text-[#888] hover:text-white text-sm border-none cursor-pointer">✕</button>
+                    </div>
 
                     <div>
                         <label class="block text-[#555] text-xs font-bold uppercase tracking-wider mb-2">Type</label>
@@ -276,7 +377,7 @@ function fmtDate($d) {
                                class="w-full rounded-xl border border-[#222] bg-[#0a0a0a] text-white text-sm outline-none focus:border-brand p-3 placeholder-[#444]">
                     </div>
 
-                    <button type="submit" class="w-full py-3 bg-brand text-black rounded-xl font-bold text-sm hover:opacity-90 transition-opacity">Appliquer</button>
+                    <button type="submit" onclick="closeEvFilters()" class="w-full py-3 bg-brand text-black rounded-xl font-bold text-sm hover:opacity-90 transition-opacity">Appliquer les filtres</button>
                     <?php if ($filter_type || $filter_city): ?>
                     <a href="evenements.php?view=<?= $view ?>" class="text-center text-[#555] text-xs hover:text-brand transition-colors">✕ Effacer les filtres</a>
                     <?php endif; ?>
@@ -492,7 +593,37 @@ function fmtDate($d) {
         });
     }
 
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeEditModal(); } });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeEditModal(); closeEvFilters(); } });
+
+    // Dropdown onglets mobile
+    (function(){
+        const btn = document.getElementById('ev-tabs-btn');
+        const menu = document.getElementById('ev-tabs-menu');
+        const chevron = document.getElementById('ev-tabs-chevron');
+        if (!btn) return;
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const open = !menu.classList.contains('hidden');
+            menu.classList.toggle('hidden', open);
+            chevron.style.transform = open ? '' : 'rotate(180deg)';
+        });
+        document.addEventListener('click', function() {
+            menu.classList.add('hidden');
+            chevron.style.transform = '';
+        });
+    })();
+
+    // Filtres overlay mobile
+    function openEvFilters() {
+        document.querySelector('.ev-aside').classList.add('open');
+        document.getElementById('ev-backdrop').classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeEvFilters() {
+        document.querySelector('.ev-aside').classList.remove('open');
+        document.getElementById('ev-backdrop').classList.remove('open');
+        document.body.style.overflow = '';
+    }
     </script>
     <script src="assets/js/script.js"></script>
 </body>

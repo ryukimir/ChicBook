@@ -57,6 +57,7 @@ function get_post_value($key)
       background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231a1a1a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
       background-repeat: no-repeat; background-position: right 15px center; background-size: 15px;
     }
+    @media (max-width:768px) { #mobile-topbar { display:none !important; } }
   </style>
 </head>
 <body class="bg-black text-white font-['Arial',sans-serif]">
@@ -163,9 +164,8 @@ function get_post_value($key)
             <select name="metier" id="metier-select" required class="input-field">
               <option value="" disabled <?= empty(get_post_value('metier')) ? 'selected' : '' ?>>Votre métier</option>
               <?php
-              $metiers_physiques = ['Mannequin', 'Comédien', 'Danseur'];
               foreach ($professions as $metier):
-                $requires_measurements = in_array($metier['name'], $metiers_physiques) ? 'true' : 'false';
+                $requires_measurements = !empty($metier['has_measurements']) ? 'true' : 'false';
               ?>
                 <option value="<?= $metier['id'] ?>" data-measurements="<?= $requires_measurements ?>" <?= get_post_value('metier') == $metier['id'] ? 'selected' : '' ?>>
                   <?= htmlspecialchars($metier['name']) ?>

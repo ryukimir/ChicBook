@@ -9,7 +9,7 @@ class Profession {
     }
 
     public function getAll() {
-        $query = "SELECT id, name FROM " . $this->table_name . " ORDER BY name ASC";
+        $query = "SELECT id, name, has_measurements FROM " . $this->table_name . " ORDER BY name ASC";
         $stmt = $this->conn->prepare($query);
         $stmt->execute();
 

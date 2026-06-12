@@ -357,6 +357,9 @@ CREATE TABLE IF NOT EXISTS reports (
 -- Connexion persistante (remember me)
 ALTER TABLE users ADD COLUMN IF NOT EXISTS remember_token VARCHAR(64);
 
+-- Projets : nom du rôle sur les profils requis
+ALTER TABLE required_profiles ADD COLUMN IF NOT EXISTS role_name VARCHAR(100);
+
 -- Suggestions utilisateurs
 CREATE TABLE IF NOT EXISTS suggestions (
     id SERIAL PRIMARY KEY,
@@ -365,3 +368,43 @@ CREATE TABLE IF NOT EXISTS suggestions (
     is_read BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Catégories de métiers (back office)
+CREATE TABLE IF NOT EXISTS profession_categories (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    display_order INT DEFAULT 0
+);
+
+ALTER TABLE professions ADD COLUMN IF NOT EXISTS category_id INT REFERENCES profession_categories(id) ON DELETE SET NULL;
+ALTER TABLE professions ADD COLUMN IF NOT EXISTS has_measurements BOOLEAN DEFAULT FALSE;
+
+-- Données initiales catégories
+INSERT INTO profession_categories (name, display_order)
+SELECT * FROM (VALUES ('Création & Design', 1), ('Image & Production', 2), ('Marques & Créateurs', 3)) AS v(name, display_order)
+WHERE NOT EXISTS (SELECT 1 FROM profession_categories LIMIT 1);
+
+-- Professions avec mensurations
+UPDATE professions SET has_measurements = TRUE WHERE name IN ('Mannequin', 'Comédien', 'Danseur');
+
+-- Assignation des catégories aux professions existantes
+UPDATE professions SET category_id = (SELECT id FROM profession_categories WHERE name = 'Création & Design')
+WHERE name IN ('Styliste', 'Modéliste', 'Designer accessoires', 'Designer textile', 'Brodeur / Ornementation') AND category_id IS NULL;
+
+UPDATE professions SET category_id = (SELECT id FROM profession_categories WHERE name = 'Image & Production')
+WHERE name IN ('Mannequin', 'Photographe', 'Vidéaste', 'Maquilleur', 'Coiffeur', 'Comédien', 'Danseur') AND category_id IS NULL;
+
+
+-- Table follows (système de suivi)
+CREATE TABLE IF NOT EXISTS follows (
+    id SERIAL PRIMARY KEY,
+    follower_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    following_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(follower_id, following_id)
+);
+
+
+-- Migration: colonnes reset mot de passe
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token VARCHAR(64);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires TIMESTAMP;

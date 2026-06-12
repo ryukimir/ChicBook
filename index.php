@@ -39,8 +39,9 @@ $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM eve
     <!-- Feed -->
     <div class="flex-grow min-w-0 max-w-[680px]">
 
-      <!-- Filtres dropdown -->
-      <div class="relative mb-8" id="filter-dropdown-wrapper">
+      <!-- Filtres dropdown + boutons mobile (Plus / Avatar) -->
+      <div class="flex items-center gap-2 mb-8" id="filter-row-wrapper">
+        <div class="relative flex-1" id="filter-dropdown-wrapper">
         <button id="filter-toggle" class="flex items-center gap-3 px-5 py-3 bg-[#111] border border-[#2a2a2a] rounded-2xl text-white font-semibold text-sm hover:border-[#555] transition-colors w-full justify-between">
           <span>
             <span class="text-[#666] font-normal mr-2">Fil d'actualité ·</span>
@@ -58,7 +59,40 @@ $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM eve
           <button class="filter-option w-full text-left px-5 py-3.5 text-sm font-semibold text-[#aaa] hover:bg-[#1e1e1e] hover:text-white transition-colors" data-filter="maquilleur" data-label="Maquilleurs">Maquilleurs</button>
           <button class="filter-option w-full text-left px-5 py-3.5 text-sm font-semibold text-[#aaa] hover:bg-[#1e1e1e] hover:text-white transition-colors" data-filter="modeliste" data-label="Modélistes">Modélistes</button>
         </div>
-      </div>
+        </div><!-- /filter-dropdown-wrapper -->
+
+        <!-- Boutons Plus + Avatar — visibles uniquement sur mobile, dans la continuité du filtre -->
+        <div id="feed-topbar-btns" style="display:none; align-items:center; gap:6px; flex-shrink:0;">
+          <a href="preferences.php" class="mtop-btn <?= ($current_page ?? '') === 'preferences.php' ? 'mtop-active' : '' ?>" title="Plus">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+            </svg>
+          </a>
+          <?php if ($is_logged_in): ?>
+            <a href="profil.php" class="mtop-avatar" title="Mon profil">
+              <?php
+                $sid = $_SESSION['user_id'];
+                $av = $_SESSION['user_avatar'] ?? null;
+                if (!$av) {
+                  $fa2 = $db->prepare("SELECT image_url FROM portfolios WHERE user_id=:id ORDER BY position ASC, created_at DESC LIMIT 1");
+                  $fa2->execute(['id'=>$sid]); $fa2r = $fa2->fetch(PDO::FETCH_ASSOC);
+                  if ($fa2r) $av = $fa2r['image_url'];
+                }
+              ?>
+              <?php if ($av): ?>
+                <img src="<?= htmlspecialchars($av) ?>" alt="Profil">
+              <?php else: ?>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <?php endif; ?>
+            </a>
+          <?php else: ?>
+            <a href="connexion.php" class="mtop-avatar" title="Se connecter">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
+            </a>
+          <?php endif; ?>
+        </div>
+      </div><!-- /filter-row-wrapper -->
 
       <!-- Posts -->
       <?php
@@ -338,5 +372,23 @@ $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM eve
   </script>
 
   <script src="assets/js/script.js"></script>
+  <script>
+  (function(){
+    function applyFeedTopbar() {
+      var inlineBar = document.getElementById('feed-topbar-btns');
+      var globalBar = document.getElementById('mobile-topbar');
+      if (!inlineBar || !globalBar) return;
+      if (window.innerWidth <= 768) {
+        inlineBar.style.display = 'flex';
+        globalBar.style.setProperty('display', 'none', 'important');
+      } else {
+        inlineBar.style.display = 'none';
+        globalBar.style.removeProperty('display'); // laisse le CSS décider
+      }
+    }
+    applyFeedTopbar();
+    window.addEventListener('resize', applyFeedTopbar);
+  })();
+  </script>
 </body>
 </html>

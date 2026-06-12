@@ -20,6 +20,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'toggle_suspend' && $user_id) {
         $db->prepare("UPDATE users SET is_suspended = NOT is_suspended WHERE id = :id")->execute([':id' => $user_id]);
         $message = 'Statut de suspension modifié.';
+    } elseif ($action === 'send_email') {
+        $to      = trim($_POST['to_email'] ?? '');
+        $subject = trim($_POST['subject'] ?? '');
+        $body    = trim($_POST['body'] ?? '');
+        if ($to && $subject && $body) {
+            $headers = "From: admin@chicbook.fr\r\nContent-Type: text/plain; charset=UTF-8";
+            mail($to, $subject, $body, $headers);
+            $message = 'Email envoyé à ' . htmlspecialchars($to) . '.';
+        }
     }
 }
 
@@ -58,6 +67,7 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Utilisateurs — Admin ChicBook</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script>tailwind.config = { theme: { extend: { colors: { brand: '#d4a5d4' } } } }</script>
@@ -123,6 +133,11 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </td>
                 <td class="px-4 py-4 text-right">
                     <div class="flex items-center justify-end gap-2">
+                        <!-- Contact -->
+                        <button onclick="openContact('<?= addslashes(htmlspecialchars($u['email'])) ?>', '<?= addslashes(htmlspecialchars($u['full_name'])) ?>')"
+                            class="px-3 py-1.5 rounded-lg text-xs border border-[#222] text-[#666] hover:border-brand/50 hover:text-brand transition-colors">
+                            Contacter
+                        </button>
                         <!-- Toggle suspend -->
                         <form method="POST" class="inline">
                             <input type="hidden" name="action" value="toggle_suspend">
@@ -159,6 +174,47 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
             </tbody>
         </table>
     </div>
+
+    <!-- Modal : contacter l'utilisateur -->
+    <div id="modal-contact" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center">
+        <div class="bg-[#111] rounded-2xl border border-[#222] p-6 w-[480px]">
+            <h3 class="font-bold text-lg mb-4">Contacter l'utilisateur</h3>
+            <form method="POST">
+                <input type="hidden" name="action" value="send_email">
+                <input type="hidden" name="to_email" id="contact-to">
+                <div class="mb-3">
+                    <label class="text-xs text-[#555] mb-1 block">Destinataire</label>
+                    <div id="contact-to-display" class="text-sm text-brand px-4 py-2 bg-[#1a1a1a] rounded-xl border border-[#333]"></div>
+                </div>
+                <div class="mb-3">
+                    <label class="text-xs text-[#555] mb-1 block">Objet</label>
+                    <input type="text" name="subject" required
+                        class="w-full bg-[#1a1a1a] border border-[#333] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand">
+                </div>
+                <div class="mb-4">
+                    <label class="text-xs text-[#555] mb-1 block">Message</label>
+                    <textarea name="body" rows="5" required
+                        class="w-full bg-[#1a1a1a] border border-[#333] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand resize-none"></textarea>
+                </div>
+                <div class="flex gap-2 justify-end">
+                    <button type="button" onclick="document.getElementById('modal-contact').classList.add('hidden')"
+                        class="px-4 py-2 rounded-xl text-sm text-[#666] border border-[#222] hover:border-[#333]">Annuler</button>
+                    <button type="submit" class="px-4 py-2 rounded-xl text-sm bg-brand text-black font-bold hover:opacity-90">Envoyer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    function openContact(email, name) {
+        document.getElementById('contact-to').value = email;
+        document.getElementById('contact-to-display').textContent = name + ' <' + email + '>';
+        document.getElementById('modal-contact').classList.remove('hidden');
+    }
+    document.getElementById('modal-contact').addEventListener('click', function(e) {
+        if (e.target === this) this.classList.add('hidden');
+    });
+    </script>
 
     <!-- Pagination -->
     <?php if ($pages > 1): ?>

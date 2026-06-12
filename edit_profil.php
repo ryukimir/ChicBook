@@ -111,13 +111,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $error = "Erreur lors du téléchargement de l'image.";
         }
     }
+
+    if ($message && !$error) {
+        header("Location: profil.php");
+        exit();
+    }
 }
 
 $user         = $userModel->getUserProfile($_SESSION['user_id']);
 $measurements = $userModel->getMeasurements($_SESSION['user_id']);
 
 
-$professions_with_measurements = ['Mannequin', 'Danseur', 'Comédien'];
+$professions_with_measurements = $db->query("SELECT name FROM professions WHERE has_measurements=TRUE ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
 $query_user_professions = "SELECT p.name FROM user_professions up
                            JOIN professions p ON up.profession_id = p.id
                            WHERE up.user_id = :user_id";
@@ -133,6 +138,20 @@ foreach ($user_professions as $prof) {
         break;
     }
 }
+
+$tabs = [
+    'infos'     => 'Informations générales',
+    'expertise' => 'Expertise & Tags',
+    'bio'       => 'Biographie',
+];
+if ($show_measurements) {
+    $tabs['mensurations'] = 'Mensurations';
+}
+$tabs['theme']    = 'Thème du profil';
+$tabs['securite'] = 'Sécurité';
+
+$active_tab = $_GET['tab'] ?? array_key_first($tabs);
+if (!isset($tabs[$active_tab])) $active_tab = array_key_first($tabs);
 ?>
 <!doctype html>
 <html lang="fr" <?php if ((($_COOKIE['chicbook_theme'] ?? 'dark') === 'light')) echo ' class="light"'; ?>>
@@ -221,32 +240,42 @@ foreach ($user_professions as $prof) {
             color: #fff;
             font-weight: 600;
         }
+
+        @media (max-width: 768px) {
+            html, body { height: auto; overflow: auto; }
+            .ep-layout { flex-direction: column !important; height: auto !important; }
+            .ep-sidebar { display: none !important; }
+            .ep-content { overflow-y: visible !important; padding-bottom: 120px !important; }
+            .ep-content > div { max-width: 100% !important; padding: 16px !important; }
+            /* Sur mobile tous les onglets sont visibles et empilés */
+            .tab-panel { display: block !important; }
+            .ep-section-title {
+                display: flex !important;
+                align-items: center;
+                gap: 10px;
+                font-size: 11px;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: .12em;
+                color: #555;
+                margin: 28px 0 16px;
+                padding-bottom: 10px;
+                border-bottom: 1px solid #1e1e1e;
+            }
+            .ep-section-title:first-child { margin-top: 8px; }
+            /* Sticky bottom bar */
+            .ep-sticky-bar { left: 0 !important; right: 0 !important; bottom: 0 !important; border-radius: 0 !important; padding: 12px 16px !important; }
+            .ep-mobile-footer { display: flex !important; }
+        }
     </style>
 </head>
 
 <body class="bg-[#1a1a1a] text-white" style="font-family:'Open Sans',sans-serif;">
-    <div class="flex h-screen">
+<div class="flex h-screen ep-layout">
 
         <!-- Menu latéral onglets -->
-        <aside class="w-[240px] bg-[#111] border-r border-[#222] flex flex-col flex-shrink-0 p-6">
+        <aside class="w-[240px] bg-[#111] border-r border-[#222] flex flex-col flex-shrink-0 p-6 ep-sidebar">
             <h3 class="text-white text-sm font-bold uppercase tracking-widest mb-6 px-2 opacity-50">Paramètres</h3>
-
-            <?php
-            $tabs = [
-                'infos'        => 'Informations générales',
-                'expertise'    => 'Expertise & Tags',
-                'bio'          => 'Biographie',
-            ];
-            // Ajouter l'onglet mensurations seulement si la profession le justifie
-            if ($show_measurements) {
-                $tabs['mensurations'] = 'Mensurations';
-            }
-            $tabs['theme']   = 'Thème du profil';
-            $tabs['securite'] = 'Sécurité';
-
-            $active_tab = $_GET['tab'] ?? (array_key_first($tabs));
-            if (!isset($tabs[$active_tab])) $active_tab = array_key_first($tabs);
-            ?>
 
             <nav class="flex flex-col gap-1 flex-grow">
                 <?php foreach ($tabs as $key => $label): ?>
@@ -264,7 +293,7 @@ foreach ($user_professions as $prof) {
         </aside>
 
         <!-- Zone de contenu -->
-        <main class="flex-grow overflow-y-auto bg-[#0e0e0e]">
+        <main class="flex-grow overflow-y-auto bg-[#0e0e0e] ep-content">
             <div class="max-w-[640px] mx-auto py-10 px-8">
 
                 <?php if ($message): ?>
@@ -275,6 +304,7 @@ foreach ($user_professions as $prof) {
                 <?php endif; ?>
 
                 <!-- ── Informations générales + Photo ── -->
+                <div class="ep-section-title">Informations générales</div>
                 <div id="tab-infos" class="tab-panel <?= $active_tab === 'infos' ? 'active' : '' ?>">
                     <h2 class="text-xl font-semibold mb-6">Informations générales</h2>
                     <form id="form-infos" action="edit_profil.php?tab=infos" method="POST" enctype="multipart/form-data" class="flex flex-col gap-5">
@@ -352,6 +382,7 @@ foreach ($user_professions as $prof) {
                 </div>
 
                 <!-- ── Expertise & Tags ── -->
+                <div class="ep-section-title">Expertise &amp; Tags</div>
                 <div id="tab-expertise" class="tab-panel <?= $active_tab === 'expertise' ? 'active' : '' ?>">
                     <h2 class="text-xl font-semibold mb-2">Expertise & Tags</h2>
                     <p class="text-[#555] text-sm mb-6">Cliquez sur les tags pour les sélectionner.</p>
@@ -391,6 +422,7 @@ foreach ($user_professions as $prof) {
                 </div>
 
                 <!-- ── Biographie ── -->
+                <div class="ep-section-title">Biographie</div>
                 <div id="tab-bio" class="tab-panel <?= $active_tab === 'bio' ? 'active' : '' ?>">
                     <h2 class="text-xl font-semibold mb-6">Biographie</h2>
                     <form id="form-bio" action="edit_profil.php?tab=bio" method="POST" class="flex flex-col gap-4">
@@ -404,6 +436,7 @@ foreach ($user_professions as $prof) {
 
                 <!-- ── Mensurations ── -->
                 <?php if ($show_measurements): ?>
+                    <div class="ep-section-title">Mensurations</div>
                     <div id="tab-mensurations" class="tab-panel <?= $active_tab === 'mensurations' ? 'active' : '' ?>">
                         <h2 class="text-xl font-semibold mb-2">Mensurations</h2>
                         <p class="text-[#555] text-sm mb-6">Ces informations sont utilisées pour les castings nécessitant des critères physiques.</p>
@@ -465,6 +498,7 @@ foreach ($user_professions as $prof) {
                 <?php endif; ?>
 
                 <!-- ── Thème du profil ── -->
+                <div class="ep-section-title">Thème du profil</div>
                 <div id="tab-theme" class="tab-panel <?= $active_tab === 'theme' ? 'active' : '' ?>">
                     <h2 class="text-xl font-semibold mb-2">Thème du profil</h2>
                     <p class="text-[#555] text-sm mb-6">Choisissez l'apparence de votre book public.</p>
@@ -551,6 +585,7 @@ foreach ($user_professions as $prof) {
                 </div>
 
                 <!-- ── Sécurité ── -->
+                <div class="ep-section-title">Sécurité</div>
                 <div id="tab-securite" class="tab-panel <?= $active_tab === 'securite' ? 'active' : '' ?>">
                     <h2 class="text-xl font-semibold mb-6">Sécurité</h2>
                     <form id="form-securite" action="edit_profil.php?tab=securite" method="POST" class="flex flex-col gap-4">
@@ -570,14 +605,20 @@ foreach ($user_professions as $prof) {
                     </form>
                 </div>
 
+                <!-- Liens bas de page (mobile uniquement) -->
+                <div class="ep-mobile-footer" style="display:none; flex-direction:column; gap:4px; margin-top:32px; padding-top:16px; border-top:1px solid #1e1e1e;">
+                    <a href="profil.php" style="padding:10px 14px; border-radius:8px; font-size:14px; color:#d4a5d4; text-decoration:none;">← Retour au profil</a>
+                    <a href="logout.php" style="padding:10px 14px; border-radius:8px; font-size:14px; color:#e57373; text-decoration:none;">Se déconnecter</a>
+                </div>
+
             </div>
         </main>
     </div>
 
     <!-- Barre sticky globale -->
-    <div id="global-bar"
+    <div id="global-bar" class="ep-sticky-bar"
         style="position:fixed; bottom:0; right:0; z-index:100; padding:14px 28px;
-                display:flex; align-items:center; gap:12px;">
+                display:flex; align-items:center; gap:12px; background:#111; border-top:1px solid #222;">
         <button id="global-cancel"
             style="padding:10px 20px; border-radius:999px; font-size:13px; font-weight:600;
                        border:1px solid #333; color:#aaa; background:transparent; cursor:pointer; transition:all .15s;"
@@ -598,8 +639,16 @@ foreach ($user_professions as $prof) {
         function switchTab(key) {
             document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.querySelectorAll('.ep-mtab').forEach(n => n.classList.remove('active'));
             document.getElementById('tab-' + key).classList.add('active');
-            document.getElementById('nav-' + key).classList.add('active');
+            const navBtn = document.getElementById('nav-' + key);
+            if (navBtn) navBtn.classList.add('active');
+            // Sync barre mobile
+            document.querySelectorAll('.ep-mtab').forEach(b => {
+                if (b.getAttribute('onclick') === `switchTab('${key}')`) b.classList.add('active');
+            });
+            // Scroll en haut sur mobile
+            if (window.innerWidth <= 768) window.scrollTo(0, 0);
         }
 
         function toggleEditTag(btn) {

@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const btnAdd = document.getElementById('btn-add-profile');
     let profileCount = 1;
 
-    const MENSURATION_ROLES = ['Mannequin', 'Danseur', 'Comédien'];
+    const MENSURATION_ROLES = window.CHICBOOK_TALENT_PROFESSIONS || ['Mannequin', 'Danseur', 'Comédien'];
 
     function toggleMensurations(selectElement) {
         const card = selectElement.closest('.profile-card');

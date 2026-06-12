@@ -58,6 +58,7 @@ $types = ['Soirée', 'Formation', 'Workshop', 'Salon', 'Défilé', 'Networking',
 <html lang="fr" <?php if((($_COOKIE['chicbook_theme']??'dark')==='light'))echo' class="light"';?>>
 <head>
 <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Proposer un événement — ChicBook</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script>tailwind.config = { theme: { extend: { colors: { brand: '#d4a5d4' } } } }</script>
@@ -67,12 +68,18 @@ $types = ['Soirée', 'Formation', 'Workshop', 'Salon', 'Défilé', 'Networking',
 .inp { width:100%; background:#0a0a0a; border:1px solid #222; border-radius:10px; padding:12px 16px; color:#fff; font-size:14px; outline:none; transition:border-color .15s; font-family:inherit; }
 .inp:focus { border-color:#d4a5d4; }
 .inp::placeholder { color:#444; }
+@media (max-width: 768px) {
+  .cev-wrapper { padding: 16px 12px 100px !important; margin-top: 0 !important; }
+  .cev-grid-2 { grid-template-columns: 1fr !important; }
+  .cev-grid-3 { grid-template-columns: 1fr !important; }
+  #mobile-topbar { display: none !important; }
+}
 </style>
 </head>
 <body class="bg-black text-white">
 <?php include 'includes/header.php'; ?>
 
-<main class="max-w-[720px] mx-auto mt-10 mb-16 px-6">
+<main class="max-w-[720px] mx-auto mt-10 mb-16 px-6 cev-wrapper">
     <div class="mb-8">
         <a href="evenements.php" class="text-[#555] text-sm hover:text-brand transition-colors">← Retour aux événements</a>
         <h1 class="text-3xl font-black mt-4 mb-1">Proposer un événement</h1>
@@ -90,7 +97,7 @@ $types = ['Soirée', 'Formation', 'Workshop', 'Salon', 'Défilé', 'Networking',
             <input type="text" name="title" class="inp" placeholder="Ex : Fashion Week Paris — Soirée de lancement" required value="<?= htmlspecialchars($_POST['title'] ?? '') ?>">
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-2 gap-4 cev-grid-2">
             <div class="field">
                 <label>Type *</label>
                 <select name="type" class="inp" required style="appearance:none;cursor:pointer;">
@@ -106,7 +113,7 @@ $types = ['Soirée', 'Formation', 'Workshop', 'Salon', 'Défilé', 'Networking',
             </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-2 gap-4 cev-grid-2">
             <div class="field">
                 <label>Ville *</label>
                 <input type="text" name="city" class="inp" placeholder="Paris" required value="<?= htmlspecialchars($_POST['city'] ?? '') ?>">
@@ -117,7 +124,7 @@ $types = ['Soirée', 'Formation', 'Workshop', 'Salon', 'Défilé', 'Networking',
             </div>
         </div>
 
-        <div class="grid grid-cols-3 gap-4">
+        <div class="grid grid-cols-3 gap-4 cev-grid-3">
             <div class="field">
                 <label>Date *</label>
                 <input type="date" name="event_date" class="inp" required value="<?= htmlspecialchars($_POST['event_date'] ?? '') ?>">

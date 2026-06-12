@@ -51,6 +51,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       }
     </script>
     <link rel="stylesheet" href="assets/css/custom.css" />
+    <style>@media (max-width:768px) { #mobile-topbar { display:none !important; } }</style>
 </head>
 <body class="bg-black text-white font-['Arial',sans-serif]">
     <?php include 'includes/header.php'; ?>
@@ -90,12 +91,34 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </main>
 
     <script>
+        const inputs = Array.from(document.getElementsByName('code[]'));
+
         function moveNext(input, index) {
             if (input.value.length === 1 && index < 5) {
-                document.getElementsByName('code[]')[index + 1].focus();
+                inputs[index + 1].focus();
             }
         }
-        window.onload = () => document.getElementsByName('code[]')[0].focus();
+
+        inputs.forEach((input, index) => {
+            input.addEventListener('paste', function(e) {
+                e.preventDefault();
+                const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 6);
+                if (!pasted) return;
+                pasted.split('').forEach((char, i) => {
+                    if (inputs[i]) inputs[i].value = char;
+                });
+                const next = inputs[Math.min(pasted.length, 5)];
+                next.focus();
+            });
+
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Backspace' && !this.value && index > 0) {
+                    inputs[index - 1].focus();
+                }
+            });
+        });
+
+        window.onload = () => inputs[0].focus();
     </script>
 </body>
 </html>

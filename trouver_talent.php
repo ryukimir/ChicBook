@@ -6,33 +6,41 @@ require_once 'models/User.php';
 $is_logged_in = isset($_SESSION['user_id']);
 $db = Database::getInstance()->getConnection();
 
-$categories = [
-    'creation-design' => [
-        'label' => 'Création & Design',
-        'professions' => ['Styliste', 'Modéliste', 'Designer', 'Illustrateur', 'Directeur artistique'],
-    ],
-    'image-production' => [
-        'label' => 'Image & Production',
-        'professions' => ['Photographe', 'Vidéaste', 'Mannequin', 'Maquilleur', 'Coiffeur'],
-    ],
-    'marques-createurs' => [
-        'label' => 'Marques & Créateurs',
-        'professions' => ['Marque', 'Créateur', 'Agence', 'Casting director'],
-    ],
-];
+// Catégories et professions depuis la DB
+$cats_rows = $db->query("
+    SELECT pc.id, pc.name AS cat_name, pc.display_order,
+           COALESCE(json_agg(p.name ORDER BY p.name) FILTER (WHERE p.id IS NOT NULL), '[]') AS professions
+    FROM profession_categories pc
+    LEFT JOIN professions p ON p.category_id = pc.id
+    GROUP BY pc.id ORDER BY pc.display_order ASC
+")->fetchAll(PDO::FETCH_ASSOC);
 
-$category = $_GET['category'] ?? 'creation-design';
-if (!isset($categories[$category])) $category = 'creation-design';
+$categories = [];
+foreach ($cats_rows as $row) {
+    $profs = json_decode($row['professions'], true) ?? [];
+    $slug = strtolower(preg_replace('/[^a-z0-9]+/', '-', iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $row['cat_name'])));
+    $slug = trim($slug, '-');
+    $categories[$slug] = ['label' => $row['cat_name'], 'professions' => $profs];
+}
+// Fallback si DB vide
+if (empty($categories)) {
+    $all_profs = $db->query("SELECT name FROM professions ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
+    $categories['tous'] = ['label' => 'Tous les métiers', 'professions' => $all_profs ?: ['—']];
+}
+
+$category = $_GET['category'] ?? array_key_first($categories);
+if (!isset($categories[$category])) $category = array_key_first($categories);
 $cat = $categories[$category];
 
-$profession = $_GET['profession'] ?? $cat['professions'][0];
-if (!in_array($profession, $cat['professions'])) $profession = $cat['professions'][0];
+$profession = $_GET['profession'] ?? ($cat['professions'][0] ?? '');
+if (!empty($cat['professions']) && !in_array($profession, $cat['professions'])) $profession = $cat['professions'][0];
 
+$filter_search  = trim($_GET['search'] ?? '');
 $filter_city    = trim($_GET['city'] ?? '');
 $filter_country = trim($_GET['country'] ?? '');
 $filter_tag     = trim($_GET['tag'] ?? '');
 
-$talent_professions = ['Mannequin', 'Danseur', 'Comédien'];
+$talent_professions = $db->query("SELECT name FROM professions WHERE has_measurements=TRUE ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
 $is_talent_prof = in_array($profession, $talent_professions);
 
 $filter_height_min  = $_GET['height_min'] ?? '';
@@ -73,6 +81,7 @@ function getAgeRange($birthDate) {
 // Query profiles
 $where = "(u.specific_profession ILIKE :p1 OR p.name ILIKE :p2)";
 $binds = ['p1' => $profession, 'p2' => $profession];
+if ($filter_search)  { $where .= " AND u.full_name ILIKE :search";  $binds['search']  = "%$filter_search%"; }
 if ($filter_city)    { $where .= " AND u.city ILIKE :city";        $binds['city']    = "%$filter_city%"; }
 if ($filter_country) { $where .= " AND u.country = :country";      $binds['country'] = $filter_country; }
 if ($filter_tag)     { $where .= " AND u.expertise_tags ILIKE :tag"; $binds['tag']   = "%$filter_tag%"; }
@@ -129,7 +138,7 @@ ksort($all_tags);
 $all_tags = array_keys($all_tags);
 
 function buildUrl($params) {
-    return 'trouver_talent.php?' . http_build_query(array_filter($params));
+    return 'trouver_talent.php?' . http_build_query(array_filter($params, fn($v) => $v !== '' && $v !== null && $v !== false));
 }
 ?>
 <!doctype html>
@@ -141,17 +150,66 @@ function buildUrl($params) {
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { theme: { extend: { colors: { brand: '#d4a5d4' } } } }</script>
     <link rel="stylesheet" href="assets/css/custom.css">
+    <style>
+    .tt-filter-toggle { display: none; }
+    .tt-cats-mobile { display: none; }
+    @media (max-width: 768px) {
+      .tt-page-wrapper { padding: 12px 12px 100px; }
+      .tt-header-block { margin-bottom: 0 !important; }
+      .tt-main-layout { flex-direction: column !important; }
+      .tt-filter-toggle { display: flex !important; }
+      /* Catégories : cacher les pills, montrer le dropdown mobile */
+      .tt-cats-pills { display: none !important; }
+      .tt-cats-mobile { display: block !important; }
+      #mobile-topbar { display: none !important; }
+      /* Filtres : overlay flottant au-dessus des profils */
+      .tt-aside {
+        position: fixed !important;
+        top: auto !important;
+        bottom: 90px;
+        left: 12px;
+        right: 12px;
+        width: auto !important;
+        max-height: 78vh;
+        overflow-y: auto;
+        z-index: 600;
+        border-radius: 20px;
+        visibility: hidden;
+        opacity: 0;
+        transform: translateY(12px);
+        transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s;
+      }
+      .tt-aside.open {
+        visibility: visible;
+        opacity: 1;
+        transform: translateY(0);
+      }
+      /* Backdrop */
+      #tt-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.55);
+        z-index: 599;
+        backdrop-filter: blur(2px);
+      }
+      #tt-backdrop.open { display: block; }
+    }
+    </style>
 </head>
 <body class="bg-black text-white font-['Open_Sans',sans-serif]">
 <?php include 'includes/header.php'; ?>
 
-<div class="max-w-[1400px] mx-auto px-8 pt-8 pb-20">
+<div class="max-w-[1400px] mx-auto px-8 pt-8 pb-20 tt-page-wrapper">
+
+    <!-- Backdrop filtre mobile -->
+    <div id="tt-backdrop" onclick="closeTTFilters()"></div>
 
     <!-- En-tête catégorie + onglets professions -->
-    <div class="mb-8">
+    <div class="mb-8 tt-header-block">
 
-        <!-- Tabs catégories -->
-        <div class="flex gap-2 mb-6 flex-wrap">
+        <!-- Tabs catégories (desktop) -->
+        <div class="flex gap-2 mb-6 flex-wrap tt-cats-pills">
             <?php foreach ($categories as $slug => $c): ?>
                 <a href="<?= buildUrl(['category' => $slug, 'profession' => $c['professions'][0]]) ?>"
                    class="px-5 py-2 rounded-full text-sm font-bold border transition-all
@@ -163,8 +221,50 @@ function buildUrl($params) {
             <?php endforeach; ?>
         </div>
 
+        <!-- Dropdown catégorie (mobile uniquement) + boutons Plus/Avatar intégrés -->
+        <div class="tt-cats-mobile mb-3">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div class="relative" id="tt-cats-dd-wrap" style="flex:1; min-width:0;">
+            <button id="tt-cats-btn"
+                    class="flex items-center justify-between gap-3 w-full px-4 py-3 bg-[#111] border border-[#2a2a2a] rounded-2xl text-white font-bold text-sm">
+                <span><?= htmlspecialchars($cat['label']) ?></span>
+                <svg id="tt-cats-chevron" class="w-4 h-4 text-[#666] transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+            <div id="tt-cats-menu" class="hidden absolute left-0 right-0 mt-2 bg-[#111] border border-[#2a2a2a] rounded-2xl overflow-hidden z-50 shadow-[0_8px_32px_rgba(0,0,0,0.7)]">
+                <?php foreach ($categories as $slug => $c): ?>
+                    <a href="<?= buildUrl(['category' => $slug, 'profession' => $c['professions'][0]]) ?>"
+                       class="flex items-center justify-between px-4 py-3.5 text-sm font-semibold transition-colors hover:bg-[#1e1e1e] <?= $slug === $category ? 'text-white' : 'text-[#888] hover:text-white' ?>">
+                        <?= htmlspecialchars($c['label']) ?>
+                        <?php if ($slug === $category): ?><svg class="w-4 h-4 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><?php endif; ?>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+            </div><!-- /tt-cats-dd-wrap -->
+            <!-- Boutons Plus + Avatar -->
+            <a href="preferences.php" class="mtop-btn <?= $current_page === 'preferences.php' ? 'mtop-active' : '' ?>" title="Plus" style="flex-shrink:0;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+              </svg>
+            </a>
+            <?php if ($current_user_id): ?>
+              <a href="profil.php" class="mtop-avatar <?= $current_page === 'profil.php' ? 'mtop-active' : '' ?>" title="Mon profil" style="flex-shrink:0;">
+                <?php if ($user_avatar): ?>
+                  <img src="<?= htmlspecialchars($user_avatar) ?>" alt="Profil">
+                <?php else: ?>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <?php endif; ?>
+              </a>
+            <?php else: ?>
+              <a href="connexion.php" class="mtop-avatar" title="Se connecter" style="flex-shrink:0;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
+              </a>
+            <?php endif; ?>
+          </div><!-- /flex row -->
+        </div><!-- /tt-cats-mobile -->
+
         <!-- Dropdown professions -->
-        <div class="relative" id="profession-dropdown-wrapper">
+        <div class="relative mb-3" id="profession-dropdown-wrapper">
             <button id="profession-toggle"
                     class="flex items-center gap-3 px-5 py-3 bg-[#111] border border-[#2a2a2a] rounded-2xl text-white font-semibold text-sm hover:border-[#555] transition-colors justify-between"
                     style="min-width:260px;">
@@ -185,10 +285,12 @@ function buildUrl($params) {
         </div>
 
         <script>
+        // Dropdown profession (desktop + mobile)
         (function() {
             const btn = document.getElementById('profession-toggle');
             const menu = document.getElementById('profession-menu');
             const chevron = document.getElementById('profession-chevron');
+            if (!btn) return;
             btn.addEventListener('click', e => {
                 e.stopPropagation();
                 const open = !menu.classList.contains('hidden');
@@ -200,10 +302,70 @@ function buildUrl($params) {
                 chevron.style.transform = '';
             });
         })();
+        // Dropdown catégorie mobile
+        (function() {
+            const btn = document.getElementById('tt-cats-btn');
+            const menu = document.getElementById('tt-cats-menu');
+            const chevron = document.getElementById('tt-cats-chevron');
+            if (!btn) return;
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                const open = !menu.classList.contains('hidden');
+                menu.classList.toggle('hidden', open);
+                chevron.style.transform = open ? '' : 'rotate(180deg)';
+            });
+            document.addEventListener('click', () => {
+                menu.classList.add('hidden');
+                chevron.style.transform = '';
+            });
+        })();
+        // Filtres overlay mobile
+        function openTTFilters() {
+            document.querySelector('.tt-aside').classList.add('open');
+            document.getElementById('tt-backdrop').classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeTTFilters() {
+            document.querySelector('.tt-aside').classList.remove('open');
+            document.getElementById('tt-backdrop').classList.remove('open');
+            document.body.style.overflow = '';
+        }
         </script>
     </div>
 
-    <div class="flex gap-8 items-start">
+    <!-- Bouton filtres + recherche mobile -->
+    <?php
+    $has_active_filters_mobile = $filter_search || $filter_city || $filter_country || $filter_tag
+        || $filter_height_min || $filter_height_max || $filter_chest_min || $filter_chest_max
+        || $filter_waist_min || $filter_waist_max || $filter_hip_min || $filter_hip_max
+        || $filter_shoe_min || $filter_shoe_max || $filter_eye || $filter_hair || $filter_ethnicity;
+    ?>
+    <form method="GET" action="trouver_talent.php" class="tt-filter-toggle items-center gap-2 mb-3">
+        <input type="hidden" name="category" value="<?= htmlspecialchars($category) ?>">
+        <input type="hidden" name="profession" value="<?= htmlspecialchars($profession) ?>">
+        <?php if ($filter_city):    ?><input type="hidden" name="city"    value="<?= htmlspecialchars($filter_city) ?>"><?php endif; ?>
+        <?php if ($filter_country): ?><input type="hidden" name="country" value="<?= htmlspecialchars($filter_country) ?>"><?php endif; ?>
+        <?php if ($filter_tag):     ?><input type="hidden" name="tag"     value="<?= htmlspecialchars($filter_tag) ?>"><?php endif; ?>
+        <!-- Champ recherche par nom -->
+        <div style="flex:1; min-width:0; position:relative;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+                 style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#666; pointer-events:none;">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" name="search" value="<?= htmlspecialchars($filter_search) ?>"
+                   placeholder="Rechercher un talent…"
+                   style="width:100%; background:#111; border:1px solid #2a2a2a; border-radius:12px; padding:10px 12px 10px 34px; color:#fff; font-size:13px; outline:none; font-family:inherit;"
+                   onfocus="this.style.borderColor='#d4a5d4'" onblur="this.style.borderColor='#2a2a2a'">
+        </div>
+        <!-- Bouton Filtres -->
+        <button type="button" onclick="openTTFilters()"
+                style="flex-shrink:0; display:flex; align-items:center; gap:6px; padding:10px 14px; background:#111; border:1px solid <?= $has_active_filters_mobile ? '#d4a5d4' : '#333' ?>; border-radius:12px; color:<?= $has_active_filters_mobile ? '#d4a5d4' : '#fff' ?>; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/></svg>
+            Filtres<?= $has_active_filters_mobile ? ' ●' : '' ?>
+        </button>
+    </form>
+
+    <div class="flex gap-8 items-start tt-main-layout">
 
         <!-- Grille des cartes profils -->
         <div class="flex-grow min-w-0">
@@ -313,12 +475,15 @@ function buildUrl($params) {
         </div>
 
         <!-- Filtres (droite) -->
-        <aside class="w-[260px] flex-shrink-0 sticky top-8">
+        <aside class="w-[260px] flex-shrink-0 sticky top-8 tt-aside">
             <form method="GET" action="trouver_talent.php">
                 <input type="hidden" name="category" value="<?= htmlspecialchars($category) ?>">
                 <input type="hidden" name="profession" value="<?= htmlspecialchars($profession) ?>">
                 <div class="bg-[#0e0e0e] rounded-2xl p-6 flex flex-col gap-5" style="box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 -2px 0 rgba(0,0,0,0.8), 0 8px 24px rgba(0,0,0,0.5);">
-                    <h3 class="text-white font-bold text-base">Filtres</h3>
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-white font-bold text-base">Filtres</h3>
+                        <button type="button" onclick="closeTTFilters()" class="tt-filter-toggle w-7 h-7 flex items-center justify-center rounded-full bg-[#1a1a1a] text-[#666] hover:text-white transition-colors text-base leading-none">✕</button>
+                    </div>
 
                     <div>
                         <label class="block text-[#555] text-xs font-bold uppercase tracking-widest mb-2">Mot-clé</label>
@@ -404,8 +569,8 @@ function buildUrl($params) {
                     </div>
                     <?php endif; ?>
 
-                    <button type="submit" class="w-full py-2.5 bg-[#d4a5d4] text-black rounded-xl font-bold text-sm hover:opacity-90 transition-opacity border-none cursor-pointer">
-                        Rechercher
+                    <button type="submit" onclick="closeTTFilters()" class="w-full py-2.5 bg-[#d4a5d4] text-black rounded-xl font-bold text-sm hover:opacity-90 transition-opacity border-none cursor-pointer">
+                        Appliquer les filtres
                     </button>
 
                     <?php

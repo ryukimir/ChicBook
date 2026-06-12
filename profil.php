@@ -61,6 +61,41 @@ if ($is_logged_in && isset($_POST['photo_action'])) {
     }
 }
 
+// ── Toggle follow ─────────────────────────────────────────────────────────
+if ($is_logged_in && isset($_POST['toggle_follow'])) {
+    $db = Database::getInstance()->getConnection();
+    $target = intval($_POST['target_id']);
+    if ($target && $target !== $_SESSION['user_id']) {
+        $check = $db->prepare("SELECT id FROM follows WHERE follower_id=:f AND following_id=:t");
+        $check->execute([':f' => $_SESSION['user_id'], ':t' => $target]);
+        if ($check->fetch()) {
+            $db->prepare("DELETE FROM follows WHERE follower_id=:f AND following_id=:t")
+               ->execute([':f' => $_SESSION['user_id'], ':t' => $target]);
+            $following = false;
+        } else {
+            $db->prepare("INSERT INTO follows (follower_id, following_id) VALUES (:f,:t)")
+               ->execute([':f' => $_SESSION['user_id'], ':t' => $target]);
+            $following = true;
+        }
+        $count = $db->prepare("SELECT COUNT(*) FROM follows WHERE following_id=:t");
+        $count->execute([':t' => $target]);
+        echo json_encode(['ok' => true, 'following' => $following, 'count' => (int)$count->fetchColumn()]);
+    } else {
+        echo json_encode(['ok' => false]);
+    }
+    exit;
+}
+
+// ── Suppression projet ────────────────────────────────────────────────────
+if ($is_logged_in && isset($_POST['delete_project'])) {
+    $db = Database::getInstance()->getConnection();
+    $pid = intval($_POST['project_id']);
+    $stmt = $db->prepare("DELETE FROM projects WHERE id=:id AND user_id=:uid");
+    $stmt->execute([':id' => $pid, ':uid' => $_SESSION['user_id']]);
+    header("Location: profil.php");
+    exit;
+}
+
 // ── Édition description/tags photo ─────────────────────────────────────────
 if ($is_logged_in && isset($_POST['edit_photo'])) {
     $db = Database::getInstance()->getConnection();
@@ -98,6 +133,18 @@ if (!$profile_data) { die("Ce profil n'existe pas."); }
 
 $is_own_profile = ($is_logged_in && $_SESSION['user_id'] == $profile_id);
 
+// ── Followers ──────────────────────────────────────────────────────────────
+$stmt_fc = $db->prepare("SELECT COUNT(*) FROM follows WHERE following_id=:t");
+$stmt_fc->execute([':t' => $profile_id]);
+$followers_count = (int)$stmt_fc->fetchColumn();
+
+$is_following = false;
+if ($is_logged_in && !$is_own_profile) {
+    $stmt_fq = $db->prepare("SELECT 1 FROM follows WHERE follower_id=:f AND following_id=:t");
+    $stmt_fq->execute([':f' => $_SESSION['user_id'], ':t' => $profile_id]);
+    $is_following = (bool)$stmt_fq->fetchColumn();
+}
+
 $age = null;
 // Afficher l'âge seulement si show_age est TRUE (booléen) et birth_date est défini
 if (!empty($profile_data['birth_date']) && $profile_data['show_age'] === true) {
@@ -108,6 +155,31 @@ if (!empty($profile_data['birth_date']) && $profile_data['show_age'] === true) {
 $portfolioModel = new Portfolio($db);
 $photos = $portfolioModel->getPhotos($profile_id);
 $theme = $profile_data['profile_theme'] ?? 'classique';
+
+// Projets + required_profiles
+$stmt_proj = $db->prepare(
+    "SELECT p.*,
+        COALESCE(json_agg(
+            json_build_object(
+                'role', rp.role_name,
+                'min_height', rp.min_height, 'max_height', rp.max_height,
+                'min_age', rp.min_age, 'max_age', rp.max_age,
+                'chest', rp.chest_size, 'waist', rp.waist_size,
+                'hip', rp.hip_size, 'shoe', rp.shoe_size,
+                'eye', ec.name, 'hair', hc.name, 'ethnicity', eth.name
+            ) ORDER BY rp.id
+        ) FILTER (WHERE rp.id IS NOT NULL), '[]') AS required_profiles_json
+    FROM projects p
+    LEFT JOIN required_profiles rp ON rp.project_id = p.id
+    LEFT JOIN eye_colors ec ON ec.id = rp.eye_color_id
+    LEFT JOIN hair_colors hc ON hc.id = rp.hair_color_id
+    LEFT JOIN ethnicities eth ON eth.id = rp.ethnicity_id
+    WHERE p.user_id = :uid
+    GROUP BY p.id
+    ORDER BY p.created_at DESC"
+);
+$stmt_proj->execute([':uid' => $profile_id]);
+$projects = $stmt_proj->fetchAll(PDO::FETCH_ASSOC);
 
 $tags = [];
 if (!empty($profile_data['expertise_tags'])) {
@@ -127,23 +199,174 @@ $location   = trim(($profile_data['city'] ?? '') . ($profile_data['country'] ? '
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { theme: { extend: { colors: { brand: '#d4a5d4' } } } }</script>
     <link rel="stylesheet" href="assets/css/custom.css">
+    <style>
+    /* ── Mobile Instagram-style profile ── */
+    #profil-mobile-header { display: none; }
+    @media (max-width: 768px) {
+      /* Show mobile header, hide topbar (already in mobile header) */
+      #profil-mobile-header { display: block !important; }
+      #mobile-topbar { display: none !important; }
+      /* Hide desktop-only elements */
+      .profil-classique-aside { display: none !important; }
+      .profil-classique-name-row { display: none !important; }
+      .profil-editorial-hero { display: none !important; }
+      .profil-editorial-actions-row { display: none !important; }
+      .profil-editorial-tags-row { display: none !important; }
+      .profil-luxe-header { display: none !important; }
+      .profil-luxe-separator { display: none !important; }
+      /* Main wrappers */
+      .profil-classique-main { flex-direction: column !important; padding: 0 0 100px !important; margin-top: 0 !important; gap: 0 !important; }
+      .profil-editorial-main { padding: 0 0 100px !important; margin-top: 0 !important; }
+      .profil-luxe-main { padding: 0 0 100px !important; margin-top: 0 !important; }
+      /* Instagram 3-col square grid for all themes */
+      .profil-masonry, .profil-editorial-grid, .profil-luxe-grid {
+        column-count: unset !important;
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 2px !important;
+      }
+      .profil-masonry-item, .profil-editorial-item, .profil-luxe-item {
+        margin-bottom: 0 !important;
+        break-inside: unset !important;
+        aspect-ratio: 1 / 1 !important;
+        overflow: hidden !important;
+        border-radius: 0 !important;
+        background: #111;
+      }
+      .profil-masonry-item img, .profil-editorial-item img, .profil-luxe-item img {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+        border-radius: 0 !important;
+        transform: none !important;
+      }
+      /* Luxe first photo (was col-span-2 banner) → normal square */
+      .profil-luxe-item.profil-luxe-banner { aspect-ratio: 1 / 1 !important; grid-column: unset !important; }
+      /* Edit mode: hidden must win over display:grid !important */
+      #photos-view.hidden { display: none !important; }
+      /* Projects section */
+      .profil-projects-section { padding: 0 12px 16px !important; }
+      /* Light theme mobile header */
+      html.light .pmh-card { background: #f5f0eb !important; border-color: #e0d8d0 !important; }
+      html.light .pmh-btn { background: #ece8e3 !important; border-color: #d0c8c0 !important; color: #333 !important; }
+      html.light .pmh-tag { background: #ece8e3 !important; border-color: #d0c8c0 !important; color: #666 !important; }
+      html.light .pmh-stat-label { color: #999 !important; }
+      html.light .pmh-stat-val { color: #111 !important; }
+      html.light .pmh-name { color: #111 !important; }
+      html.light .pmh-profession { color: #a07aa0 !important; }
+      html.light .pmh-sep { background: #e0d8d0 !important; }
+    }
+    </style>
 </head>
 <body class="bg-black text-white">
 <?php include 'includes/header.php'; ?>
 
 <?php
+// ─── Avatar mobile ────────────────────────────────────────────────────────
+$mob_avatar = $profile_data['profile_picture_url'] ?? '';
+if (empty($mob_avatar) && !empty($photos)) $mob_avatar = $photos[0]['image_url'];
+$mob_initial = mb_strtoupper(mb_substr($profile_data['full_name'] ?? 'T', 0, 1));
+$mob_city = '';
+if (!empty($profile_data['city'])) $mob_city = $profile_data['city'];
+elseif ($location) $mob_city = explode(',', $location)[0];
+?>
+<!-- ══ MOBILE HEADER style Instagram (visible ≤768px seulement) ══ -->
+<div id="profil-mobile-header">
+  <div style="padding:20px 16px 0 16px;text-align:center;">
+    <!-- Avatar centré -->
+    <div style="display:flex;justify-content:center;margin-bottom:12px;">
+      <div style="width:82px;height:82px;border-radius:50%;overflow:hidden;background:#1a1a1a;border:2px solid #2a2a2a;">
+        <?php if ($mob_avatar): ?>
+          <img src="<?= htmlspecialchars($mob_avatar) ?>" style="width:100%;height:100%;object-fit:cover;display:block;">
+        <?php else: ?>
+          <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;color:#d4a5d4;"><?= $mob_initial ?></div>
+        <?php endif; ?>
+      </div>
+    </div>
+    <!-- Nom + profession + ville -->
+    <div style="margin-bottom:8px;text-align:center;">
+      <div class="pmh-name" style="font-size:15px;font-weight:900;color:#fff;line-height:1.2;"><?= $name ?></div>
+      <div style="font-size:12px;color:#d4a5d4;font-weight:700;margin-top:3px;display:flex;align-items:center;justify-content:center;gap:6px;">
+        <span><?= $profession ?></span>
+        <?php if ($mob_city): ?>
+          <span style="color:#444;">·</span>
+          <span style="color:#666;font-weight:500;"><?= htmlspecialchars($mob_city) ?></span>
+        <?php endif; ?>
+      </div>
+    </div>
+    <!-- Tags -->
+    <?php if ($tags): ?>
+    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;justify-content:center;">
+      <?php foreach (array_slice($tags, 0, 6) as $t): ?>
+        <span class="pmh-tag" style="background:#1a1a1a;border:1px solid #2a2a2a;color:#888;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;">#<?= htmlspecialchars($t) ?></span>
+      <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+    <!-- Boutons action -->
+    <div style="display:flex;gap:7px;margin-bottom:14px;flex-wrap:wrap;justify-content:center;">
+      <?php
+      $lg = 'backdrop-filter:blur(16px) saturate(180%);-webkit-backdrop-filter:blur(16px) saturate(180%);background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.13);border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;color:#fff;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;';
+      $lg_accent = 'backdrop-filter:blur(16px) saturate(180%);-webkit-backdrop-filter:blur(16px) saturate(180%);background:rgba(212,165,212,0.25);border:1px solid rgba(212,165,212,0.35);border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;color:#d4a5d4;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;';
+      ?>
+      <?php if (!$is_own_profile): ?>
+        <button id="follow-btn-mobile" onclick="toggleFollow()"
+            style="flex:1;<?= $is_following ? 'backdrop-filter:blur(16px) saturate(180%);-webkit-backdrop-filter:blur(16px) saturate(180%);background:rgba(212,165,212,0.35);border:1px solid rgba(212,165,212,0.5);border-radius:20px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;color:#d4a5d4;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;' : $lg ?>"
+            data-following="<?= $is_following ? '1' : '0' ?>"
+            data-target="<?= $profile_id ?>">
+            <?= $is_following ? 'Suivi ✓' : 'Suivre' ?>
+        </button>
+        <a href="messagerie.php?with=<?= $profile_id ?>" style="flex:1;<?= $lg_accent ?>">Contacter</a>
+        <?php if ($followers_count > 0): ?>
+          <span id="followers-count-mobile" style="font-size:11px;color:#888;text-align:center;width:100%;display:block;margin-top:-6px;margin-bottom:4px;">
+            <strong style="color:#fff;"><?= $followers_count ?></strong> follower<?= $followers_count > 1 ? 's' : '' ?>
+          </span>
+        <?php else: ?>
+          <span id="followers-count-mobile" style="font-size:11px;color:#888;display:none;width:100%;text-align:center;"></span>
+        <?php endif; ?>
+      <?php else: ?>
+        <button onclick="toggleEditMode()" id="edit-photos-btn-mob" style="<?= $lg ?>">Photos</button>
+        <a href="edit_profil.php" style="flex:1;<?= $lg ?>">Modifier le profil</a>
+      <?php endif; ?>
+      <?php if (!empty($profile_data['bio'])): ?>
+        <button onclick="openBioModal()" style="<?= $lg ?>">Bio</button>
+      <?php endif; ?>
+      <button onclick="doShare()" style="<?= $lg ?>">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      </button>
+    </div>
+  </div>
+  <!-- Séparateur -->
+  <div class="pmh-sep" style="height:1px;background:#1a1a1a;margin-bottom:2px;"></div>
+</div>
+
+<?php
 // ─── Actions dropdown (commun à tous les thèmes) ───────────────────────────
-function renderActions($is_own_profile, $profile_id = 0) { ?>
-    <div class="flex gap-3">
+function renderActions($is_own_profile, $profile_id = 0, $is_following = false, $followers_count = 0) { ?>
+    <div class="flex gap-3 items-center">
         <?php if (!$is_own_profile): ?>
-            <button class="bg-[#1e1e1e] text-white px-5 py-2 rounded-full text-sm font-semibold border border-[#333] hover:border-[#d4a5d4] hover:text-[#d4a5d4] transition-all">Suivre</button>
+            <button id="follow-btn-desktop"
+                onclick="toggleFollow()"
+                class="follow-btn px-5 py-2 rounded-full text-sm font-semibold border transition-all"
+                style="<?= $is_following ? 'background:#d4a5d4;color:#000;border-color:#d4a5d4;' : 'background:#1e1e1e;color:#fff;border-color:#333;' ?>"
+                data-following="<?= $is_following ? '1' : '0' ?>"
+                data-target="<?= $profile_id ?>">
+                <?= $is_following ? 'Suivi ✓' : 'Suivre' ?>
+            </button>
             <a href="messagerie.php?with=<?= $profile_id ?>" class="bg-[#d4a5d4] text-black px-5 py-2 rounded-full text-sm font-bold hover:opacity-90 transition-opacity inline-flex items-center">Contacter</a>
+            <?php if ($followers_count > 0): ?>
+                <span id="followers-count-desktop" class="text-[#666] text-sm"><span class="text-white font-bold"><?= $followers_count ?></span> follower<?= $followers_count > 1 ? 's' : '' ?></span>
+            <?php else: ?>
+                <span id="followers-count-desktop" class="text-[#666] text-sm" style="display:none;"></span>
+            <?php endif; ?>
         <?php else: ?>
             <button onclick="toggleEditMode()" id="edit-photos-btn" class="flex items-center gap-2 bg-[#1e1e1e] text-white px-5 py-2 rounded-full text-sm font-semibold border border-[#333] hover:border-brand hover:text-brand transition-all">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                 Photos
             </button>
             <a href="edit_profil.php" class="bg-[#1e1e1e] text-white px-5 py-2 rounded-full text-sm font-semibold border border-[#333] hover:border-[#d4a5d4] hover:text-[#d4a5d4] transition-all">Gérer mon profil</a>
+            <?php if ($followers_count > 0): ?>
+                <span class="text-[#666] text-sm"><span class="text-white font-bold"><?= $followers_count ?></span> follower<?= $followers_count > 1 ? 's' : '' ?></span>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 <?php } ?>
@@ -152,9 +375,9 @@ function renderActions($is_own_profile, $profile_id = 0) { ?>
 <!-- ═══════════════════════════════════════════════════════════════
      THÈME CLASSIQUE — sidebar gauche + masonry
 ═══════════════════════════════════════════════════════════════ -->
-<main class="max-w-[1400px] mx-auto mt-10 mb-10 px-8 flex gap-12">
+<main class="max-w-[1400px] mx-auto mt-10 mb-10 px-8 flex gap-12 profil-classique-main">
 
-    <aside class="w-[240px] flex-shrink-0 flex flex-col items-center text-center">
+    <aside class="w-[240px] flex-shrink-0 flex flex-col items-center text-center profil-classique-aside">
         <p class="text-[#d4a5d4] text-xs font-black uppercase tracking-widest mb-3"><?= $profession ?></p>
         <?php if ($age): ?><p class="text-[#666] text-sm mb-1"><?= $age ?> ans</p><?php endif; ?>
         <?php if ($location): ?><p class="text-[#555] text-sm mb-6"><?= htmlspecialchars($location) ?></p><?php endif; ?>
@@ -183,19 +406,19 @@ function renderActions($is_own_profile, $profile_id = 0) { ?>
     </aside>
 
     <section class="flex-grow min-w-0">
-        <div class="flex justify-between items-center mb-8 pb-6 border-b border-[#1a1a1a]">
+        <div class="flex justify-between items-center mb-8 pb-6 border-b border-[#1a1a1a] profil-classique-name-row">
             <h1 class="text-4xl font-bold text-white"><?= $name ?></h1>
-            <?php renderActions($is_own_profile, $profile_id); ?>
+            <?php renderActions($is_own_profile, $profile_id, $is_following, $followers_count); ?>
         </div>
 
         <!-- Vue normale -->
-        <div id="photos-view" style="column-count:3; column-gap:12px;">
+        <div id="photos-view" class="profil-masonry" style="column-count:3; column-gap:12px;">
             <?php if (empty($photos)): ?>
                 <p class="text-[#555]">Aucune photo dans le book pour le moment.</p>
             <?php else: foreach ($photos as $idx => $photo): ?>
-                <div style="break-inside:avoid; margin-bottom:12px;">
-                    <img src="<?= htmlspecialchars($photo['image_url']) ?>" 
-                         alt="" 
+                <div class="profil-masonry-item" style="break-inside:avoid; margin-bottom:12px;">
+                    <img src="<?= htmlspecialchars($photo['image_url']) ?>"
+                         alt=""
                          class="w-full block rounded-xl hover:scale-[1.01] transition-transform duration-300 cursor-pointer"
                          onclick="openPhotoLightbox(<?= $idx ?>)"
                          data-photo-idx="<?= $idx ?>"
@@ -220,7 +443,7 @@ function renderActions($is_own_profile, $profile_id = 0) { ?>
 ═══════════════════════════════════════════════════════════════ -->
 
 <!-- Hero -->
-<div class="relative w-full" style="height: 400px; overflow:hidden;">
+<div class="relative w-full profil-editorial-hero" style="height: 400px; overflow:hidden;">
     <?php if (!empty($photos)): ?>
         <img src="<?= htmlspecialchars($photos[0]['image_url']) ?>" class="w-full h-full object-cover" alt="">
     <?php else: ?>
@@ -234,19 +457,19 @@ function renderActions($is_own_profile, $profile_id = 0) { ?>
     </div>
 </div>
 <!-- Actions hors du overflow:hidden pour que le dropdown soit visible -->
-<div class="max-w-[1400px] mx-auto px-8 mt-4 flex justify-between items-center">
+<div class="max-w-[1400px] mx-auto px-8 mt-4 flex justify-between items-center profil-editorial-actions-row">
     <button id="btn-share" class="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#2a2a2a] bg-black/40 text-[#aaa] text-xs font-medium hover:border-[#d4a5d4] hover:text-[#d4a5d4] transition-all">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
         Partager le profil
     </button>
-    <?php renderActions($is_own_profile, $profile_id); ?>
+    <?php renderActions($is_own_profile, $profile_id, $is_following, $followers_count); ?>
 </div>
 
-<main class="max-w-[1400px] mx-auto px-8 mt-10 mb-10">
+<main class="max-w-[1400px] mx-auto px-8 mt-10 mb-10 profil-editorial-main">
 
     <!-- Tags + bio -->
     <?php if ($tags || !empty($profile_data['bio'])): ?>
-    <div class="flex items-center gap-4 mb-10 pb-8 border-b border-[#1a1a1a] flex-wrap">
+    <div class="flex items-center gap-4 mb-10 pb-8 border-b border-[#1a1a1a] flex-wrap profil-editorial-tags-row">
         <?php if ($tags): ?>
             <div class="flex flex-wrap gap-2">
                 <?php foreach ($tags as $t): ?>
@@ -264,15 +487,15 @@ function renderActions($is_own_profile, $profile_id = 0) { ?>
     <?php endif; ?>
 
     <!-- Vue normale -->
-    <div id="photos-view" class="grid gap-3" style="grid-template-columns: repeat(3, 1fr);">
+    <div id="photos-view" class="grid gap-3 profil-editorial-grid" style="grid-template-columns: repeat(3, 1fr);">
         <?php
         $grid_photos = !empty($photos) ? array_slice($photos, 1) : [];
         foreach ($grid_photos as $idx => $photo): 
             $real_idx = $idx + 1; // Index réel (premier exclu en éditorial)
         ?>
-            <div class="overflow-hidden rounded-xl aspect-square bg-[#111]">
-                <img src="<?= htmlspecialchars($photo['image_url']) ?>" 
-                     alt="" 
+            <div class="overflow-hidden rounded-xl aspect-square bg-[#111] profil-editorial-item">
+                <img src="<?= htmlspecialchars($photo['image_url']) ?>"
+                     alt=""
                      class="w-full h-full object-cover hover:scale-[1.04] transition-transform duration-500 cursor-pointer"
                      onclick="openPhotoLightbox(<?= $real_idx ?>)"
                      data-photo-idx="<?= $real_idx ?>"
@@ -297,10 +520,10 @@ function renderActions($is_own_profile, $profile_id = 0) { ?>
 <!-- ═══════════════════════════════════════════════════════════════
      THÈME LUXE — centré, minimal, 2 colonnes
 ═══════════════════════════════════════════════════════════════ -->
-<main class="max-w-[1100px] mx-auto px-8 mt-16 mb-16">
+<main class="max-w-[1100px] mx-auto px-8 mt-16 mb-16 profil-luxe-main">
 
     <!-- Header centré -->
-    <div class="text-center mb-4">
+    <div class="text-center mb-4 profil-luxe-header">
         <p class="text-[#d4a5d4] text-[10px] font-black uppercase tracking-[0.4em] mb-6"><?= $profession ?></p>
         <h1 class="text-7xl font-black text-white leading-none mb-4" style="letter-spacing:-2px;"><?= $name ?></h1>
         <div class="flex items-center justify-center gap-3 text-[#555] text-sm mb-6">
@@ -323,7 +546,7 @@ function renderActions($is_own_profile, $profile_id = 0) { ?>
             </div>
         <?php endif; ?>
         <div class="flex justify-center gap-3 mb-4">
-            <?php renderActions($is_own_profile, $profile_id); ?>
+            <?php renderActions($is_own_profile, $profile_id, $is_following, $followers_count); ?>
         </div>
         <button id="btn-share" class="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[#ddd] bg-white text-[#555] text-xs font-medium hover:border-[#d4a5d4] hover:text-[#d4a5d4] transition-all">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
@@ -332,20 +555,20 @@ function renderActions($is_own_profile, $profile_id = 0) { ?>
     </div>
 
     <!-- Séparateur -->
-    <div class="flex items-center gap-4 my-10">
+    <div class="flex items-center gap-4 my-10 profil-luxe-separator">
         <div class="flex-grow h-px bg-[#1a1a1a]"></div>
         <div class="w-1.5 h-1.5 rounded-full bg-[#d4a5d4]"></div>
         <div class="flex-grow h-px bg-[#1a1a1a]"></div>
     </div>
 
     <!-- Vue normale -->
-    <div id="photos-view" class="grid grid-cols-2 gap-3">
+    <div id="photos-view" class="grid grid-cols-2 gap-3 profil-luxe-grid">
         <?php if (empty($photos)): ?>
             <p class="text-[#555] col-span-2 text-center">Aucune photo dans le book pour le moment.</p>
         <?php else: foreach ($photos as $idx => $photo): ?>
-            <div class="overflow-hidden rounded-2xl bg-[#0e0e0e] <?= $idx === 0 ? 'col-span-2 aspect-video' : 'aspect-square' ?>">
-                <img src="<?= htmlspecialchars($photo['image_url']) ?>" 
-                     alt="" 
+            <div class="overflow-hidden rounded-2xl bg-[#0e0e0e] profil-luxe-item <?= $idx === 0 ? 'col-span-2 aspect-video profil-luxe-banner' : 'aspect-square' ?>">
+                <img src="<?= htmlspecialchars($photo['image_url']) ?>"
+                     alt=""
                      class="w-full h-full object-cover hover:scale-[1.03] transition-transform duration-500 cursor-pointer"
                      onclick="openPhotoLightbox(<?= $idx ?>)"
                      data-photo-idx="<?= $idx ?>"
@@ -364,6 +587,114 @@ function renderActions($is_own_profile, $profile_id = 0) { ?>
 </main>
 
 <?php endif; ?>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION PROJETS (tous thèmes)
+═══════════════════════════════════════════════════════════════ -->
+<?php if (!empty($projects) || $is_own_profile): ?>
+<div class="max-w-[1100px] mx-auto px-8 mb-16 profil-projects-section">
+
+    <div class="flex items-center justify-between mb-6 pb-4 border-b border-[#1a1a1a]">
+        <div>
+            <h2 class="text-xl font-bold text-white">Projets</h2>
+            <p class="text-[#555] text-sm mt-0.5">Collaborations et projets en cours de constitution</p>
+        </div>
+        <?php if ($is_own_profile): ?>
+            <a href="creer_projet.php" class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#d4a5d4] text-black text-sm font-bold hover:opacity-90 transition-opacity">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m7-7H5"/></svg>
+                Nouveau projet
+            </a>
+        <?php endif; ?>
+    </div>
+
+    <?php if (empty($projects)): ?>
+        <p class="text-[#444] text-sm">Aucun projet pour le moment.</p>
+    <?php else: ?>
+        <div class="grid grid-cols-1 gap-4" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
+            <?php foreach ($projects as $proj):
+                $profs = array_filter(array_map('trim', explode(',', $proj['searched_profiles'] ?? '')));
+                $date_label = '';
+                if (!empty($proj['expected_date'])) {
+                    $d = new DateTime($proj['expected_date']);
+                    $months = ['jan.','fév.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+                    $date_label = $d->format('j') . ' ' . $months[(int)$d->format('n')-1] . ' ' . $d->format('Y');
+                }
+            ?>
+                <div class="bg-[#111] border border-[#1a1a1a] rounded-2xl p-6 flex flex-col gap-4 hover:border-[#2a2a2a] transition-colors cursor-pointer project-card"
+                     data-project='<?= htmlspecialchars(json_encode([
+                        'title'      => $proj['title'],
+                        'type'       => $proj['project_type'] ?? '',
+                        'date'       => $date_label,
+                        'description'=> $proj['description'] ?? '',
+                        'searched'   => $proj['searched_profiles'] ?? '',
+                        'contact_name'  => $proj['contact_name'] ?? '',
+                        'contact_email' => $proj['contact_email'] ?? '',
+                        'contact_phone' => $proj['contact_phone'] ?? '',
+                        'profiles'   => json_decode($proj['required_profiles_json'] ?? '[]', true),
+                     ]), ENT_QUOTES) ?>'>
+
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="flex-grow min-w-0">
+                            <?php if (!empty($proj['project_type'])): ?>
+                                <span class="text-[#d4a5d4] text-[10px] font-black uppercase tracking-widest"><?= htmlspecialchars($proj['project_type']) ?></span>
+                            <?php endif; ?>
+                            <h3 class="text-white font-bold text-base mt-1 leading-snug truncate"><?= htmlspecialchars($proj['title']) ?></h3>
+                        </div>
+                        <?php if ($is_own_profile): ?>
+                            <form method="POST" action="profil.php" onsubmit="return confirm('Supprimer ce projet ?')">
+                                <input type="hidden" name="delete_project" value="1">
+                                <input type="hidden" name="project_id" value="<?= $proj['id'] ?>">
+                                <button type="submit" class="w-7 h-7 flex items-center justify-center rounded-full text-[#444] hover:text-[#e05555] hover:bg-[#1a1a1a] transition-all flex-shrink-0" onclick="event.stopPropagation()">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                            </form>
+                        <?php endif; ?>
+                    </div>
+
+                    <?php if ($date_label): ?>
+                        <div class="flex items-center gap-2 text-[#666] text-xs">
+                            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                            <?= $date_label ?>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if (!empty($proj['description'])): ?>
+                        <p class="text-[#888] text-sm leading-relaxed line-clamp-2" style="-webkit-line-clamp:2;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;"><?= htmlspecialchars($proj['description']) ?></p>
+                    <?php endif; ?>
+
+                    <?php if (!empty($profs)): ?>
+                        <div class="flex flex-wrap gap-1.5 mt-auto pt-2 border-t border-[#1a1a1a]">
+                            <?php foreach ($profs as $p): ?>
+                                <span class="bg-[#1a1a1a] border border-[#2a2a2a] text-[#777] px-2.5 py-0.5 rounded-full text-xs font-semibold"><?= htmlspecialchars($p) ?></span>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+
+                </div>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+</div>
+<?php endif; ?>
+
+<!-- Modal détail projet -->
+<div id="project-modal" class="hidden fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm" onclick="if(event.target===this)closeProjectModal()">
+    <div class="relative bg-[#111] rounded-2xl w-full max-w-lg mx-4 shadow-[0_32px_80px_rgba(0,0,0,0.8)] border border-[#1e1e1e]">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-[#1e1e1e]">
+            <div>
+                <div id="pm-type" class="text-[#d4a5d4] text-[10px] font-black uppercase tracking-widest mb-1"></div>
+                <div id="pm-title" class="text-white font-bold text-lg"></div>
+            </div>
+            <button onclick="closeProjectModal()" class="w-8 h-8 flex items-center justify-center rounded-full bg-[#1e1e1e] hover:bg-[#2a2a2a] text-[#888] hover:text-white transition-colors text-lg leading-none">✕</button>
+        </div>
+        <div class="px-6 py-5 flex flex-col gap-4 max-h-[65vh] overflow-y-auto">
+            <div id="pm-date" class="text-[#666] text-xs flex items-center gap-2"></div>
+            <div id="pm-description" class="text-[#aaa] text-sm leading-relaxed"></div>
+            <div id="pm-searched"></div>
+            <div id="pm-contact" class="border-t border-[#1e1e1e] pt-4 flex flex-col gap-2"></div>
+        </div>
+    </div>
+</div>
 
 <!-- Modale biographie -->
 <?php if (!empty($profile_data['bio'])): ?>
@@ -565,6 +896,7 @@ document.addEventListener('keydown', e => {
 // ─── Ancien code ──────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
+        if (!document.getElementById('project-modal').classList.contains('hidden')) { closeProjectModal(); return; }
         if (document.getElementById('photos-edit') && !document.getElementById('photos-edit').classList.contains('hidden')) {
             toggleEditMode();
         } else {
@@ -577,21 +909,20 @@ function toggleEditMode() {
     const view = document.getElementById('photos-view');
     const edit = document.getElementById('photos-edit');
     const btn  = document.getElementById('edit-photos-btn');
+    const btnMob = document.getElementById('edit-photos-btn-mob');
     if (!view || !edit) return;
     const editing = !edit.classList.contains('hidden');
     if (editing) {
         edit.classList.add('hidden');
         view.classList.remove('hidden');
-        btn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg> Modifier les photos`;
-        btn.style.color = '';
-        btn.style.borderColor = '';
+        if (btn) { btn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg> Photos`; btn.style.color = ''; btn.style.borderColor = ''; }
+        if (btnMob) { btnMob.textContent = 'Photos'; btnMob.style.color = ''; }
         location.reload();
     } else {
         view.classList.add('hidden');
         edit.classList.remove('hidden');
-        btn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Terminer`;
-        btn.style.color = '#d4a5d4';
-        btn.style.borderColor = '#d4a5d4';
+        if (btn) { btn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Terminer`; btn.style.color = '#d4a5d4'; btn.style.borderColor = '#d4a5d4'; }
+        if (btnMob) { btnMob.textContent = 'Terminer'; btnMob.style.color = '#d4a5d4'; }
     }
 }
 
@@ -602,6 +933,127 @@ function openBioModal() {
 function closeBioModal() {
     document.getElementById('bio-modal')?.classList.add('hidden');
     document.body.style.overflow = '';
+}
+
+// ─── Modal Projets ────────────────────────────────────────────────────────
+document.querySelectorAll('.project-card').forEach(card => {
+    card.addEventListener('click', () => {
+        const p = JSON.parse(card.dataset.project);
+        document.getElementById('pm-type').textContent = p.type || '';
+        document.getElementById('pm-title').textContent = p.title;
+
+        const dateEl = document.getElementById('pm-date');
+        if (p.date) {
+            dateEl.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>${p.date}`;
+            dateEl.classList.remove('hidden');
+        } else { dateEl.classList.add('hidden'); }
+
+        const descEl = document.getElementById('pm-description');
+        descEl.textContent = p.description || '';
+        descEl.style.display = p.description ? '' : 'none';
+
+        const searchedEl = document.getElementById('pm-searched');
+        searchedEl.innerHTML = '';
+        if (p.searched) {
+            const profs = p.searched.split(',').map(s => s.trim()).filter(s => s);
+            if (profs.length) {
+                const label = document.createElement('p');
+                label.className = 'text-[#555] text-xs font-bold uppercase tracking-widest mb-2';
+                label.textContent = 'Profils recherchés';
+                searchedEl.appendChild(label);
+                const wrap = document.createElement('div');
+                wrap.className = 'flex flex-wrap gap-2 mb-3';
+                profs.forEach(pr => {
+                    const sp = document.createElement('span');
+                    sp.className = 'bg-[#1a1a1a] border border-[#2a2a2a] text-[#888] px-3 py-1 rounded-full text-xs font-semibold';
+                    sp.textContent = pr;
+                    wrap.appendChild(sp);
+                });
+                searchedEl.appendChild(wrap);
+            }
+        }
+
+        // Mensurations par profil talent
+        if (p.profiles && p.profiles.length) {
+            p.profiles.forEach(rp => {
+                if (!rp.role) return;
+                const block = document.createElement('div');
+                block.className = 'bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-4 mb-2';
+
+                const roleTitle = document.createElement('p');
+                roleTitle.className = 'text-[#d4a5d4] text-[10px] font-black uppercase tracking-widest mb-3';
+                roleTitle.textContent = rp.role + ' — Critères physiques';
+                block.appendChild(roleTitle);
+
+                const grid = document.createElement('div');
+                grid.className = 'grid grid-cols-2 gap-2 text-xs';
+
+                const fields = [
+                    ['Taille', rp.min_height && rp.max_height ? rp.min_height + ' – ' + rp.max_height + ' cm' : (rp.min_height ? '≥ ' + rp.min_height + ' cm' : (rp.max_height ? '≤ ' + rp.max_height + ' cm' : null))],
+                    ['Âge', rp.min_age && rp.max_age ? rp.min_age + ' – ' + rp.max_age + ' ans' : (rp.min_age ? '≥ ' + rp.min_age + ' ans' : (rp.max_age ? '≤ ' + rp.max_age + ' ans' : null))],
+                    ['Poitrine', rp.chest],
+                    ['Taille', rp.waist],
+                    ['Hanches', rp.hip],
+                    ['Pointure', rp.shoe],
+                    ['Yeux', rp.eye],
+                    ['Cheveux', rp.hair],
+                    ['Ethnicité', rp.ethnicity],
+                ];
+                fields.forEach(([lbl, val]) => {
+                    if (!val) return;
+                    const cell = document.createElement('div');
+                    cell.innerHTML = `<span style="color:#555;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">${lbl}</span><br><span style="color:#aaa;">${val}</span>`;
+                    grid.appendChild(cell);
+                });
+
+                if (grid.children.length) {
+                    block.appendChild(grid);
+                    searchedEl.appendChild(block);
+                }
+            });
+        }
+
+        const contactEl = document.getElementById('pm-contact');
+        contactEl.innerHTML = '';
+        if (p.contact_name || p.contact_email || p.contact_phone) {
+            const label = document.createElement('p');
+            label.className = 'text-[#555] text-xs font-bold uppercase tracking-widest mb-1';
+            label.textContent = 'Contact';
+            contactEl.appendChild(label);
+            if (p.contact_name) { const el = document.createElement('p'); el.className = 'text-[#aaa] text-sm'; el.textContent = p.contact_name; contactEl.appendChild(el); }
+            if (p.contact_email) { const el = document.createElement('a'); el.className = 'text-[#d4a5d4] text-sm hover:underline'; el.href = 'mailto:' + p.contact_email; el.textContent = p.contact_email; contactEl.appendChild(el); }
+            if (p.contact_phone) { const el = document.createElement('p'); el.className = 'text-[#888] text-sm'; el.textContent = p.contact_phone; contactEl.appendChild(el); }
+            contactEl.style.display = '';
+        } else { contactEl.style.display = 'none'; }
+
+        document.getElementById('project-modal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    });
+});
+
+function closeProjectModal() {
+    document.getElementById('project-modal').classList.add('hidden');
+    document.body.style.overflow = '';
+}
+
+async function doShare() {
+    const shareData = {
+        title: '<?= addslashes($name) ?> - ChicBook',
+        text: 'Découvrez le portfolio de <?= addslashes($name) ?> sur ChicBook !',
+        url: '<?= $share_url ?>'
+    };
+    if (navigator.share) {
+        try { await navigator.share(shareData); } catch(e) {}
+    } else {
+        navigator.clipboard.writeText(shareData.url).then(() => {
+            const btn = document.getElementById('btn-share') || document.querySelector('[onclick="doShare()"]');
+            if (!btn) return;
+            const orig = btn.innerHTML;
+            btn.textContent = '✓ Copié !';
+            btn.style.color = '#d4a5d4';
+            setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 3000);
+        });
+    }
 }
 
 document.getElementById('btn-share')?.addEventListener('click', async (e) => {
@@ -624,6 +1076,52 @@ document.getElementById('btn-share')?.addEventListener('click', async (e) => {
         });
     }
 });
+
+// ── Système de suivi (Follow) ─────────────────────────────────────────────
+async function toggleFollow() {
+    <?php if (!$is_logged_in): ?>
+    window.location.href = 'connexion.php';
+    return;
+    <?php endif; ?>
+    const btns = [document.getElementById('follow-btn-desktop'), document.getElementById('follow-btn-mobile')];
+    const btn = btns.find(b => b);
+    if (!btn) return;
+    const targetId = btn.dataset.target;
+    const fd = new FormData();
+    fd.append('toggle_follow', '1');
+    fd.append('target_id', targetId);
+    const res = await fetch('profil.php?id=<?= $profile_id ?>', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!data.ok) return;
+    // Mettre à jour tous les boutons follow
+    btns.forEach(b => {
+        if (!b) return;
+        b.dataset.following = data.following ? '1' : '0';
+        if (data.following) {
+            b.textContent = 'Suivi ✓';
+            b.style.background = 'rgba(212,165,212,0.35)';
+            b.style.borderColor = 'rgba(212,165,212,0.5)';
+            b.style.color = '#d4a5d4';
+        } else {
+            b.textContent = 'Suivre';
+            b.style.background = '#1e1e1e';
+            b.style.borderColor = '#333';
+            b.style.color = '#fff';
+        }
+    });
+    // Mettre à jour compteurs
+    ['followers-count-desktop', 'followers-count-mobile'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (data.count > 0) {
+            el.innerHTML = `<strong style="color:#fff;">${data.count}</strong> follower${data.count > 1 ? 's' : ''}`;
+            el.style.display = '';
+        } else {
+            el.style.display = 'none';
+        }
+    });
+}
+
 </script>
 </body>
 </html>

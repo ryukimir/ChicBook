@@ -110,6 +110,11 @@ if ($view === 'mes_castings') {
     $castings = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+// Has user created castings?
+$myCountStmt = $db->prepare("SELECT COUNT(*) FROM castings WHERE user_id=:uid");
+$myCountStmt->execute(['uid' => $current_user_id]);
+$has_my_castings = (int)$myCountStmt->fetchColumn() > 0;
+
 // Location data for filters
 $locRows = $db->query("SELECT DISTINCT country, city FROM castings WHERE country IS NOT NULL AND country != '' ORDER BY country, city")->fetchAll(PDO::FETCH_ASSOC);
 $countries = array_unique(array_filter(array_column($locRows, 'country')));
@@ -123,18 +128,112 @@ foreach ($locRows as $r) {
 <html lang="fr" <?php if((($_COOKIE['chicbook_theme']??'dark')==='light'))echo' class="light"';?>>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Castings - ChicBook</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { theme: { extend: { colors: { brand:'#d4a5d4', dark:'#1a1a1a' } } } }</script>
     <link rel="stylesheet" href="assets/css/custom.css" />
+    <style>
+    .cast-filter-toggle { display: none; }
+    .cast-mobile-nav { display: none; }
+    @media (max-width: 768px) {
+      .cast-wrapper { flex-direction: column !important; padding: 12px 12px 100px !important; margin-top: 0 !important; }
+      /* Filtres overlay */
+      .cast-aside {
+        position: fixed !important;
+        bottom: 90px; left: 12px; right: 12px;
+        width: auto !important;
+        max-height: 78vh; overflow-y: auto;
+        z-index: 600;
+        border-radius: 20px;
+        visibility: hidden; opacity: 0; transform: translateY(12px);
+        transition: opacity .22s ease, transform .22s ease, visibility .22s;
+      }
+      .cast-aside.open { visibility: visible; opacity: 1; transform: translateY(0); }
+      #cast-backdrop {
+        display: none; position: fixed; inset: 0;
+        background: rgba(0,0,0,0.55); z-index: 599;
+        backdrop-filter: blur(2px);
+      }
+      #cast-backdrop.open { display: block; }
+      /* Onglets desktop : cachés */
+      .cast-tabs-desktop { display: none !important; }
+      #mobile-topbar { display: none !important; }
+      /* Nav mobile */
+      .cast-mobile-nav { display: flex; }
+      .cast-filter-toggle { display: flex !important; }
+      .cast-grid { grid-template-columns: 1fr !important; }
+    }
+    </style>
 </head>
 <body class="bg-black font-['Arial',sans-serif] text-white">
     <?php include 'includes/header.php'; ?>
 
-    <div class="max-w-[1400px] mx-auto mt-10 mb-10 px-8 flex gap-10">
+    <!-- Backdrop filtre mobile -->
+    <div id="cast-backdrop" onclick="closeCastFilters()"></div>
+
+    <div class="max-w-[1400px] mx-auto mt-10 mb-10 px-8 flex gap-10 cast-wrapper">
 
         <main class="flex-grow min-w-0">
-            <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
+
+            <!-- ── Navigation mobile : onglets + bouton créer ── -->
+            <div class="cast-mobile-nav items-center gap-2 mb-4">
+                <div class="flex bg-[#111] border border-[#222] rounded-2xl p-1 flex-grow overflow-x-auto" style="scrollbar-width:none;">
+                    <a href="castings.php?view=offres"
+                       class="flex-shrink-0 flex-1 text-center py-2 px-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap
+                              <?= $view === 'offres' ? 'bg-[#d4a5d4] text-black' : 'text-[#888] hover:text-white' ?>">
+                        Opportunités
+                    </a>
+                    <a href="castings.php?view=favoris"
+                       class="flex-shrink-0 flex-1 text-center py-2 px-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap
+                              <?= $view === 'favoris' ? 'bg-[#d4a5d4] text-black' : 'text-[#888] hover:text-white' ?>">
+                        ♡ Favoris<?= count($favoritedIds) > 0 ? ' <span style="opacity:.7">('.count($favoritedIds).')</span>' : '' ?>
+                    </a>
+                    <?php if ($has_my_castings || $view === 'mes_castings'): ?>
+                    <a href="castings.php?view=mes_castings"
+                       class="flex-shrink-0 flex-1 text-center py-2 px-3 rounded-xl text-xs font-bold transition-all whitespace-nowrap
+                              <?= $view === 'mes_castings' ? 'bg-[#d4a5d4] text-black' : 'text-[#888] hover:text-white' ?>">
+                        Mes castings
+                    </a>
+                    <?php endif; ?>
+                </div>
+                <a href="creer_casting.php" class="flex-shrink-0 w-9 h-9 flex items-center justify-center bg-[#d4a5d4] text-black rounded-full font-black text-lg hover:opacity-90 transition-opacity" title="Créer un casting">+</a>
+                <a href="preferences.php" class="mtop-btn flex-shrink-0" title="Plus">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+                  </svg>
+                </a>
+                <?php if ($current_user_id): ?>
+                  <a href="profil.php" class="mtop-avatar flex-shrink-0" title="Mon profil">
+                    <?php if ($user_avatar): ?>
+                      <img src="<?= htmlspecialchars($user_avatar) ?>" alt="Profil">
+                    <?php else: ?>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <?php endif; ?>
+                  </a>
+                <?php else: ?>
+                  <a href="connexion.php" class="mtop-avatar flex-shrink-0" title="Se connecter">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
+                  </a>
+                <?php endif; ?>
+            </div>
+
+            <!-- ── Bouton filtres mobile ── -->
+            <?php $has_active_cast_filters = $filter_country || $filter_city || $filter_date_from || $filter_date_to; ?>
+            <div class="cast-filter-toggle items-center gap-2 mb-4">
+                <button onclick="openCastFilters()"
+                        class="flex items-center gap-2 px-4 py-2.5 bg-[#111] border <?= $has_active_cast_filters ? 'border-[#d4a5d4] text-[#d4a5d4]' : 'border-[#333] text-white' ?> rounded-xl text-sm font-semibold">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/></svg>
+                    Filtres<?= $has_active_cast_filters ? ' ●' : '' ?>
+                </button>
+                <?php if ($has_active_cast_filters): ?>
+                    <a href="castings.php?view=<?= $view ?>" class="text-[#555] text-xs hover:text-[#d4a5d4] transition-colors">✕ Effacer</a>
+                <?php endif; ?>
+            </div>
+
+            <!-- ── Tabs desktop ── -->
+            <div class="flex justify-between items-center mb-6 flex-wrap gap-3 cast-tabs-desktop">
                 <div class="flex gap-2 flex-wrap">
                     <a href="castings.php?view=offres<?= $filter_country ? '&country='.urlencode($filter_country) : '' ?><?= $filter_city ? '&city='.urlencode($filter_city) : '' ?><?= $filter_date_from ? '&date_from='.urlencode($filter_date_from) : '' ?><?= $filter_date_to ? '&date_to='.urlencode($filter_date_to) : '' ?>"
                        class="px-6 py-2.5 rounded-2xl font-bold text-base border transition-all <?= $view === 'offres' ? 'bg-[#d4a5d4] text-[#1a1a1a] border-[#d4a5d4]' : 'text-[#aaa] border-[#444] hover:bg-[#333] hover:text-white' ?>">
@@ -169,7 +268,7 @@ foreach ($locRows as $r) {
                     <?php endif; ?>
                 </div>
             <?php else: ?>
-                <div class="grid gap-6" style="grid-template-columns: repeat(auto-fill, minmax(360px,1fr));">
+                <div class="grid gap-6 cast-grid" style="grid-template-columns: repeat(auto-fill, minmax(300px,1fr));">
                     <?php foreach ($castings as $c):
                         $isFav = in_array($c['id'], $favoritedIds);
                         $castingJson = htmlspecialchars(json_encode($c), ENT_QUOTES);
@@ -211,11 +310,14 @@ foreach ($locRows as $r) {
         </main>
 
         <!-- Sidebar filtres -->
-        <aside class="w-[300px] flex-shrink-0">
+        <aside class="w-[300px] flex-shrink-0 cast-aside">
             <form method="GET" action="castings.php" id="filter-form">
                 <input type="hidden" name="view" value="<?= htmlspecialchars($view) ?>">
                 <div class="bg-[#1a1a1a] p-6 rounded-2xl border border-[#333] sticky top-8 flex flex-col gap-5">
-                    <h2 class="text-xl font-bold">Filtres</h2>
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-xl font-bold">Filtres</h2>
+                        <button type="button" onclick="closeCastFilters()" class="cast-filter-toggle w-7 h-7 flex items-center justify-center rounded-full bg-[#222] text-[#666] hover:text-white transition-colors text-base leading-none">✕</button>
+                    </div>
 
                     <!-- Pays -->
                     <div>
@@ -261,7 +363,7 @@ foreach ($locRows as $r) {
                         </div>
                     </div>
 
-                    <button type="submit" class="w-full py-3 bg-[#d4a5d4] text-[#111] rounded-xl font-bold text-base border-none cursor-pointer hover:opacity-90 transition-opacity">Appliquer</button>
+                    <button type="submit" onclick="closeCastFilters()" class="w-full py-3 bg-[#d4a5d4] text-[#111] rounded-xl font-bold text-base border-none cursor-pointer hover:opacity-90 transition-opacity">Appliquer</button>
                     <?php if ($filter_country || $filter_city || $filter_date_from || $filter_date_to): ?>
                         <a href="castings.php?view=<?= $view ?>" class="text-center text-[#888] text-sm hover:text-[#d4a5d4] transition-colors">✕ Effacer les filtres</a>
                     <?php endif; ?>
@@ -300,6 +402,17 @@ foreach ($locRows as $r) {
     </div>
 
     <script>
+    function openCastFilters() {
+        document.querySelector('.cast-aside').classList.add('open');
+        document.getElementById('cast-backdrop').classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeCastFilters() {
+        document.querySelector('.cast-aside').classList.remove('open');
+        document.getElementById('cast-backdrop').classList.remove('open');
+        document.body.style.overflow = '';
+    }
+
     // Cities by country (for filter)
     const citiesByCountry = <?= json_encode($citiesByCountry) ?>;
     const currentCity = <?= json_encode($filter_city) ?>;
@@ -319,6 +432,16 @@ foreach ($locRows as $r) {
     // Init cities on load
     document.addEventListener('DOMContentLoaded', () => {
         if (document.getElementById('filter-country').value) updateCities();
+
+        // Ouvre automatiquement le modal si ?highlight=ID (lien depuis email)
+        const highlightId = new URLSearchParams(window.location.search).get('highlight');
+        if (highlightId) {
+            const card = document.querySelector(`.casting-card[data-id="${highlightId}"]`);
+            if (card) {
+                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => openModal(card), 400);
+            }
+        }
     });
 
     // Favorite toggle

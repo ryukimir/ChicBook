@@ -42,6 +42,15 @@
     transition: border-color .15s, color .15s;
 }
 .add-tile:hover { border-color: #d4a5d4; color:#d4a5d4; }
+@media (max-width: 768px) {
+    #edit-grid { grid-template-columns: repeat(3, 1fr) !important; gap: 3px !important; }
+    .photo-tile { border-radius: 0; border: none; border-bottom: 3px solid #000; }
+    .photo-tile.drag-over { border-color: #d4a5d4; }
+    .photo-tile .delete-btn { opacity: 1; width: 22px; height: 22px; font-size: 11px; top: 5px; right: 5px; }
+    .photo-tile .drag-handle { opacity: 1; bottom: 5px; font-size: 9px; }
+    .add-tile { border-radius: 0; }
+    #upload-progress { padding: 0 12px; }
+}
 </style>
 
 <div class="grid gap-3" style="grid-template-columns: repeat(auto-fill, minmax(180px,1fr));" id="edit-grid">
@@ -114,6 +123,61 @@
         else target.before(dragSrc);
 
         saveOrder();
+    });
+
+    // ── Touch drag & drop (mobile) ───────────────────────────────
+    let touchDragSrc = null, touchClone = null, touchOffX = 0, touchOffY = 0;
+
+    grid.addEventListener('touchstart', e => {
+        const tile = e.target.closest('.photo-tile');
+        if (!tile) return;
+        const touch = e.touches[0];
+        touchDragSrc = tile;
+        const rect = tile.getBoundingClientRect();
+        touchOffX = touch.clientX - rect.left;
+        touchOffY = touch.clientY - rect.top;
+        // Clone flottant
+        touchClone = tile.cloneNode(true);
+        touchClone.style.cssText = `position:fixed;z-index:9999;width:${rect.width}px;height:${rect.height}px;opacity:.85;pointer-events:none;border-radius:12px;overflow:hidden;top:${rect.top}px;left:${rect.left}px;transition:none;`;
+        document.body.appendChild(touchClone);
+        tile.style.opacity = '.35';
+        e.preventDefault();
+    }, { passive: false });
+
+    document.addEventListener('touchmove', e => {
+        if (!touchDragSrc || !touchClone) return;
+        const touch = e.touches[0];
+        touchClone.style.top  = (touch.clientY - touchOffY) + 'px';
+        touchClone.style.left = (touch.clientX - touchOffX) + 'px';
+        // Trouver la tile sous le doigt
+        touchClone.style.display = 'none';
+        const el = document.elementFromPoint(touch.clientX, touch.clientY);
+        touchClone.style.display = '';
+        const over = el ? el.closest('.photo-tile') : null;
+        grid.querySelectorAll('.photo-tile').forEach(t => t.classList.remove('drag-over'));
+        if (over && over !== touchDragSrc) over.classList.add('drag-over');
+        e.preventDefault();
+    }, { passive: false });
+
+    document.addEventListener('touchend', e => {
+        if (!touchDragSrc) return;
+        const touch = e.changedTouches[0];
+        touchClone.remove();
+        touchClone = null;
+        touchDragSrc.style.opacity = '';
+        // Trouver la cible
+        const el = document.elementFromPoint(touch.clientX, touch.clientY);
+        const target = el ? el.closest('.photo-tile') : null;
+        grid.querySelectorAll('.photo-tile').forEach(t => t.classList.remove('drag-over'));
+        if (target && target !== touchDragSrc) {
+            const tiles = [...grid.querySelectorAll('.photo-tile')];
+            const srcIdx = tiles.indexOf(touchDragSrc);
+            const tgtIdx = tiles.indexOf(target);
+            if (srcIdx < tgtIdx) target.after(touchDragSrc);
+            else target.before(touchDragSrc);
+            saveOrder();
+        }
+        touchDragSrc = null;
     });
 
     // ── Sauvegarder l'ordre ──────────────────────────────────────

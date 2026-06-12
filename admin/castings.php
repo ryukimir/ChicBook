@@ -48,6 +48,7 @@ $castings = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Castings — Admin ChicBook</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script>tailwind.config = { theme: { extend: { colors: { brand: '#d4a5d4' } } } }</script>

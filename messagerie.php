@@ -151,148 +151,196 @@ $my_info = (new User($db))->getUserProfile($me);
     <link rel="stylesheet" href="assets/css/custom.css">
     <style>
         html, body { height: 100%; overflow: hidden; }
-        #chat-messages { scrollbar-width: thin; scrollbar-color: #333 transparent; }
-        #chat-messages::-webkit-scrollbar { width: 4px; }
-        #chat-messages::-webkit-scrollbar-track { background: transparent; }
-        #chat-messages::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
         #msg-input { resize: none; overflow: hidden; min-height: 44px; max-height: 120px; }
+        #chat-messages { scrollbar-width: thin; scrollbar-color: #333 transparent; overflow-x: hidden; }
+        #chat-messages::-webkit-scrollbar { width: 4px; }
+        #chat-messages::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        .msg-bubble { word-break: break-word; overflow-wrap: anywhere; }
+        #msg-root { overflow-x: hidden; }
+        #chat-panel { overflow-x: hidden; }
 
-        /* Barre de conversations horizontale */
-        #conv-topbar { display:flex; flex-direction:row; gap:4px; overflow-x:auto; padding:10px 16px; scrollbar-width:none; }
-        #conv-topbar::-webkit-scrollbar { display:none; }
-        .conv-bubble { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0; cursor: pointer; padding: 6px 8px 8px; border-radius: 12px; transition: background .15s; flex-shrink:0; }
-        .conv-bubble:hover { background: #1a1a1a; }
-        .conv-bubble.active { background: #1e1e1e; }
-        .conv-bubble .bubble-name { max-height: 0; overflow: hidden; opacity: 0; transition: max-height .2s ease, opacity .2s ease, margin-top .2s ease; font-size: 11px; color: #aaa; text-align: center; white-space: nowrap; margin-top: 0; max-width: 64px; text-overflow: ellipsis; }
-        .conv-bubble:hover .bubble-name, .conv-bubble.active .bubble-name { max-height: 20px; opacity: 1; margin-top: 5px; }
-        .conv-bubble .unread-dot { position: absolute; top: 4px; right: 4px; width: 10px; height: 10px; background: #d4a5d4; border-radius: 50%; border: 2px solid #0a0a0a; }
+        /* ── Layout desktop : liste gauche + chat droite ── */
+        #msg-root { display: flex; height: 100%; overflow: hidden; }
+        #conv-list-panel { width: 360px; flex-shrink: 0; border-right: 1px solid #1a1a1a; display: flex; flex-direction: column; overflow: hidden; }
+        #chat-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+        /* Rows de conversation */
+        .conv-row { display: flex; align-items: center; gap: 14px; padding: 12px 20px; cursor: pointer; transition: background .12s; border-bottom: 1px solid #111; }
+        .conv-row:hover { background: #111; }
+        .conv-row.active { background: #141414; }
+        .conv-row .cr-avatar { width: 54px; height: 54px; border-radius: 50%; overflow: hidden; background: #d4a5d4; display: flex; align-items: center; justify-content: center; color: #000; font-weight: 700; font-size: 20px; flex-shrink: 0; }
+        .conv-row .cr-body { flex: 1; min-width: 0; }
+        .conv-row .cr-name { font-weight: 700; font-size: 14px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .conv-row .cr-preview { font-size: 13px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+        .conv-row.unread .cr-name { color: #fff; }
+        .conv-row.unread .cr-preview { color: #aaa; font-weight: 600; }
+        .conv-row .cr-time { font-size: 11px; color: #555; flex-shrink: 0; }
+        .conv-row.unread .cr-time { color: #d4a5d4; }
+        .conv-row .cr-dot { width: 9px; height: 9px; border-radius: 50%; background: #d4a5d4; flex-shrink: 0; margin-left: 4px; }
+
+        /* ── Mobile : vue liste ou vue chat ── */
+        @media (max-width: 768px) {
+          html, body { height: calc(100% - 90px); }
+          #mobile-topbar { display: none !important; }
+          body.chat-open #mobile-nav { display: none !important; }
+          body { padding-left: 0 !important; }
+          #msg-root { flex-direction: column; }
+          #conv-list-panel { width: 100%; border-right: none; }
+          #chat-panel { position: fixed; inset: 0; bottom: 0; z-index: 500; background: #000; transform: translateX(100%); transition: transform .28s cubic-bezier(.4,0,.2,1); }
+          #chat-panel.open { transform: translateX(0); }
+          #chat-messages { padding: 12px !important; }
+          .msg-bubble { max-width: 85% !important; }
+          #msg-back-btn { display: flex !important; }
+          #chat-profile-link { display: none; }
+        }
+        #msg-back-btn { display: none; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; background: #1a1a1a; flex-shrink: 0; cursor: pointer; }
     </style>
 </head>
 <body class="bg-black text-white" style="font-family:'Open Sans',sans-serif;">
 <?php include 'includes/header.php'; ?>
 
-<div style="display:flex; flex-direction:column; height:100%; overflow:hidden;">
+<div id="msg-root">
 
-    <!-- ── Barre du haut : bulles de conversations ───────────────────────── -->
-    <div style="border-bottom:1px solid #1a1a1a; background:#0a0a0a; flex-shrink:0;">
-        <div id="conv-topbar">
+    <!-- ── Panel gauche : liste des conversations ───────────────────────── -->
+    <div id="conv-list-panel" style="background:#0a0a0a;">
+        <!-- Header -->
+        <div style="display:flex; align-items:center; padding:20px 20px 14px; border-bottom:1px solid #1a1a1a; flex-shrink:0;">
+            <span style="font-size:22px; font-weight:800; color:#fff;">Messages</span>
+        </div>
+        <!-- Liste -->
+        <div style="flex:1; overflow-y:auto; scrollbar-width:thin; scrollbar-color:#222 transparent;">
             <?php if (empty($conversations)): ?>
-                <p style="color:#444; font-size:12px; padding:8px 0; white-space:nowrap;">Aucune conversation — contactez un talent depuis son profil.</p>
+                <div style="padding:40px 20px; text-align:center; color:#444; font-size:13px;">
+                    Aucune conversation.<br>Contactez un talent depuis son profil.
+                </div>
             <?php else: foreach ($conversations as $c): ?>
                 <?php
                 $is_active  = ($open_conv_id == $c['id']);
                 $avatar     = $c['profile_picture_url'] ?: $c['fallback_avatar'];
                 $initials   = strtoupper(mb_substr($c['full_name'], 0, 1));
-                $first_name = explode(' ', $c['full_name'])[0];
+                $preview    = $c['last_message'] ? mb_strimwidth($c['last_message'], 0, 50, '…') : 'Démarrer la conversation';
                 ?>
-                <button id="conv-item-<?= $c['id'] ?>"
-                        data-conv-id="<?= $c['id'] ?>"
-                        data-other-id="<?= $c['other_id'] ?>"
-                        data-name="<?= htmlspecialchars($c['full_name'], ENT_QUOTES) ?>"
-                        data-avatar="<?= htmlspecialchars($avatar ?? '', ENT_QUOTES) ?>"
-                        data-profession="<?= htmlspecialchars($c['specific_profession'] ?? '', ENT_QUOTES) ?>"
-                        class="conv-bubble <?= $is_active ? 'active' : '' ?>">
-                    <!-- Avatar circulaire -->
-                    <div style="width:52px; height:52px; border-radius:50%; overflow:hidden; background:#d4a5d4; display:flex; align-items:center; justify-content:center; color:#000; font-weight:700; font-size:18px; flex-shrink:0; <?= $is_active ? 'box-shadow:0 0 0 2px #d4a5d4;' : '' ?>">
+                <div id="conv-item-<?= $c['id'] ?>"
+                     data-conv-id="<?= $c['id'] ?>"
+                     data-other-id="<?= $c['other_id'] ?>"
+                     data-name="<?= htmlspecialchars($c['full_name'], ENT_QUOTES) ?>"
+                     data-avatar="<?= htmlspecialchars($avatar ?? '', ENT_QUOTES) ?>"
+                     data-profession="<?= htmlspecialchars($c['specific_profession'] ?? '', ENT_QUOTES) ?>"
+                     class="conv-row <?= $is_active ? 'active' : '' ?> <?= $c['unread'] > 0 ? 'unread' : '' ?>">
+                    <!-- Avatar -->
+                    <div class="cr-avatar">
                         <?php if ($avatar): ?>
-                            <img src="<?= htmlspecialchars($avatar) ?>" style="width:100%; height:100%; object-fit:cover;" alt="">
+                            <img src="<?= htmlspecialchars($avatar) ?>" style="width:100%;height:100%;object-fit:cover;" alt="">
                         <?php else: ?>
                             <?= $initials ?>
                         <?php endif; ?>
                     </div>
-                    <!-- Nom (visible au hover / actif) -->
-                    <span class="bubble-name"><?= htmlspecialchars($first_name) ?></span>
-                    <!-- Badge non lu -->
-                    <span id="unread-badge-<?= $c['id'] ?>" class="unread-dot" <?= $c['unread'] > 0 ? '' : 'style="display:none;"' ?>></span>
-                </button>
+                    <!-- Texte -->
+                    <div class="cr-body">
+                        <div class="cr-name"><?= htmlspecialchars($c['full_name']) ?></div>
+                        <div class="cr-preview"><?= htmlspecialchars($preview) ?></div>
+                    </div>
+                    <!-- Temps + dot -->
+                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
+                        <span class="cr-time"><?= timeAgo($c['last_at']) ?></span>
+                        <span id="unread-dot-<?= $c['id'] ?>" class="cr-dot" <?= $c['unread'] > 0 ? '' : 'style="display:none;"' ?>></span>
+                    </div>
+                </div>
             <?php endforeach; endif; ?>
         </div>
     </div>
 
-    <!-- ── Zone de chat (pleine largeur) ─────────────────────────────────── -->
-    <div style="flex:1; display:flex; flex-direction:column; min-width:0; overflow:hidden;">
+    <!-- ── Panel droit : chat ───────────────────────────────────────────── -->
+    <div id="chat-panel" style="background:#000;">
 
-        <!-- État vide -->
-        <div id="chat-empty" class="<?= $open_conv_id ? 'hidden' : 'flex' ?> flex-grow items-center justify-center flex-col gap-4 text-center">
-            <div class="w-16 h-16 rounded-full bg-[#111] flex items-center justify-center text-3xl">💬</div>
-            <p class="text-[#555] text-sm">Sélectionnez une conversation<br>ou contactez un talent depuis son profil.</p>
+        <!-- État vide (desktop uniquement) -->
+        <div id="chat-empty" class="<?= $open_conv_id ? 'hidden' : 'flex' ?>" style="flex:1;align-items:center;justify-content:center;flex-direction:column;gap:16px;text-align:center;">
+            <div style="width:64px;height:64px;border-radius:50%;background:#111;display:flex;align-items:center;justify-content:center;font-size:28px;">💬</div>
+            <p style="color:#444;font-size:13px;">Sélectionnez une conversation.</p>
         </div>
 
         <!-- Chat actif -->
-        <div id="chat-active" class="<?= $open_conv_id ? 'flex' : 'hidden' ?> flex-col" style="flex:1; min-height:0; overflow:hidden;">
+        <div id="chat-active" class="<?= $open_conv_id ? 'flex' : 'hidden' ?>" style="flex-direction:column;flex:1;min-height:0;overflow:hidden;">
 
             <!-- Header chat -->
-            <div id="chat-header" class="flex items-center gap-3 px-6 py-4 border-b border-[#1a1a1a] flex-shrink-0 bg-[#0a0a0a]">
-                <div id="chat-avatar" class="w-9 h-9 rounded-full overflow-hidden bg-[#d4a5d4] flex items-center justify-center text-black font-bold text-sm flex-shrink-0">
+            <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #1a1a1a;flex-shrink:0;background:#0a0a0a;">
+                <!-- Bouton retour (mobile seulement) -->
+                <button id="msg-back-btn" onclick="closeChatMobile()" title="Retour">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+                </button>
+                <!-- Avatar -->
+                <div id="chat-avatar" style="width:38px;height:38px;border-radius:50%;overflow:hidden;background:#d4a5d4;display:flex;align-items:center;justify-content:center;color:#000;font-weight:700;font-size:15px;flex-shrink:0;">
                     <?php $open_avatar = $open_other ? ($open_other['profile_picture_url'] ?: $open_other['fallback_avatar']) : null; ?>
                     <?php if ($open_avatar): ?>
-                        <img src="<?= htmlspecialchars($open_avatar) ?>" class="w-full h-full object-cover" alt="">
+                        <img src="<?= htmlspecialchars($open_avatar) ?>" style="width:100%;height:100%;object-fit:cover;" alt="">
                     <?php else: ?>
-                        <span id="chat-avatar-initial"><?= $open_other ? strtoupper(mb_substr($open_other['full_name'], 0, 1)) : '' ?></span>
+                        <span><?= $open_other ? strtoupper(mb_substr($open_other['full_name'], 0, 1)) : '' ?></span>
                     <?php endif; ?>
                 </div>
-                <div class="flex-grow min-w-0">
-                    <a id="chat-name-link" href="<?= $open_other ? 'profil.php?id='.$open_other['id'] : '#' ?>" class="text-white font-semibold text-sm hover:text-[#d4a5d4] transition-colors">
+                <!-- Nom + profession -->
+                <div style="flex:1;min-width:0;">
+                    <a id="chat-name-link" href="<?= $open_other ? 'profil.php?id='.$open_other['id'] : '#' ?>" style="font-weight:700;font-size:14px;color:#fff;text-decoration:none;"
+                       onmouseover="this.style.color='#d4a5d4'" onmouseout="this.style.color='#fff'">
                         <?= $open_other ? htmlspecialchars($open_other['full_name']) : '' ?>
                     </a>
-                    <p id="chat-profession" class="text-[#555] text-xs"><?= $open_other ? htmlspecialchars($open_other['specific_profession'] ?? '') : '' ?></p>
+                    <p id="chat-profession" style="font-size:12px;color:#555;margin:0;"><?= $open_other ? htmlspecialchars($open_other['specific_profession'] ?? '') : '' ?></p>
                 </div>
-                <a id="chat-profile-link" href="<?= $open_other ? 'profil.php?id='.$open_other['id'] : '#' ?>" class="text-[#555] text-xs hover:text-[#d4a5d4] transition-colors flex items-center gap-1">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                <a id="chat-profile-link" href="<?= $open_other ? 'profil.php?id='.$open_other['id'] : '#' ?>" style="font-size:12px;color:#555;text-decoration:none;display:flex;align-items:center;gap:4px;"
+                   onmouseover="this.style.color='#d4a5d4'" onmouseout="this.style.color='#555'">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                     Voir le profil
                 </a>
             </div>
 
             <!-- Messages -->
-            <div id="chat-messages" class="overflow-y-auto px-6 py-5 gap-3" style="flex:1; min-height:0;">
+            <div id="chat-messages" style="flex:1;min-height:0;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:10px;">
                 <?php foreach ($open_messages as $msg): ?>
                     <?php $is_mine = ($msg['sender_id'] == $me); ?>
-                    <div class="flex <?= $is_mine ? 'justify-end' : 'justify-start' ?>" data-msg-id="<?= $msg['id'] ?>">
-                        <div class="max-w-[70%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed <?= $is_mine ? 'bg-[#d4a5d4] text-black rounded-br-sm' : 'bg-[#1a1a1a] text-white rounded-bl-sm' ?>">
+                    <div style="display:flex;justify-content:<?= $is_mine ? 'flex-end' : 'flex-start' ?>;" data-msg-id="<?= $msg['id'] ?>">
+                        <div class="msg-bubble" style="max-width:70%;padding:10px 14px;border-radius:18px;font-size:13px;line-height:1.5;<?= $is_mine ? 'background:#d4a5d4;color:#000;border-bottom-right-radius:4px;' : 'background:#1a1a1a;color:#fff;border-bottom-left-radius:4px;' ?>">
                             <?= nl2br(htmlspecialchars($msg['content'])) ?>
-                            <div class="text-[10px] mt-1 <?= $is_mine ? 'text-black/50' : 'text-[#555]' ?> text-right"><?= date('H:i', strtotime($msg['created_at'])) ?></div>
+                            <div style="font-size:10px;margin-top:4px;text-align:right;<?= $is_mine ? 'color:rgba(0,0,0,0.4)' : 'color:#555' ?>"><?= date('H:i', strtotime($msg['created_at'])) ?></div>
                         </div>
                     </div>
                 <?php endforeach; ?>
             </div>
 
             <!-- Zone de saisie -->
-            <div class="flex-shrink-0 border-t border-[#1a1a1a] px-5 py-4 bg-[#0a0a0a]">
-                <div class="flex items-end gap-3">
-                    <textarea id="msg-input" placeholder="Écrivez un message…"
-                              class="flex-grow bg-[#111] border border-[#2a2a2a] text-white text-sm rounded-2xl px-4 py-2.5 outline-none focus:border-[#d4a5d4] transition-colors placeholder-[#444]"
-                              rows="1"></textarea>
-                    <button id="send-btn"
-                            class="w-10 h-10 rounded-full bg-[#d4a5d4] flex items-center justify-center flex-shrink-0 hover:opacity-90 transition-opacity disabled:opacity-40"
-                            onclick="sendMessage()">
-                        <svg class="w-4 h-4 text-black" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/>
-                        </svg>
+            <div style="flex-shrink:0;border-top:1px solid #1a1a1a;padding:12px 20px;background:#0a0a0a;">
+                <div style="display:flex;align-items:flex-end;gap:10px;">
+                    <textarea id="msg-input" placeholder="Écrivez un message…" rows="1"
+                              style="flex:1;background:#111;border:1px solid #2a2a2a;color:#fff;font-size:13px;border-radius:20px;padding:10px 16px;outline:none;font-family:inherit;transition:border-color .15s;"
+                              onfocus="this.style.borderColor='#d4a5d4'" onblur="this.style.borderColor='#2a2a2a'"></textarea>
+                    <button id="send-btn" onclick="sendMessage()"
+                            style="width:40px;height:40px;border-radius:50%;background:#d4a5d4;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .15s;"
+                            onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+                        <svg width="16" height="16" fill="none" stroke="#000" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/></svg>
                     </button>
                 </div>
             </div>
         </div>
     </div>
-</div>
+
+</div><!-- /#msg-root -->
 
 <script>
 const ME = <?= $me ?>;
-
-// ── Bind conversation clicks ──────────────────────────────────────────────
-document.querySelectorAll('.conv-bubble[data-conv-id]').forEach(btn => {
-    btn.addEventListener('click', () => {
-        openConv(
-            parseInt(btn.dataset.convId),
-            parseInt(btn.dataset.otherId),
-            btn.dataset.name,
-            btn.dataset.avatar,
-            btn.dataset.profession
-        );
-    });
-});
 let currentConvId = <?= $open_conv_id ?? 'null' ?>;
 let lastMsgId = <?= !empty($open_messages) ? end($open_messages)['id'] : 0 ?>;
 let pollTimer = null;
+
+// ── Bind conversation row clicks ──────────────────────────────────────────
+document.querySelectorAll('.conv-row[data-conv-id]').forEach(row => {
+    row.addEventListener('click', () => {
+        openConv(
+            parseInt(row.dataset.convId),
+            parseInt(row.dataset.otherId),
+            row.dataset.name,
+            row.dataset.avatar,
+            row.dataset.profession
+        );
+    });
+});
 
 // ── Auto-resize textarea ──────────────────────────────────────────────────
 const msgInput = document.getElementById('msg-input');
@@ -311,20 +359,19 @@ function scrollToBottom() {
 }
 scrollToBottom();
 
-// ── Render a single message bubble ───────────────────────────────────────
+// ── Render a message bubble ───────────────────────────────────────────────
 function renderMessage(msg) {
     const isMine = (msg.sender_id == ME);
     const time = new Date(msg.created_at).toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
     const content = msg.content.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
-    const div = document.createElement('div');
-    div.className = 'flex ' + (isMine ? 'justify-end' : 'justify-start');
-    div.dataset.msgId = msg.id;
-    div.innerHTML = `
-        <div class="max-w-[70%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${isMine ? 'bg-[#d4a5d4] text-black rounded-br-sm' : 'bg-[#1a1a1a] text-white rounded-bl-sm'}">
-            ${content}
-            <div class="text-[10px] mt-1 ${isMine ? 'text-black/50' : 'text-[#555]'} text-right">${time}</div>
-        </div>`;
-    return div;
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;justify-content:' + (isMine ? 'flex-end' : 'flex-start') + ';';
+    wrap.dataset.msgId = msg.id;
+    const bubble = isMine
+        ? 'max-width:70%;padding:10px 14px;border-radius:18px;border-bottom-right-radius:4px;font-size:13px;line-height:1.5;background:#d4a5d4;color:#000;'
+        : 'max-width:70%;padding:10px 14px;border-radius:18px;border-bottom-left-radius:4px;font-size:13px;line-height:1.5;background:#1a1a1a;color:#fff;';
+    wrap.innerHTML = `<div class="msg-bubble" style="${bubble}">${content}<div style="font-size:10px;margin-top:4px;text-align:right;color:${isMine?'rgba(0,0,0,0.4)':'#555'}">${time}</div></div>`;
+    return wrap;
 }
 
 // ── Send message ──────────────────────────────────────────────────────────
@@ -334,17 +381,13 @@ function sendMessage() {
     if (!content) return;
     msgInput.value = '';
     msgInput.style.height = 'auto';
-
     fetch('messagerie.php', {
         method: 'POST',
         headers: {'Content-Type':'application/x-www-form-urlencoded'},
         body: `action=send&conversation_id=${currentConvId}&content=${encodeURIComponent(content)}`
-    })
-    .then(r => r.json())
-    .then(data => {
+    }).then(r => r.json()).then(data => {
         if (data.ok) {
-            const msg = {id: data.id, sender_id: ME, content: content, created_at: data.created_at};
-            const el = renderMessage(msg);
+            const el = renderMessage({id: data.id, sender_id: ME, content, created_at: data.created_at});
             document.getElementById('chat-messages').appendChild(el);
             lastMsgId = data.id;
             scrollToBottom();
@@ -363,9 +406,7 @@ function poll() {
         method: 'POST',
         headers: {'Content-Type':'application/x-www-form-urlencoded'},
         body: `action=poll&conversation_id=${currentConvId}&last_id=${lastMsgId}`
-    })
-    .then(r => r.json())
-    .then(data => {
+    }).then(r => r.json()).then(data => {
         if (!data.ok) return;
         const container = document.getElementById('chat-messages');
         data.messages.forEach(msg => {
@@ -373,71 +414,58 @@ function poll() {
             lastMsgId = msg.id;
         });
         if (data.messages.length) scrollToBottom();
-        // Update unread badges
         if (data.unread) {
             Object.entries(data.unread).forEach(([cid, count]) => {
-                const badge = document.getElementById('unread-badge-' + cid);
-                if (!badge) return;
-                badge.style.display = (count > 0 && cid != currentConvId) ? 'block' : 'none';
+                const dot = document.getElementById('unread-dot-' + cid);
+                if (dot) dot.style.display = (count > 0 && cid != currentConvId) ? 'block' : 'none';
             });
         }
     });
 }
 if (currentConvId) startPolling();
 
-// ── Open a conversation ───────────────────────────────────────────────────
+// ── Open conversation ─────────────────────────────────────────────────────
 function openConv(convId, otherId, otherName, otherAvatar, otherProfession) {
-    // Update sidebar active state
-    document.querySelectorAll('.conv-bubble').forEach(el => {
-        el.classList.remove('active');
-        const av = el.querySelector('div');
-        if (av) av.style.boxShadow = '';
-    });
-    const item = document.getElementById('conv-item-' + convId);
-    if (item) {
-        item.classList.add('active');
-        const av = item.querySelector('div');
-        if (av) av.style.boxShadow = '0 0 0 2px #d4a5d4';
-    }
+    // Active state sur la liste
+    document.querySelectorAll('.conv-row').forEach(r => r.classList.remove('active'));
+    const row = document.getElementById('conv-item-' + convId);
+    if (row) row.classList.add('active');
 
-    // Hide empty state, show chat
+    // Affiche le panel chat (mobile: slide-in)
     document.getElementById('chat-empty').classList.add('hidden');
     const chatActive = document.getElementById('chat-active');
     chatActive.classList.remove('hidden');
     chatActive.style.display = 'flex';
+    document.getElementById('chat-panel').classList.add('open');
+    if (window.innerWidth <= 768) document.body.classList.add('chat-open');
 
-    // Update header
+    // Header
     const avatarEl = document.getElementById('chat-avatar');
-    const initial = otherName ? otherName.charAt(0).toUpperCase() : '?';
     if (otherAvatar) {
-        avatarEl.innerHTML = `<img src="${otherAvatar}" class="w-full h-full object-cover" alt="">`;
+        avatarEl.innerHTML = `<img src="${otherAvatar}" style="width:100%;height:100%;object-fit:cover;" alt="">`;
     } else {
-        avatarEl.innerHTML = `<span>${initial}</span>`;
+        avatarEl.innerHTML = `<span>${otherName ? otherName.charAt(0).toUpperCase() : '?'}</span>`;
     }
-    document.getElementById('chat-name-link').textContent = otherName;
-    document.getElementById('chat-name-link').href = 'profil.php?id=' + otherId;
+    const nameLink = document.getElementById('chat-name-link');
+    nameLink.textContent = otherName;
+    nameLink.href = 'profil.php?id=' + otherId;
     document.getElementById('chat-profession').textContent = otherProfession;
     document.getElementById('chat-profile-link').href = 'profil.php?id=' + otherId;
 
-    // Clear messages area
+    // Clear + load messages
     const container = document.getElementById('chat-messages');
-    container.innerHTML = '<div class="text-[#333] text-xs text-center py-4">Chargement…</div>';
-
-    // Mark badge as read
-    const badge = document.getElementById('unread-badge-' + convId);
-    if (badge) badge.style.display = 'none';
+    container.innerHTML = '<div style="text-align:center;color:#333;font-size:12px;padding:16px;">Chargement…</div>';
+    const dot = document.getElementById('unread-dot-' + convId);
+    if (dot) dot.style.display = 'none';
 
     currentConvId = convId;
     lastMsgId = 0;
 
-    // Load messages via poll (with last_id=0 to get all)
     fetch('messagerie.php', {
         method: 'POST',
         headers: {'Content-Type':'application/x-www-form-urlencoded'},
         body: `action=poll&conversation_id=${convId}&last_id=0`
-    })
-    .then(r => r.json())
-    .then(data => {
+    }).then(r => r.json()).then(data => {
         container.innerHTML = '';
         if (!data.ok) return;
         data.messages.forEach(msg => {
@@ -448,9 +476,27 @@ function openConv(convId, otherId, otherName, otherAvatar, otherProfession) {
     });
 
     startPolling();
-    // Update URL without reload
     history.replaceState({}, '', 'messagerie.php?conv=' + convId);
 }
+
+// ── Retour mobile ─────────────────────────────────────────────────────────
+function closeChatMobile() {
+    document.getElementById('chat-panel').classList.remove('open');
+    document.querySelectorAll('.conv-row').forEach(r => r.classList.remove('active'));
+    if (pollTimer) clearInterval(pollTimer);
+    currentConvId = null;
+    history.replaceState({}, '', 'messagerie.php');
+    document.body.classList.remove('chat-open');
+}
+
+// Ouvrir la conv depuis ?with= directement en mode chat sur mobile
+<?php if ($open_conv_id): ?>
+document.getElementById('chat-panel').classList.add('open');
+if (window.innerWidth <= 768) {
+    const nav = document.getElementById('mobile-nav');
+    if (nav) nav.style.display = 'none';
+}
+<?php endif; ?>
 </script>
 </body>
 </html>

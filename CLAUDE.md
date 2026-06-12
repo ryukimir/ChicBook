@@ -105,15 +105,24 @@ Registration collects `prenom` + `nom` (combined into `full_name` in DB), `birth
 
 **Registration tags:** `inscription.php` shows clickable pill tags (expertise keywords) — user clicks to toggle, stored comma-separated in `users.expertise_tags`. Implemented via `data-selected` attribute + inline styles (not Tailwind classes, to avoid escaping issues with querySelector).
 
-### Navigation — left sidebar (Instagram-style)
+### Navigation — left sidebar (Instagram-style) + mobile bottom nav + mobile topbar
 
-`includes/header.php` renders a fixed left sidebar (`#sidebar`). There is **no top navbar**.
+`includes/header.php` renders **trois éléments nav** :
+- `#sidebar` — sidebar gauche desktop (position fixed, left 0)
+- `#mobile-nav` — bottom bar mobile (position fixed, bottom 16px, liquid glass)
+- `#mobile-topbar` — boutons Plus + Avatar fixés en haut à droite sur mobile
 
+**Bascule CSS (sans JS de combat) :** `custom.css` + bloc `<style>` injecté dans `header.php` :
+- Base (hors media query) : `#mobile-nav, #mobile-topbar { display: none; }` — `#mobile-topbar` est **toujours caché** (`display: none !important` dans la media query aussi), chaque page intègre ses propres boutons Plus/Avatar
+- `@media (max-width: 768px)` : `display: flex !important` sur `#mobile-nav`, `display: none !important` sur `#sidebar` et `#mobile-topbar`
+- Le JS dans `header.php` force uniquement `document.getElementById('sidebar').style.display = 'flex'` sur desktop — il ne combat plus le CSS mobile
+- Les styles mobiles critiques sont injectés via `<style>` dans `header.php` (jamais mis en cache, toujours frais). Ne pas supprimer ce bloc.
+
+**Desktop sidebar :**
 - **Collapsed:** 80px wide (icons only)
 - **Expanded:** 260px wide on hover — labels slide in with `translateX` + opacity transition
-- `body { padding-left: 260px }` is **always fixed** — the sidebar zone is permanently reserved so expanding never overlaps content
-- Active page detected via `basename($_SERVER['PHP_SELF'])` → `active` class on the matching item
-- Item padding: `10px 18px`
+- `body { padding-left: 260px }` toujours fixé — sur mobile overridé à `padding-left: 0; padding-bottom: 90px`
+- Active page détectée via `basename($_SERVER['PHP_SELF'])` → classe `active`
 
 **Sidebar nav items (in order):**
 1. Accueil → `index.php`
@@ -123,14 +132,100 @@ Registration collects `prenom` + `nom` (combined into `full_name` in DB), `birth
 5. Messagerie → `messagerie.php`
 6. Événements → `evenements.php`
 7. *(spacer)*
-8. **Plus** → `preferences.php` (icône engrenage) — label affiché est "Plus", pas "Préférences"
-9. Mon Profil / S'identifier → `profil.php` / `connexion.php`
+8. **Plus** → `preferences.php` (icône engrenage)
+9. Mon Profil / S'identifier → `profil.php` / `connexion.php` — classe `sidebar-mobile-hide` (cachés sur mobile via CSS)
+10. Back Office → `admin/` — visible uniquement admins + desktop ≥1024px (JS `window.innerWidth`)
 
-"À propos" et "Déconnexion" ont été retirés de la sidebar. La déconnexion sera dans les paramètres plus tard.
+**Mobile bottom nav (`#mobile-nav`) :**
+- 5 items : Accueil, Talents, Castings, Messages, Événements — **pas de Plus, pas de profil, pas de back office**
+- Liquid glass : `backdrop-filter: blur(28px) saturate(200%)`, fond `rgba(10,10,10,0.70)`, bordure `rgba(255,255,255,0.09)`, coins 22px, flotte à 16px du bas
+- Item actif en mauve `#d4a5d4` (classe `mnav-active` via PHP `$current_page`)
+- SVGs avec `width="22" height="22"` attributs HTML obligatoires
+- Light theme : fond `rgba(245,240,235,0.80)` avec shadow légère
+
+**Mobile topbar (`#mobile-topbar`) :**
+- **Toujours masqué** par `header.php` (`display: none !important` dans la media query mobile)
+- Le HTML reste dans `header.php` mais n'est jamais affiché — chaque page intègre ses propres boutons `.mtop-btn` / `.mtop-avatar` directement dans sa row mobile
+- **Intégration par page :**
+  - `index.php` → `#feed-topbar-btns` inline dans la rangée filtre (via JS)
+  - `trouver_talent.php` → dans la rangée dropdown catégorie (`.tt-cats-mobile`)
+  - `castings.php` → à la fin de la `.cast-mobile-nav` (après le bouton +)
+  - `evenements.php` → dans la rangée dropdown onglets (`.ev-tabs-mobile`)
+  - `recherche.php` → `#rech-mobile-toprow` alignée à droite
+  - `profil.php` → déjà dans `#profil-mobile-header`
+  - Pages auth / formulaires / `preferences.php` / `messagerie.php` → non affichés
 
 **Logo sidebar :** une seule `<img id="sidebar-logo-img">`. JS `mouseenter`/`mouseleave` sur `#sidebar` swap le `src` entre `assets/img/navicon.png` (collapsed, 52×52px) et `assets/img/logo.png` (expanded, height 44px auto-width) avec fondu opacity via `setTimeout(180ms)`.
 
-CSS class names that must exist in the HTML for the sidebar to work: `#sidebar`, `.sidebar-item`, `.sidebar-icon`, `.sidebar-label`, `.sidebar-logo`, `.sidebar-divider`, `.sidebar-spacer`.
+**Viewport meta tag** : toutes les pages PHP doivent avoir `<meta name="viewport" content="width=device-width, initial-scale=1">` — sans ça, Safari iPhone rend à 980px et le CSS mobile ne se déclenche pas.
+
+CSS class names that must exist: `#sidebar`, `.sidebar-item`, `.sidebar-icon`, `.sidebar-label`, `.sidebar-logo`, `.sidebar-divider`, `.sidebar-spacer`, `.sidebar-mobile-hide`, `#mobile-nav`, `.mnav-item`, `.mnav-active`, `#mobile-topbar`, `.mtop-btn`, `.mtop-avatar`, `.mtop-active`.
+
+### Responsive mobile — stratégie par page
+
+**Règle générale :** les fixes responsive sont injectés via un bloc `<style>` inline dans chaque page (jamais dans `custom.css` seul, qui peut être mis en cache). Classes CSS dédiées ajoutées sur les wrappers pour cibler précisément.
+
+**Pattern filtres overlay (castings, trouver_talent, evenements) :**
+- Aside filtres : `position: fixed; top: auto !important; bottom: 90px; left/right: 12px; z-index: 600; border-radius: 20px` — caché via `visibility: hidden; opacity: 0; transform: translateY(12px)` + transition, visible avec classe `.open`
+- **Important :** `top: auto !important` obligatoire pour neutraliser le `top` Tailwind (ex. `sticky top-8`) qui sinon positionne le panel en haut même en `position:fixed`
+- Backdrop `#cast-backdrop` / `#tt-backdrop` / `#ev-backdrop` : `position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(2px)` — `display: none` → `display: block` avec `.open`
+- Fonctions JS `openXFilters()`/`closeXFilters()` + `document.body.style.overflow`
+- Bouton "Filtres" : badge ● + bordure mauve si filtres actifs (`$has_active_X_filters`)
+- Header du panel : titre "Filtres" + bouton ✕ `onclick="closeXFilters()"`
+- Bouton "Appliquer les filtres" : `onclick="closeXFilters()"` avant soumission
+
+**castings.php — navigation mobile :**
+- `.cast-tabs-desktop` → `display: none !important` sur mobile
+- `.cast-mobile-nav` → `display: flex` sur mobile : barre onglets arrondie + boutons Plus/Avatar à droite
+  - **Opportunités** — toujours visible
+  - **♡ Favoris** — toujours visible (compte affiché si > 0)
+  - **Mes castings** — visible uniquement si `$has_my_castings` (`COUNT FROM castings WHERE user_id=:uid > 0`)
+  - Bouton **+** circulaire mauve → `creer_casting.php`
+- Item actif : `bg-[#d4a5d4] text-black`, inactif : `text-[#888]`
+
+**trouver_talent.php — navigation mobile :**
+- `.tt-cats-pills` → `display: none !important` sur mobile
+- `.tt-cats-mobile` → rangée flex : dropdown catégories + boutons Plus/Avatar à droite
+- Dessous : form GET avec input recherche par nom (`name="search"`, `u.full_name ILIKE`) + bouton Filtres compact — même row, `justify-content:flex-end` n'est pas utilisé, le champ prend `flex:1`
+- Filtres : pattern overlay (backdrop `#tt-backdrop`, fonctions `openTTFilters`/`closeTTFilters`)
+
+**evenements.php — navigation mobile :**
+- `.ev-tabs` → `display: none !important` sur mobile
+- `.ev-tabs-mobile` → rangée flex : dropdown "Tous/À venir/Mes inscriptions/Mes événements" + boutons Plus/Avatar à droite
+- Dessous : row "Filtres" + "✕ Effacer" à gauche, "+ Proposer" à droite (`.ev-desktop-cta` masqué sur mobile)
+- Filtres : pattern overlay (backdrop `#ev-backdrop`, fonctions `openEvFilters`/`closeEvFilters`)
+
+**profil.php — header Instagram style mobile :**
+- `#profil-mobile-header` : `display: none` base, `display: block !important` dans media query mobile
+- Structure (tout centré via `text-align:center`) :
+  1. Avatar 82px centré
+  2. Nom + ligne "Profession · Ville" (mauve + gris, flex centré)
+  3. Pills de tags (max 6, centrées)
+  4. Boutons action liquid glass : `backdrop-filter:blur(16px)`, fond `rgba(255,255,255,0.08)`, border `rgba(255,255,255,0.13)`, border-radius 20px — **Photos** + **Modifier le profil** (owner) ou **Suivre** (`#follow-btn-mobile`) + **Contacter** (visiteur, accent mauve), + **Bio** si bio, + icône share. Compteur followers `#followers-count-mobile` sous les boutons si > 0.
+  5. Séparateur fin `height:1px`
+- Âge affiché uniquement si `show_age=TRUE` — stat "photos" supprimée
+- Classes de masquage desktop sur mobile : `.profil-classique-aside`, `.profil-classique-name-row`, `.profil-editorial-hero`, `.profil-editorial-actions-row`, `.profil-editorial-tags-row`, `.profil-luxe-header`, `.profil-luxe-separator`
+- Grille photos → 3 colonnes carrées `object-cover` (style Instagram) pour les 3 thèmes via classes `.profil-masonry-item`, `.profil-editorial-item`, `.profil-luxe-item` + `aspect-ratio: 1/1; overflow: hidden`
+- Avatar : `$profile_data['profile_picture_url'] ?: $photos[0]['image_url']` (fallback première photo book)
+- Bouton share appelle `doShare()` (fonction JS partagée, définie avant le listener `btn-share` desktop)
+- `toggleEditMode()` synchronise les deux boutons photos : `#edit-photos-btn` (desktop) + `#edit-photos-btn-mob` (mobile header)
+
+**Formulaires (creer_casting, creer_evenement, creer_projet) :**
+- Wrapper principal → classe (ex. `cc-wrapper`) → padding réduit, margin-top 0
+- Preview aside `creer_casting.php` → `.cc-preview { display: none !important }` sur mobile
+- Grilles 2/3 cols → `.cev-grid-2`, `.cev-grid-3`, `.cp-grid-2`, `.cp-grid-3` → `1fr` sur mobile
+- Mensurations dans cartes profil → `.cp-mensuration-grid` → conserve 2 col (assez compact)
+
+**messagerie.php :**
+- `html, body { height: calc(100% - 90px) }` sur mobile
+- Layout mobile : vue liste (`#conv-list-panel`, pleine largeur) par défaut. Chat (`#chat-panel`) en `position:fixed; inset:0; transform:translateX(100%)` — slide-in avec classe `.open` quand une conversation est ouverte
+- `body.chat-open #mobile-nav { display:none !important }` — nav bottom masquée en mode chat, restaurée au retour (`closeChatMobile()`)
+- Bouton ← (`#msg-back-btn`, `display:none` base, `display:flex` mobile) pour revenir à la liste
+- Bulles messages `.msg-bubble` → `max-width: 85%` + `word-break:break-word; overflow-wrap:anywhere` (évite le sidescroll sur URLs longues)
+
+**recherche.php :**
+- Grille résultats `#results-grid` → `repeat(2, 1fr)` sur mobile
+- Filtres inline `.rech-inline-filters` → `flex-wrap: wrap` + font réduit
 
 ### Thème clair / sombre
 
@@ -163,6 +258,8 @@ Brand color: `#d4a5d4` (mauve/purple). Page background: `#000`. Card surface: `#
 ### Database schema key points
 
 - `users` — central table; `full_name`, `birth_date DATE`, `specific_profession`, `expertise_tags` (comma-separated), `login_code` (temp 2FA), `profile_theme VARCHAR(50) DEFAULT 'classique'`, `is_admin BOOLEAN DEFAULT FALSE`, `is_suspended BOOLEAN DEFAULT FALSE`, `show_age BOOLEAN DEFAULT FALSE`, `gender VARCHAR(50)`
+- `profession_categories` — catégories de métiers gérées depuis le back office : `name`, `display_order`
+- `professions` — lookup table with `name`, `category_id FK→profession_categories`, `has_measurements BOOLEAN DEFAULT FALSE`. `has_measurements=TRUE` on Mannequin/Comédien/Danseur (and any talent profession with physical criteria). `Profession::getAll()` returns `id, name, has_measurements`.
 - `user_professions` — many-to-many to `professions` lookup (set at registration)
 - `measurements` — one-to-one with `users`, physical talent types only: height, chest/waist/hip/shoe sizes, eye_color_id, hair_color_id, ethnicity_id (FKs to lookup tables)
 - `castings` — has `casting_date DATE` (audition day) and `performance_date DATE` (realization day), `city`, `country`, `collaboration_type`, `cover_image`
@@ -176,12 +273,16 @@ Brand color: `#d4a5d4` (mauve/purple). Page background: `#000`. Card surface: `#
 - `reports` — signalements utilisateurs : `user_id` (nullable FK), `category VARCHAR(50)` (bug/contenu/compte/autre), `message TEXT`, `is_read BOOLEAN DEFAULT FALSE`, `created_at`
 - `suggestions` — suggestions d'amélioration : `user_id` (nullable FK), `message TEXT`, `is_read BOOLEAN DEFAULT FALSE`, `created_at`
 - `users.remember_token VARCHAR(64)` — token remember me 30 jours, généré après 2FA, effacé au logout
+- `projects` — projets créés par les utilisateurs : `user_id`, `title`, `project_type VARCHAR(100)`, `description`, `expected_date DATE`, `searched_profiles TEXT` (professions uniques comma-separated, calculé depuis required_profiles), `contact_name/email/phone`, `created_at`
+- `required_profiles` — profils requis pour un projet : `project_id`, `role_name VARCHAR(100)` (nom de la profession), min/max height/age (INT), chest/waist/hip/shoe (VARCHAR), `eye_color_id`, `hair_color_id`, `ethnicity_id` — plusieurs lignes par projet, une par profil ajouté
+- `follows` — système de suivi : `follower_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE`, `following_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE`, UNIQUE(follower_id, following_id)
 
 When adding a column/table, append at the bottom of `sql/init.sql` and run the migration manually on the running container.
 
 ### castings.php — key behaviors
 
 - Three tabs: **Opportunités** (castings seeking user's profession), **Favoris** (saved), **Mes Castings créés**
+- **Mobile :** onglets `.cast-mobile-nav` (barre pill compacte), "Mes castings" tab conditionnel (`$has_my_castings` = COUNT query), bouton + circulaire mauve, filtres en overlay (voir section responsive)
 - Filters are on the **right** of the castings list (not left)
 - Filters (aside GET form): country → city (dependent dropdown, JS-filtered), date range on `performance_date`
 - Favorite toggle is AJAX (`fetch` POST to same page with `toggle_favorite=1`) — no page reload
@@ -193,7 +294,7 @@ When adding a column/table, append at the bottom of `sql/init.sql` and run the m
 ### creer_casting.php — key behaviors
 
 - Live preview card (right sidebar) updates as user types — role, city, description, company, dates, image
-- Measurement inputs for Mannequin/Comédien/Danseur roles use **min → max range pairs** (stored as "165 - 175" strings in `VARCHAR` columns)
+- Profession options in role select loaded from DB (`professions` table). Measurement inputs shown for roles with `has_measurements=TRUE` — list injected as `window.CHICBOOK_TALENT_PROFESSIONS` before `creer_casting.js` loads.
 - Two date fields: `casting_date` (audition) + `performance_date` (realization)
 - "Add profile" button clones the first `.profile-card` — relies on class names `profile-card`, `profile-card-header`, `role-selector`, `mensurations-grid`
 
@@ -219,15 +320,13 @@ The homepage is a professional feed (not carousels). Structure:
 
 ### trouver_talent.php — key behaviors
 
-- URL params: `?category=creation-design|image-production|marques-createurs&profession=Styliste&city=&country=&tag=`
-- Three categories with their professions:
-  - `creation-design`: Styliste, Modéliste, Designer, Illustrateur, Directeur artistique
-  - `image-production`: Photographe, Vidéaste, Mannequin, Maquilleur, Coiffeur
-  - `marques-createurs`: Marque, Créateur, Agence, Casting director
-- Top: category pills (white = active) + **profession dropdown** (same style as the feed filter on `index.php` — button shows `Category · Profession`, chevron rotates on open, closes on outside click)
-- Profiles displayed as **grille 3 colonnes** with portrait cards `aspect-[3/4]` — hover overlay affiche les mensurations pour Mannequin/Danseur/Comédien
+- URL params: `?category=<slug>&profession=<name>&city=&country=&tag=&search=`
+- **Catégories et professions chargées depuis la DB** : `profession_categories` JOIN `professions`. Les slugs d'URL sont générés depuis le nom de la catégorie (iconv + lowercase + tirets). Fallback "Tous les métiers" si DB vide.
+- Top: category pills (white = active, desktop) / **dropdown `.tt-cats-mobile`** (mobile) + **profession dropdown** (same style as the feed filter on `index.php` — button shows `Category · Profession`, chevron rotates on open, closes on outside click)
+- **Mobile :** catégories en dropdown `#tt-cats-menu` (coche sur actif), filtres en overlay avec backdrop `#tt-backdrop` (voir section responsive)
+- Profiles displayed as **grille 3 colonnes** with portrait cards `aspect-[3/4]` — hover overlay affiche les mensurations pour les professions avec `has_measurements=TRUE`
 - Filters on the **right**: mot-clé (**`<select>` dropdown** populated from all distinct `expertise_tags` values in DB, aggregated and sorted alphabetically), pays, ville
-- **Filtres mensurations** (visibles uniquement pour Mannequin/Danseur/Comédien) : 5 plages min–max (taille, poitrine, tour de taille, hanches, pointure) + selects yeux/cheveux/ethnicité — appliqués dans la requête SQL via `WHERE m.height >= :hmin` etc.
+- **Filtres mensurations** (visibles uniquement si `has_measurements=TRUE`) : 5 plages min–max (taille, poitrine, tour de taille, hanches, pointure) + selects yeux/cheveux/ethnicité — appliqués dans la requête SQL via `WHERE m.height >= :hmin` etc.
 - Results ordered by `RANDOM()`
 - Query joins `measurements`, `eye_colors`, `hair_colors`, `ethnicities` to show physical data on hover
 
@@ -237,7 +336,7 @@ The homepage is a professional feed (not carousels). Structure:
 - **Barre centrée au chargement** (padding-top `28vh`), remonte à `40px` dès qu'une recherche est active (transition CSS)
 - **Recherche dynamique** : debounce 350ms sur le texte, 400ms sur ville/mensurations — AJAX vers `?ajax=1` qui retourne JSON, rendu JS côté client
 - **Filtres principaux** (en ligne) : profession, pays, ville, tag
-- **Filtres mensurations** : apparaissent automatiquement (animation `max-height`) quand Mannequin / Danseur / Comédien est sélectionné. 5 plages min–max (taille, poitrine, tour de taille, hanches, pointure) + 3 selects (yeux, cheveux, ethnicité)
+- **Filtres mensurations** : apparaissent automatiquement (animation `max-height`) quand une profession avec `has_measurements=TRUE` est sélectionnée. 5 plages min–max (taille, poitrine, tour de taille, hanches, pointure) + 3 selects (yeux, cheveux, ethnicité)
 - Cards identiques à `trouver_talent.php` : grille portrait `aspect-[3/4]`, overlay mensurations au hover
 - Handler AJAX : `?ajax=1` retourne `{count, profiles[]}` — `age_range` calculé côté PHP avant sérialisation JSON
 
@@ -251,43 +350,63 @@ The profile page renders one of 3 layouts based on `users.profile_theme`:
 
 Theme is saved via `edit_profil.php?tab=theme` → `POST update_theme` (hidden input) → `User::updateTheme()`. Allowed values: `classique`, `editorial`, `luxe`.
 
+**Mobile header (Instagram-style) :** `#profil-mobile-header` rendu une seule fois avant les blocs de thème, caché sur desktop. Remplace la sidebar/hero sur mobile avec : avatar 82px + stats (photos/ville/âge) + nom + profession + tags + boutons actions + séparateur. Voir section "Responsive mobile — profil.php" pour le détail complet.
+
 **Bio button:** If `users.bio` is set, a "Biographie" pill button appears (all 3 themes) that opens a popup modal with the full bio text. If no bio, no button is shown (own profile shows "+ Ajouter une biographie" link in classique theme only).
 
-**Bouton partager :** pill arrondi avec icône share (3 cercles reliés) — `id="btn-share"` présent sur les 3 thèmes. `navigator.share` si dispo, sinon `clipboard.writeText`. Feedback "✓ Lien copié !" en mauve pendant 3s.
+**Bouton partager :** `doShare()` — fonction JS globale appelée depuis le header mobile ET depuis `btn-share` desktop. `navigator.share` si dispo, sinon `clipboard.writeText`. Feedback "✓ Copié !" pendant 3s.
+
+**Système de suivi (Follow) :** `renderActions($is_own_profile, $profile_id, $is_following, $followers_count)` — bouton **Suivre / Suivi ✓** présent sur desktop (dans `renderActions`) et mobile (header `#profil-mobile-header`). Toggle AJAX POST `toggle_follow=1` + `target_id` → réponse `{ok, following, count}`. Compteur followers affiché inline (`#followers-count-desktop`, `#followers-count-mobile`). Si non connecté, redirige vers `connexion.php`. `$is_following` et `$followers_count` calculés en PHP avant le HTML via requêtes sur la table `follows`.
 
 **Action buttons (owner only):** Two buttons rendered by `renderActions()` next to the profile name:
-- **"Photos"** — toggles inline drag-drop edit mode (see below)
-- **"Gérer mon profil ▾"** — click-toggled dropdown (IDs: `profile-menu-btn`, `profile-menu`). Items open the edit modal iframe.
+- **"Photos"** — toggles inline drag-drop edit mode (see below). `toggleEditMode()` synchronise `#edit-photos-btn` (desktop) et `#edit-photos-btn-mob` (mobile header).
+- **"Gérer mon profil"** → `edit_profil.php` direct link.
 
-**Edit profile modal:** Clicking any dropdown item opens a **full-screen modal** (95vw × 90vh) containing an `<iframe>` loading `edit_profil.php?tab=<tab>`. The sidebar (`#sidebar`) is forcibly hidden via CSS (`#sidebar { display:none !important }`) — `edit_profil.php` does NOT include `header.php`. `padding-left` is also reset to 0 on html/body. Closing the modal (`closeEditModal()`) reloads `profil.php`. IDs: `edit-modal`, `edit-iframe`.
+**Edit profile modal:** `edit_profil.php` is opened via a direct `<a href="edit_profil.php">` link (pas d'iframe). Après un save réussi (`$message` set, pas d'erreur), `edit_profil.php` fait un `header("Location: profil.php")` redirect automatique.
+
+**Projets (section en bas de toutes les pages profil) :** `profil.php` charge les projets du profil via `SELECT * FROM projects + LEFT JOIN required_profiles` (avec `json_agg`). Section affichée sous le book pour tous les visiteurs. Owner uniquement : bouton "＋ Nouveau projet" → `creer_projet.php`, bouton ✕ par carte → POST `delete_project`. Clic sur une carte → modal de détail (`#project-modal`) avec description, profils recherchés + leurs mensurations, contact.
 
 **Editorial theme fix:** Actions rendered **outside** the `overflow:hidden` hero container — placed in a separate `<div>` below the hero — so the dropdown is never clipped.
 
-**Inline photo editing (`includes/photos_edit_grid.php`):** Toggled by the "Photos" button. Shows a uniform grid (auto-fill minmax 180px) with:
-- **Drag & drop reorder** — HTML5 dragstart/dragover/drop, saves order via AJAX `photo_action=reorder` (JSON array of IDs → `portfolios.position`)
-- **Delete ✕** — hover-reveal button top-right of each tile, confirms then removes via AJAX `photo_action=delete` + `unlink()` on disk
+**Inline photo editing (`includes/photos_edit_grid.php`):** Toggled by the "Photos" button. Shows a uniform grid (auto-fill minmax 180px desktop, 3 colonnes fixes sur mobile) with:
+- **Drag & drop reorder** — HTML5 dragstart/dragover/drop sur desktop ; touch events (touchstart/touchmove/touchend + clone flottant) sur mobile. Saves order via AJAX `photo_action=reorder` (JSON array of IDs → `portfolios.position`)
+- **Delete ✕** — toujours visible sur mobile (opacity:1), hover-reveal sur desktop. Confirms then removes via AJAX `photo_action=delete` + `unlink()` on disk
 - **Add tile** — last cell, dashed border, clicks hidden `<input type="file" multiple>`, uploads via AJAX `photo_action=upload`, animates new tile in
 - All AJAX calls POST to `profil.php?id=<profile_id>`, handled at the top of the file before HTML output
 - Clicking "Terminer" or Échap exits edit mode and reloads the page to reflect new order
+- **Fix mobile CSS :** `#photos-view.hidden { display: none !important }` nécessaire car le CSS mobile force `display: grid !important` sur `.profil-masonry` — sans ce override, les photos normales restent visibles sous la grille d'édition
 
 **Portfolio management:** `Portfolio::getPhotos()` orders by `position ASC, created_at DESC`. `Portfolio::deletePhoto()` + `Portfolio::getPhotoById()` for ownership-checked deletion.
 
 **PHP upload limits:** `docker/Dockerfile` sets `upload_max_filesize = 50M`, `post_max_size = 55M`, `memory_limit = 256M` via `/usr/local/etc/php/conf.d/uploads.ini`.
 
+**2FA code copy-paste :** `verifier_code.php` écoute l'événement `paste` sur les 6 inputs → distribue automatiquement les chiffres dans chaque case. Backspace sur case vide → focus case précédente.
+
 ### edit_profil.php — tab system
 
-`edit_profil.php` is a **tab-based settings panel** — no scroll, no individual submit buttons. Key design:
+`edit_profil.php` is a **tab-based settings panel** — no scroll on desktop, full scroll on mobile. Key design:
 
-- **Layout:** fixed sidebar (240px, `bg-[#111]`) on the left + scrollable content area on the right. No `header.php` included — the sidebar is never rendered here.
+- **Layout desktop:** fixed sidebar (240px, `bg-[#111]`, classe `.ep-sidebar`) on the left + scrollable content area on the right (`.ep-content`). No `header.php` included.
+- **Layout mobile:** sidebar masquée (`.ep-sidebar { display:none }`), `html/body` passe en `height:auto; overflow:auto`. Tous les onglets affichés à la suite avec titres de section `.ep-section-title` (labels uppercase). Liens "Retour au profil" + "Se déconnecter" en bas du scroll (`.ep-mobile-footer`). Barre sticky Annuler/Valider pleine largeur (`left:0; right:0` via classe `.ep-sticky-bar`).
+- **`$tabs` et `$active_tab`** définis avant `<!doctype html>` (pas dans l'`<aside>`) pour être disponibles partout dans la page.
 - **Tabs:** `infos`, `expertise`, `bio`, `mensurations`, `theme`, `securite` — stored in `?tab=` URL param so the correct tab is restored after a POST redirect.
-- **Tab switching:** pure JS `switchTab(key)` — swaps `.tab-panel.active` and `.nav-item.active`.
-- **Global sticky bar:** a single `position:fixed; bottom:0; right:0` bar with **"Annuler"** + **"Valider"** buttons. "Valider" calls `document.querySelector('.tab-panel.active form').submit()`. "Annuler" calls `.reset()` on the active form. No per-tab submit buttons exist. **After a successful save (`$message` set), the modal is auto-closed** via `window.parent.closeEditModal()` (only when running in iframe).
+- **Tab switching:** pure JS `switchTab(key)` — swaps `.tab-panel.active` et `.nav-item.active`. Sur mobile : `window.scrollTo(0,0)`.
+- **Global sticky bar (`.ep-sticky-bar`):** `position:fixed; bottom:0; right:0` avec **"Annuler"** + **"Valider"**. Sur mobile : `left:0; right:0; border-radius:0`.
 - **`infos` tab:** photo upload (`profile_pic`), nom complet, **date de naissance** (date input → `users.birth_date`), **genre** (4 radio pills: Homme/Femme/Non-binaire/Autre), ville, pays, **toggle switch "Afficher mon âge"** (`show_age`) — `multipart/form-data`, hidden `update_general=1`. Avatar previewed via `FileReader`. `User::updateGeneralInfo()` prend `$show_age`, `$gender`, `$birth_date`.
 - **`expertise` tab:** tag pills (`data-selected` + inline style). Hidden `tags_string` mis à jour par `toggleEditTag()`. Hidden `update_expertise=1`.
 - **`mensurations` tab:** taille, poitrine, taille, hanches, pointure (number inputs) + selects pour yeux/cheveux/ethnicité (lookup tables). `User::upsertMeasurements()` fait INSERT ou UPDATE selon l'existence de la ligne. Hidden `update_measurements=1`.
 - **`bio`, `theme`, `securite` tabs:** même pattern hidden-input pour leurs handlers respectifs.
 - **`update_password` guard:** PHP vérifie `!empty($_POST['current_password'])` pour éviter le déclenchement sur d'autres soumissions.
 - **Age display:** `profil.php` calcule `$age` uniquement si `users.show_age = TRUE`.
+
+### creer_projet.php — key behaviors
+
+- Accessible depuis le bouton "＋ Nouveau projet" sur `profil.php` (owner uniquement)
+- Formulaire en 3 sections : Informations principales, Profils recherchés, Contact
+- **Profils recherchés — cartes dynamiques :** bouton "Ajouter un profil" clone une carte avec un `<select>` de professions. Plusieurs cartes du même métier autorisées. Bouton ✕ retire la carte, les numéros se réordonnent via JS `renumberCards()`.
+- **Mensurations conditionnelles :** quand le select d'une carte vaut une profession avec `has_measurements=TRUE`, un bloc mensurations (`max-height` CSS transition) apparaît. Liste chargée depuis DB et injectée en JS via `window.CHICBOOK_TALENT_PROFESSIONS`.
+- **Soumission PHP :** `profiles[]` tableau de cartes → INSERT dans `projects`, puis une ligne `required_profiles` par carte non-vide. `searched_profiles` (VARCHAR sur projects) = professions uniques jointes.
+- Redirect vers `profil.php` après création.
 
 ### evenements.php — key behaviors
 
@@ -302,16 +421,16 @@ Theme is saved via `edit_profil.php?tab=theme` → `POST update_theme` (hidden i
 ### messagerie.php — key behaviors
 
 - Requires login — redirects to `connexion.php` if not authenticated
-- **Layout:** `html, body { height:100%; overflow:hidden }` + flex **colonne**. Barre horizontale de bulles **en haut** (`#conv-topbar`, `overflow-x:auto`, scrollbar cachée). Zone de chat en dessous (`flex:1`).
-- **Barre du haut (bulles):** une bulle par conversation — avatar circulaire 52px (initiale si pas de photo). Au hover + état actif via CSS : prénom apparaît en dessous (`max-height` + opacity transition). Point mauve (`#d4a5d4`) en top-right si messages non lus. Anneau mauve (`box-shadow: 0 0 0 2px #d4a5d4`) sur l'avatar actif.
-- **Ouverture depuis un profil:** `?with=USER_ID` → trouve ou crée la conversation (`MIN/MAX` pour garantir l'unicité), marque comme lue, charge les messages.
+- **Layout desktop:** flex row — `#conv-list-panel` (360px, liste verticale) + `#chat-panel` (flex:1, chat). Sur mobile : liste plein écran par défaut, chat en slide-over `position:fixed`.
+- **Liste de conversations (`#conv-list-panel`):** header "Messages" (sans "Demandes"). Chaque `.conv-row` : avatar 54px, nom (bold si non lu), preview dernier message tronqué, timestamp relatif, point mauve si non lu. Classe `.unread` sur la row si `$c['unread'] > 0`.
+- **Ouverture depuis un profil:** `?with=USER_ID` → trouve ou crée la conversation (`MIN/MAX` pour garantir l'unicité), marque comme lue, charge les messages. Sur mobile ouvre directement le chat (slide-in + `body.chat-open`).
 - **AJAX handlers** (POST `action=`):
   - `send` — insère un message, retourne `id` + `created_at`
   - `poll` — retourne les messages `> last_id`, marque les reçus comme lus, retourne aussi la map `unread` par conv pour mettre à jour les badges
   - `open_conversation` — trouve ou crée une conv entre `$me` et `other_id`
 - **Polling:** `setInterval(poll, 2500)` sur la conv active
 - **Envoi:** Entrée (sans Shift) ou bouton. Textarea auto-resize via JS.
-- **Bulles JS:** `data-conv-id`, `data-other-id`, `data-name`, `data-avatar`, `data-profession` sur chaque `.conv-bubble`. Listener `click` délégué en JS (pas d'`onclick` inline pour éviter les problèmes d'échappement).
+- **Rows JS:** `data-conv-id`, `data-other-id`, `data-name`, `data-avatar`, `data-profession` sur chaque `.conv-row`. Listener `click` délégué en JS.
 - **URL:** `history.replaceState` vers `?conv=ID` lors du changement de conversation (sans rechargement).
 
 ### preferences.php — contenu
@@ -340,13 +459,18 @@ Page standalone (pas de `header.php`, pas de `body { padding-left: 260px }`). Se
 
 Accessible at `/admin/`. Protected by `auth_guard.php` which checks `$_SESSION['is_admin']`.
 
+**Lien depuis le site :** visible dans la sidebar uniquement pour les admins (`is_admin=TRUE`), uniquement sur desktop (≥1024px, injecté via JS `window.innerWidth`).
+
 - `login.php` — standalone login page, checks `users.is_admin = TRUE`
-- `index.php` — dashboard: 4 stat cards (users, castings, portfolios, new this month) + 2 recent-items tables
-- `utilisateurs.php` — paginated user list, search by name/email/profession, actions: suspend/reactivate, toggle admin, delete
+- `index.php` — dashboard: 8 stat cards (users, castings, projets, événements, signalements non lus, portfolios, métiers, nouveaux 30j). Quand des signalements non lus existent, ils remplacent le widget castings dans la 2e colonne.
+- `utilisateurs.php` — paginated user list, search by name/email/profession, actions: **Contacter** (modal email → `mail()`), suspend/reactivate, toggle admin, delete
 - `castings.php` — paginated casting list, search, delete
+- `projets.php` — paginated project list (titre, auteur, type, nb profils, date prévue), search, delete
 - `portfolios.php` — photo grid (5-col), hover-reveal delete with `unlink()`
 - `evenements.php` — event list, search, delete
-- `sidebar.php` — shared 220px fixed left sidebar for all admin pages
+- `signalements.php` — tabs Signalements / Suggestions. Badges non lus. Marquer lu / tout marquer lu / répondre par email (modal) / supprimer.
+- `metiers.php` — gestion catégories (`profession_categories`) + professions (`professions`). Modals ajouter/modifier pour chaque. Toggle "a des mensurations" par profession.
+- `sidebar.php` — shared 220px fixed left sidebar. Charge les counts non lus depuis DB (`reports` + `suggestions`). Badge rouge sur "Signalements" si non lus.
 
 To grant admin to a user: `UPDATE users SET is_admin = TRUE WHERE email = 'xxx';`
 
@@ -369,19 +493,20 @@ Uploaded files go to `uploads/` (gitignored). Path relative to webroot stored in
 | `inscription.php` | Registration: prenom+nom, birth_date (max = il y a 16 ans, bloqué JS), clickable tag pills, conditional mensurations |
 | `connexion.php` | Login step 1 (email + password) |
 | `verifier_code.php` | Login step 2 (2FA code entry) |
-| `profil.php` | Public talent profile — 3 themes, bio popup, inline photo drag-drop edit |
-| `edit_profil.php` | Settings: avatar, general info, expertise tags, bio, portfolio upload, theme picker, password |
+| `profil.php` | Public talent profile — 3 themes, bio popup, inline photo drag-drop edit (touch+desktop), follow system, followers count, section projets |
+| `edit_profil.php` | Settings: avatar, general info, expertise tags, bio, portfolio upload, theme picker, password — desktop: sidebar + tabs ; mobile: scroll unique toutes sections — redirect vers profil.php après save |
+| `creer_projet.php` | Create project: title, type, date, description, dynamic profile cards (profession select + mensurations conditionnelles pour Mannequin/Comédien/Danseur), contact |
 | `castings.php` | Browse/filter castings (filters on right), favorites, own castings, modal detail view |
 | `creer_casting.php` | Create casting: multi-profile builder with ranges, two dates, live preview |
 | `edit_casting.php` | Edit existing casting — **not yet migrated to Tailwind** (still uses `src/` CSS) |
 | `trouver_talent.php` | Browse talents by category + profession, grid portrait cards, hover overlay mensurations, filters on right |
 | `recherche.php` | Recherche talents full-text + filtres inline + filtres mensurations (Mannequin/Danseur/Comédien), AJAX dynamique debounced |
-| `messagerie.php` | Messagerie temps réel — bulles avatars en haut (barre horizontale), chat en dessous, polling AJAX 2.5s, `?with=USER_ID` ouvre/crée une conv |
+| `messagerie.php` | Messagerie temps réel — liste conversations (style iMessage) à gauche/plein écran mobile, chat à droite/slide-over mobile, polling AJAX 2.5s, `?with=USER_ID` ouvre/crée une conv |
 | `evenements.php` | Events: tabs, card grid, right filters, AJAX registration toggle, modal — login required |
 | `creer_evenement.php` | Create event: title, type, organizer, city/country, date, price, capacity, description, tags, image |
 | `preferences.php` | Plus : toggle thème + signaler un problème (`reports`) + suggérer une amélioration (`suggestions`) + déconnexion |
 | `apropos.php` | Page À propos **standalone** (sans sidebar, sans `header.php`) — ouverte en `target="_blank"`. Hero animé, marquee métiers, stats compteurs, 3 sections piliers avec scroll-reveal, bouton "Revenir sur ChicBook" en bas |
 | `logout.php` | Destroys session, redirects to index |
-| `admin/` | Back office: dashboard, users, castings, portfolios, events — requires `is_admin` |
+| `admin/` | Back office: dashboard, users, castings, projets, portfolios, events, signalements, métiers — requires `is_admin`. Lien discret dans sidebar front (desktop + admin only). |
 
 > **Note:** `edit_casting.php` still references `src/style.css` and `src/edit_casting.css` — not yet migrated to Tailwind.

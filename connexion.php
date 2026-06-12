@@ -54,6 +54,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <style>
       .input-field { width:100%; padding:15px 20px; border-radius:8px; border:none; background:#fff; font-size:15px; font-family:inherit; color:#1a1a1a; outline:none; }
       .input-field::placeholder { color:#999; }
+      @media (max-width:768px) { #mobile-topbar { display:none !important; } }
     </style>
 </head>
 <body class="bg-black text-white font-['Arial',sans-serif]">
@@ -78,7 +79,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <div><input type="email" name="email" placeholder="Adresse email" required class="input-field"></div>
                 <div><input type="password" name="password" placeholder="Mot de passe" required class="input-field"></div>
                 <button type="submit" class="bg-[#d4a5d4] text-[#1a1a1a] py-4 rounded-full text-base font-bold mt-2.5 hover:opacity-90 transition-opacity cursor-pointer border-none">Se connecter</button>
-                <p class="text-center text-[#888] text-sm mt-4">
+                <p class="text-center mt-2">
+                    <a href="mot_de_passe_oublie.php" class="text-[#888] text-sm hover:text-[#d4a5d4] transition-colors">Mot de passe oublié ?</a>
+                </p>
+                <p class="text-center text-[#888] text-sm mt-2">
                     Pas encore de compte ? <a href="inscription.php" class="text-[#888] underline hover:text-[#d4a5d4] transition-colors">S'inscrire</a>
                 </p>
             </form>

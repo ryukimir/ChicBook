@@ -8,9 +8,11 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $db = Database::getInstance()->getConnection();
-$eyeColors = $db->query("SELECT id, name FROM eye_colors ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
-$hairColors = $db->query("SELECT id, name FROM hair_colors ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
-$ethnicities = $db->query("SELECT id, name FROM ethnicities ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$eyeColors          = $db->query("SELECT id, name FROM eye_colors ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$hairColors         = $db->query("SELECT id, name FROM hair_colors ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$ethnicities        = $db->query("SELECT id, name FROM ethnicities ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$professions_list   = $db->query("SELECT name FROM professions ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
+$talent_professions = $db->query("SELECT name FROM professions WHERE has_measurements=TRUE ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
 
 $message = "";
 
@@ -53,10 +55,156 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
         $db->commit();
         $message = "success";
+
+        // Notifications email aux talents correspondants
+        $casting_info = [
+            'company'          => $_POST['company_name'] ?: 'Non précisé',
+            'city'             => $_POST['city'],
+            'country'          => $_POST['country'],
+            'description'      => $_POST['description'],
+            'casting_date'     => $_POST['casting_date'] ?: null,
+            'performance_date' => $_POST['performance_date'] ?: null,
+            'collab_type'      => $_POST['collaboration_type'],
+            'id'               => $casting_id,
+        ];
+        $host = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS']==='on' ? 'https' : 'http').'://'.$_SERVER['HTTP_HOST'];
+
+        // Charger les profils insérés avec le flag has_measurements
+        $stmtCP = $db->prepare("
+            SELECT cp.*, pr.has_measurements
+            FROM casting_profiles cp
+            JOIN professions pr ON pr.name = cp.role_name
+            WHERE cp.casting_id = ?
+        ");
+        $stmtCP->execute([$casting_id]);
+        $cp_list = $stmtCP->fetchAll(PDO::FETCH_ASSOC);
+
+        $notified_ids = [];
+        foreach ($cp_list as $cp) {
+            $where  = ["p.name = :role", "u.id != :creator", "u.is_suspended = FALSE"];
+            $binds  = [':role' => $cp['role_name'], ':creator' => $_SESSION['user_id']];
+            $join_m = '';
+
+            if ($cp['has_measurements']) {
+                $join_m = "LEFT JOIN measurements m ON m.user_id = u.id";
+                addMeasurementConditions($cp, $where, $binds);
+            }
+
+            $sql = "SELECT DISTINCT u.id, u.email, u.full_name, p.name AS profession
+                    FROM users u
+                    JOIN user_professions up ON up.user_id = u.id
+                    JOIN professions p ON p.id = up.profession_id
+                    $join_m
+                    WHERE " . implode(' AND ', $where);
+
+            $stmtU = $db->prepare($sql);
+            $stmtU->execute($binds);
+            foreach ($stmtU->fetchAll(PDO::FETCH_ASSOC) as $rec) {
+                if (!in_array($rec['id'], $notified_ids)) {
+                    $notified_ids[] = $rec['id'];
+                    sendCastingNotification($rec, $casting_info, $cp, $host);
+                }
+            }
+        }
+
     } catch (Exception $e) {
         $db->rollBack();
         $message = "Erreur : " . $e->getMessage();
     }
+}
+
+// Parse une chaîne de plage "min - max" / "min+" / "< max" → [min|null, max|null]
+function parseRange(?string $range): array {
+    if (!$range) return [null, null];
+    $r = trim($range);
+    if (preg_match('/^(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)$/', $r, $m)) return [(float)$m[1], (float)$m[2]];
+    if (preg_match('/^(\d+(?:\.\d+)?)\+$/', $r, $m))                       return [(float)$m[1], null];
+    if (preg_match('/^<\s*(\d+(?:\.\d+)?)$/', $r, $m))                     return [null, (float)$m[1]];
+    return [null, null];
+}
+
+// Ajoute les conditions SQL de mensurations (lénient : user sans mensuration = OK)
+function addMeasurementConditions(array $cp, array &$where, array &$binds): void {
+    $numeric = [
+        'height'     => 'm.height',
+        'chest_size' => "NULLIF(regexp_replace(m.chest_size, '[^0-9]', '', 'g'), '')::NUMERIC",
+        'waist_size' => "NULLIF(regexp_replace(m.waist_size, '[^0-9]', '', 'g'), '')::NUMERIC",
+        'hip_size'   => "NULLIF(regexp_replace(m.hip_size, '[^0-9]', '', 'g'), '')::NUMERIC",
+        'shoe_size'  => "NULLIF(regexp_replace(m.shoe_size, '[^0-9]', '', 'g'), '')::NUMERIC",
+    ];
+    foreach ($numeric as $field => $sql_expr) {
+        [$min, $max] = parseRange($cp[$field] ?? null);
+        $key = $field;
+        if ($min !== null) {
+            $where[] = "($sql_expr IS NULL OR $sql_expr >= :min_$key)";
+            $binds[":min_$key"] = $min;
+        }
+        if ($max !== null) {
+            $where[] = "($sql_expr IS NULL OR $sql_expr <= :max_$key)";
+            $binds[":max_$key"] = $max;
+        }
+    }
+    // Yeux, cheveux, ethnicité : uniquement si le user a renseigné et ça ne correspond pas
+    if (!empty($cp['eye_color_id'])) {
+        $where[] = "(m.eye_color_id IS NULL OR m.eye_color_id = :eye_color_id)";
+        $binds[':eye_color_id'] = $cp['eye_color_id'];
+    }
+    if (!empty($cp['hair_color_id'])) {
+        $where[] = "(m.hair_color_id IS NULL OR m.hair_color_id = :hair_color_id)";
+        $binds[':hair_color_id'] = $cp['hair_color_id'];
+    }
+    if (!empty($cp['ethnicity_id'])) {
+        $where[] = "(m.ethnicity_id IS NULL OR m.ethnicity_id = :ethnicity_id)";
+        $binds[':ethnicity_id'] = $cp['ethnicity_id'];
+    }
+    // Genre
+    if (!empty($cp['gender'])) {
+        $where[] = "(u.gender IS NULL OR u.gender = :gender)";
+        $binds[':gender'] = $cp['gender'];
+    }
+}
+
+function sendCastingNotification(array $user, array $c, array $cp, string $host): void {
+    $casting_url = $host . '/castings.php?view=offres&highlight=' . $c['id'];
+
+    $casting_date_fmt     = $c['casting_date']     ? date('d/m/Y', strtotime($c['casting_date']))     : null;
+    $performance_date_fmt = $c['performance_date'] ? date('d/m/Y', strtotime($c['performance_date'])) : null;
+
+    $dates_line = '';
+    if ($casting_date_fmt)     $dates_line .= "Date d'audition    : " . $casting_date_fmt . "\n";
+    if ($performance_date_fmt) $dates_line .= "Date de realisation : " . $performance_date_fmt . "\n";
+
+    // Résumé des mensurations du profil recherché
+    $meas_lines = '';
+    if ($cp['has_measurements']) {
+        $fields = ['height' => 'Taille', 'chest_size' => 'Poitrine', 'waist_size' => 'Tour de taille', 'hip_size' => 'Hanches', 'shoe_size' => 'Pointure'];
+        foreach ($fields as $f => $label) {
+            if (!empty($cp[$f])) $meas_lines .= "  $label : " . $cp[$f] . "\n";
+        }
+        if (!empty($cp['age_range']))  $meas_lines .= "  Age : " . $cp['age_range'] . "\n";
+        if (!empty($cp['gender']))     $meas_lines .= "  Genre : " . $cp['gender'] . "\n";
+    }
+
+    $subject = "Nouveau casting pour vous - " . ($c['company'] !== 'Non précisé' ? $c['company'] : $c['city']);
+    $body  = "Bonjour " . $user['full_name'] . ",\n\n";
+    $body .= "Un nouveau casting correspondant a votre profil (" . $user['profession'] . ") vient d'etre publie sur ChicBook.\n\n";
+    $body .= "----------------------------\n";
+    $body .= "Societe / Client : " . $c['company'] . "\n";
+    $body .= "Lieu             : " . $c['city'] . ", " . $c['country'] . "\n";
+    $body .= "Profil recherche : " . $cp['role_name'] . ($cp['quantity'] > 1 ? " (x{$cp['quantity']})" : '') . "\n";
+    $body .= "Collaboration    : " . $c['collab_type'] . "\n";
+    if ($dates_line) $body .= $dates_line;
+    if ($meas_lines) $body .= "Mensurations attendues :\n" . $meas_lines;
+    $body .= "----------------------------\n\n";
+    if (!empty($c['description'])) {
+        $body .= "Description :\n" . $c['description'] . "\n\n";
+    }
+    $body .= "Voir le casting complet : " . $casting_url . "\n\n";
+    $body .= "A tres vite,\nL'equipe ChicBook.\n\n";
+    $body .= "---\nPour ne plus recevoir ces notifications, rendez-vous dans vos preferences sur ChicBook.";
+
+    $headers = "From: contact@chicbook.com\r\nReply-To: contact@chicbook.com\r\nX-Mailer: PHP/" . phpversion();
+    mail($user['email'], $subject, $body, $headers);
 }
 
 function buildRange($min, $max) {
@@ -71,6 +219,7 @@ function buildRange($min, $max) {
 <html lang="fr" <?php if((($_COOKIE['chicbook_theme']??'dark')==='light'))echo' class="light"';?>>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Créer un casting - ChicBook</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -82,6 +231,12 @@ function buildRange($min, $max) {
     <style>
       .form-control { width:100%; padding:10px 12px; border-radius:6px; border:1px solid #333; background:#111; color:white; font-size:14px; font-family:inherit; }
       .form-control:focus { outline:none; border-color:#d4a5d4; }
+      @media (max-width: 768px) {
+        .cc-wrapper { flex-direction: column !important; padding: 16px 12px 100px !important; margin-top: 0 !important; }
+        .cc-preview { display: none !important; }
+        .mensurations-grid { grid-template-columns: 1fr 1fr !important; }
+        #mobile-topbar { display: none !important; }
+      }
       textarea.form-control { height:120px; resize:vertical; }
       select.form-control { appearance:none; background-image:url('data:image/svg+xml;utf8,<svg fill="white" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>'); background-repeat:no-repeat; background-position-x:98%; background-position-y:50%; }
       label { display:block; margin-bottom:6px; color:#ddd; font-size:13px; font-weight:bold; }
@@ -106,7 +261,7 @@ function buildRange($min, $max) {
     </div>
     <?php else: ?>
 
-    <div class="max-w-[1400px] mx-auto mt-10 mb-10 flex gap-10 px-8">
+    <div class="max-w-[1400px] mx-auto mt-10 mb-10 flex gap-10 px-8 cc-wrapper">
         <!-- Formulaire -->
         <main class="flex-[2] bg-[#1a1a1a] p-8 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
             <div class="text-center mb-8">
@@ -135,14 +290,15 @@ function buildRange($min, $max) {
                                 <label>Rôle recherché</label>
                                 <select name="roles[]" class="form-control role-selector" required>
                                     <option value="">Sélectionnez un rôle</option>
-                                    <?php foreach (['Mannequin','Comédien','Danseur','Photographe','Vidéaste','Maquilleur','Styliste'] as $r): ?>
-                                        <option value="<?= $r ?>"><?= $r ?></option>
+                                    <?php foreach ($professions_list as $r): ?>
+                                        <option value="<?= htmlspecialchars($r) ?>"><?= htmlspecialchars($r) ?></option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
                             <div class="form-group flex-1"><label>Quantité</label><input type="number" name="quantities[]" class="form-control" value="1" min="1" required></div>
                         </div>
                         <div class="mensurations-grid" style="display:none; margin-top:16px; padding-top:16px; border-top:1px dashed #444;">
+                            <p class="text-[#888] text-xs mb-3" style="grid-column:1/-1;">Tous les critères ci-dessous sont facultatifs — laissez vide pour ne pas filtrer.</p>
                             <div class="form-group">
                                 <label>Tranche d'âge &amp; Genre</label>
                                 <div class="flex gap-3">
@@ -248,7 +404,7 @@ function buildRange($min, $max) {
         </main>
 
         <!-- Prévisualisation -->
-        <aside class="w-[300px] flex-shrink-0">
+        <aside class="w-[300px] flex-shrink-0 cc-preview">
             <div class="sticky top-[100px]">
                 <p class="text-[#888] text-xs uppercase tracking-wider mb-3 font-bold">Aperçu de la carte</p>
                 <div class="casting-card bg-[#1a1a1a] rounded-xl overflow-hidden border border-[#333] flex flex-col">
@@ -273,6 +429,7 @@ function buildRange($min, $max) {
 
     <?php endif; ?>
 
+    <script>window.CHICBOOK_TALENT_PROFESSIONS = <?= json_encode($talent_professions) ?>;</script>
     <script src="assets/js/script.js"></script>
     <script src="assets/js/creer_casting.js"></script>
 </body>

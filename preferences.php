@@ -58,6 +58,7 @@ if (!empty($_POST['submit_suggestion'])) {
         html.light .about-card { background:#fff; border:1px solid #e0dbd4; }
         .about-card-icon { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; background:rgba(212,165,212,0.12); flex-shrink:0; }
         .about-card-icon svg { width:22px; height:22px; stroke:#d4a5d4; }
+        @media (max-width: 768px) { #mobile-topbar { display: none !important; } }
     </style>
 </head>
 <body class="bg-black text-white" style="font-family:'Open Sans',sans-serif;">
