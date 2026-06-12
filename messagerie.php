@@ -313,10 +313,11 @@ $my_info = (new User($db))->getUserProfile($me);
                 <?php foreach ($open_messages as $msg): ?>
                     <?php $is_mine = ($msg['sender_id'] == $me); ?>
                     <div style="display:flex;justify-content:<?= $is_mine ? 'flex-end' : 'flex-start' ?>;margin-bottom:4px;" data-msg-id="<?= $msg['id'] ?>">
-                        <div class="msg-bubble" style="max-width:70%;border-radius:18px;font-size:13px;line-height:1.5;overflow:hidden;<?= $is_mine ? 'background:#d4a5d4;color:#000;border-bottom-right-radius:4px;' : 'background:#1a1a1a;color:#fff;border-bottom-left-radius:4px;' ?>">
+                        <?php $img_only = !empty($msg['image_url']) && empty($msg['content']); ?>
+                        <div class="msg-bubble" style="max-width:70%;border-radius:18px;font-size:13px;line-height:1.5;overflow:hidden;<?= $img_only ? 'background:transparent;' : ($is_mine ? 'background:#d4a5d4;color:#000;' : 'background:#1a1a1a;color:#fff;') ?><?= $is_mine ? 'border-bottom-right-radius:4px;' : 'border-bottom-left-radius:4px;' ?>">
                             <?php if (!empty($msg['image_url'])): ?>
                             <a href="<?= htmlspecialchars($msg['image_url']) ?>" target="_blank">
-                                <img src="<?= htmlspecialchars($msg['image_url']) ?>" style="display:block;max-width:240px;max-height:240px;width:100%;<?= $msg['content'] ? '' : 'border-radius:14px;' ?>">
+                                <img src="<?= htmlspecialchars($msg['image_url']) ?>" style="display:block;max-width:240px;max-height:240px;width:100%;border-radius:14px;">
                             </a>
                             <?php endif; ?>
                             <?php if ($msg['content']): ?>
@@ -324,8 +325,6 @@ $my_info = (new User($db))->getUserProfile($me);
                                 <?= nl2br(htmlspecialchars($msg['content'])) ?>
                                 <div style="font-size:10px;margin-top:4px;text-align:right;<?= $is_mine ? 'color:rgba(0,0,0,0.4)' : 'color:#555' ?>"><?= date('H:i', strtotime($msg['created_at'])) ?></div>
                             </div>
-                            <?php else: ?>
-                            <div style="padding:4px 10px 6px;font-size:10px;text-align:right;<?= $is_mine ? 'color:rgba(0,0,0,0.4)' : 'color:#555' ?>"><?= date('H:i', strtotime($msg['created_at'])) ?></div>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -404,19 +403,17 @@ function renderMessage(msg) {
     const wrap = document.createElement('div');
     wrap.style.cssText = 'display:flex;justify-content:' + (isMine ? 'flex-end' : 'flex-start') + ';margin-bottom:4px;';
     wrap.dataset.msgId = msg.id;
-    const bubbleBase = isMine
-        ? 'max-width:70%;border-radius:18px;border-bottom-right-radius:4px;font-size:13px;line-height:1.5;background:#d4a5d4;color:#000;overflow:hidden;'
-        : 'max-width:70%;border-radius:18px;border-bottom-left-radius:4px;font-size:13px;line-height:1.5;background:#1a1a1a;color:#fff;overflow:hidden;';
+    const imgOnly = msg.image_url && !msg.content;
+    const bubbleBg = imgOnly ? 'background:transparent;' : (isMine ? 'background:#d4a5d4;color:#000;' : 'background:#1a1a1a;color:#fff;');
+    const bubbleBase = `max-width:70%;border-radius:18px;${isMine?'border-bottom-right-radius:4px;':'border-bottom-left-radius:4px;'}font-size:13px;line-height:1.5;overflow:hidden;${bubbleBg}`;
     const timeHtml = `<div style="font-size:10px;margin-top:4px;text-align:right;color:${isMine?'rgba(0,0,0,0.4)':'#555'}">${time}</div>`;
     let inner = '';
     if (msg.image_url) {
-        inner += `<a href="${msg.image_url}" target="_blank"><img src="${msg.image_url}" style="display:block;max-width:240px;max-height:240px;border-radius:${msg.content?'0':'14px'};width:100%;"></a>`;
+        inner += `<a href="${msg.image_url}" target="_blank"><img src="${msg.image_url}" style="display:block;max-width:240px;max-height:240px;border-radius:14px;width:100%;"></a>`;
     }
     if (msg.content) {
         const text = msg.content.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/\n/g,'<br>');
         inner += `<div style="padding:10px 14px;">${text}${timeHtml}</div>`;
-    } else if (msg.image_url) {
-        inner += `<div style="padding:4px 10px 6px;">${timeHtml}</div>`;
     }
     wrap.innerHTML = `<div class="msg-bubble" style="${bubbleBase}">${inner}</div>`;
     return wrap;
