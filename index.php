@@ -52,6 +52,9 @@ $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM eve
       letter-spacing: 0.03em;
       text-transform: uppercase;
     }
+    html.light .fashion-widget { background: linear-gradient(145deg,#ece8e3,#f5f0eb) !important; box-shadow: 0 1px 0 rgba(255,255,255,0.8) inset, 0 2px 12px rgba(0,0,0,0.08) !important; }
+    html.light .fashion-widget .text-white { color: #1a1a1a !important; }
+    html.light .fashion-widget .text-\[\#777\] { color: #555 !important; }
   </style>
 </head>
 <body class="bg-black text-white font-['Arial',sans-serif]">
@@ -287,7 +290,7 @@ $upcoming_events = $db->query("SELECT id, title, event_date, city, type FROM eve
       <?php endif; ?>
 
       <!-- Bloc La mode en mouvement -->
-      <div class="rounded-3xl p-8 flex flex-col items-center text-center gap-4" style="background: linear-gradient(145deg,#1e1e1e,#111); box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 -2px 0 rgba(0,0,0,0.8), 0 12px 32px rgba(0,0,0,0.6);">
+      <div class="rounded-3xl p-8 flex flex-col items-center text-center gap-4 fashion-widget" style="background: linear-gradient(145deg,#1e1e1e,#111); box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 -2px 0 rgba(0,0,0,0.8), 0 12px 32px rgba(0,0,0,0.6);">
         <span class="text-white text-lg font-black uppercase tracking-[0.2em]"><?= t('feed.fashion_movement') ?></span>
         <p class="text-[#777] text-[13px] leading-relaxed">Créatifs, marques, agences… ne manquez rien de la communauté ChicBook.</p>
       </div>

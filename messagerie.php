@@ -210,6 +210,30 @@ $my_info = (new User($db))->getUserProfile($me);
           #chat-profile-link { display: none; }
         }
         #msg-back-btn { display: none; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; background: #1a1a1a; flex-shrink: 0; cursor: pointer; }
+
+        /* ── Light theme overrides ── */
+        html.light #conv-list-panel { background: #faf7f4 !important; border-right-color: #e0dbd4 !important; }
+        html.light #chat-panel { background: #f5f1ec !important; }
+        html.light #chat-header-bar { background: #faf7f4 !important; border-bottom-color: #e0dbd4 !important; }
+        html.light #chat-input-bar { background: #faf7f4 !important; border-top-color: #e0dbd4 !important; }
+        html.light #chat-messages { background: #f5f1ec !important; }
+        html.light #chat-empty { background: #f5f1ec !important; }
+        html.light .conv-row { border-bottom-color: #ede8e2 !important; }
+        html.light .conv-row:hover { background: #ece8e3 !important; }
+        html.light .conv-row.active { background: #e8e3dd !important; }
+        html.light .conv-row .cr-name { color: #1a1a1a !important; }
+        html.light .conv-row .cr-preview { color: #777 !important; }
+        html.light .conv-row.unread .cr-preview { color: #444 !important; }
+        html.light .conv-row .cr-time { color: #888 !important; }
+        html.light #msg-back-btn { background: #e8e3dd !important; color: #1a1a1a !important; }
+        html.light #chat-messages::-webkit-scrollbar-thumb { background: #ccc !important; }
+        html.light .msg-bubble[style*="background:#1a1a1a"] { background: #e8e3dd !important; color: #1a1a1a !important; }
+        html.light #msg-input { background: #fff !important; color: #1a1a1a !important; border-color: #d5d0ca !important; }
+        html.light #chat-name-link { color: #1a1a1a !important; }
+        html.light #chat-name-link:hover { color: #a060a0 !important; }
+        html.light #chat-profession { color: #777 !important; }
+        html.light #chat-profile-link { color: #777 !important; }
+        html.light #chat-profile-link:hover { color: #a060a0 !important; }
     </style>
 </head>
 <body class="bg-black text-white" style="font-family:'Open Sans',sans-serif;">
@@ -279,7 +303,7 @@ $my_info = (new User($db))->getUserProfile($me);
         <div id="chat-active" class="<?= $open_conv_id ? 'flex' : 'hidden' ?>" style="flex-direction:column;flex:1;min-height:0;overflow:hidden;">
 
             <!-- Header chat -->
-            <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #1a1a1a;flex-shrink:0;background:#0a0a0a;">
+            <div id="chat-header-bar" style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #1a1a1a;flex-shrink:0;background:#0a0a0a;">
                 <!-- Bouton retour (mobile seulement) -->
                 <button id="msg-back-btn" onclick="closeChatMobile()" title="Retour">
                     <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
@@ -296,20 +320,20 @@ $my_info = (new User($db))->getUserProfile($me);
                 <!-- Nom + profession -->
                 <div style="flex:1;min-width:0;">
                     <a id="chat-name-link" href="<?= $open_other ? 'profil.php?id='.$open_other['id'] : '#' ?>" style="font-weight:700;font-size:14px;color:#fff;text-decoration:none;"
-                       onmouseover="this.style.color='#d4a5d4'" onmouseout="this.style.color='#fff'">
+                       onmouseover="this.style.color='#d4a5d4'" onmouseout="this.style.color=document.documentElement.classList.contains('light')?'#1a1a1a':'#fff'">
                         <?= $open_other ? htmlspecialchars($open_other['full_name']) : '' ?>
                     </a>
                     <p id="chat-profession" style="font-size:12px;color:#555;margin:0;"><?= $open_other ? htmlspecialchars($open_other['specific_profession'] ?? '') : '' ?></p>
                 </div>
                 <a id="chat-profile-link" href="<?= $open_other ? 'profil.php?id='.$open_other['id'] : '#' ?>" style="font-size:12px;color:#555;text-decoration:none;display:flex;align-items:center;gap:4px;"
-                   onmouseover="this.style.color='#d4a5d4'" onmouseout="this.style.color='#555'">
+                   onmouseover="this.style.color='#d4a5d4'" onmouseout="this.style.color='#555';" >
                     <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                     Voir le profil
                 </a>
             </div>
 
             <!-- Messages -->
-            <div id="chat-messages" style="flex:1;min-height:0;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:10px;">
+            <div id="chat-messages" style="flex:1;min-height:0;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:10px;background:inherit;">
                 <?php foreach ($open_messages as $msg): ?>
                     <?php $is_mine = ($msg['sender_id'] == $me); ?>
                     <div style="display:flex;justify-content:<?= $is_mine ? 'flex-end' : 'flex-start' ?>;margin-bottom:4px;" data-msg-id="<?= $msg['id'] ?>">
@@ -332,7 +356,7 @@ $my_info = (new User($db))->getUserProfile($me);
             </div>
 
             <!-- Zone de saisie -->
-            <div style="flex-shrink:0;border-top:1px solid #1a1a1a;padding:12px 20px;background:#0a0a0a;">
+            <div id="chat-input-bar" style="flex-shrink:0;border-top:1px solid #1a1a1a;padding:12px 20px;background:#0a0a0a;">
                 <!-- Preview image sélectionnée -->
                 <div id="img-preview-wrap" style="display:none;margin-bottom:8px;position:relative;width:fit-content;">
                     <img id="img-preview" style="max-height:80px;max-width:180px;border-radius:10px;border:1px solid #333;" src="" alt="">
