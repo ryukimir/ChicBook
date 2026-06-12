@@ -55,6 +55,22 @@
 
 <div class="grid gap-3" style="grid-template-columns: repeat(auto-fill, minmax(180px,1fr));" id="edit-grid">
     <?php foreach ($photos as $photo): ?>
+    <?php if (!empty($photo['video_url'])):
+        $yt_id_edit = extractYoutubeId($photo['video_url']); ?>
+    <div class="photo-tile"
+         draggable="true"
+         data-id="<?= $photo['id'] ?>"
+         data-video-url="<?= htmlspecialchars($photo['video_url']) ?>">
+        <img src="https://img.youtube.com/vi/<?= $yt_id_edit ?>/hqdefault.jpg" alt="" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;">
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+            <div style="width:34px;height:34px;border-radius:50%;background:rgba(212,165,212,0.85);display:flex;align-items:center;justify-content:center;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="#000"><path d="M8 5v14l11-7z"/></svg>
+            </div>
+        </div>
+        <button class="delete-btn" onclick="deletePhoto(<?= $photo['id'] ?>, this.closest('.photo-tile'))" title="Supprimer">✕</button>
+        <div class="drag-handle">⠿⠿⠿</div>
+    </div>
+    <?php else: ?>
     <div class="photo-tile"
          draggable="true"
          data-id="<?= $photo['id'] ?>"
@@ -63,18 +79,36 @@
         <button class="delete-btn" onclick="deletePhoto(<?= $photo['id'] ?>, this.closest('.photo-tile'))" title="Supprimer">✕</button>
         <div class="drag-handle">⠿⠿⠿</div>
     </div>
+    <?php endif; ?>
     <?php endforeach; ?>
 
-    <!-- Tile "ajouter" -->
+    <!-- Tile "ajouter photo" -->
     <div class="add-tile" onclick="document.getElementById('photo-file-input').click()">
-        <svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
-        </svg>
-        <span style="font-size:12px;font-weight:600;">Ajouter une photo</span>
+        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        <span style="font-size:12px;font-weight:600;">Photo</span>
+    </div>
+    <!-- Tile "ajouter vidéo YouTube" -->
+    <div class="add-tile" onclick="document.getElementById('video-modal').style.display='flex'">
+        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span style="font-size:12px;font-weight:600;">Vidéo YouTube</span>
     </div>
 </div>
 
 <input type="file" id="photo-file-input" accept="image/*" multiple class="hidden">
+
+<!-- Modal ajout vidéo YouTube -->
+<div id="video-modal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
+    <div style="background:#111;border:1px solid #2a2a2a;border-radius:20px;padding:32px;width:100%;max-width:440px;margin:16px;">
+        <h3 style="color:#fff;font-weight:700;font-size:16px;margin:0 0 6px;">Ajouter une vidéo YouTube</h3>
+        <p style="color:#666;font-size:13px;margin:0 0 20px;">Collez l'URL de votre vidéo YouTube ci-dessous.</p>
+        <input id="video-url-input" type="text" placeholder="https://www.youtube.com/watch?v=..." style="width:100%;padding:12px 16px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;color:#fff;font-size:13px;outline:none;box-sizing:border-box;" oninput="this.style.borderColor='#2a2a2a'">
+        <p id="video-url-error" style="color:#e55;font-size:12px;margin:8px 0 0;display:none;">URL invalide. Vérifiez le lien YouTube.</p>
+        <div style="display:flex;gap:10px;margin-top:20px;">
+            <button onclick="closeVideoModal()" style="flex:1;padding:11px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;color:#888;font-size:13px;font-weight:600;cursor:pointer;">Annuler</button>
+            <button onclick="submitVideo()" style="flex:1;padding:11px;background:#d4a5d4;border:none;border-radius:12px;color:#000;font-size:13px;font-weight:700;cursor:pointer;">Ajouter</button>
+        </div>
+    </div>
+</div>
 
 <div id="upload-progress" class="hidden mt-4 flex items-center gap-3 text-sm text-[#888]">
     <svg class="animate-spin w-4 h-4 text-brand" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
@@ -208,6 +242,52 @@
             }
         });
     };
+
+    // ── Vidéo YouTube ────────────────────────────────────────────
+    window.closeVideoModal = function() {
+        document.getElementById('video-modal').style.display = 'none';
+        document.getElementById('video-url-input').value = '';
+        document.getElementById('video-url-error').style.display = 'none';
+    };
+
+    window.submitVideo = async function() {
+        const url = document.getElementById('video-url-input').value.trim();
+        const errEl = document.getElementById('video-url-error');
+        if (!url) { errEl.style.display = 'block'; return; }
+        errEl.style.display = 'none';
+        const fd = new FormData();
+        fd.append('photo_action', 'add_video');
+        fd.append('video_url', url);
+        const res = await fetch('profil.php?id=<?= $profile_id ?>', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!data.ok) { errEl.textContent = data.err || 'URL invalide.'; errEl.style.display = 'block'; return; }
+        const addTiles = grid.querySelectorAll('.add-tile');
+        const tile = document.createElement('div');
+        tile.className = 'photo-tile';
+        tile.draggable = true;
+        tile.dataset.id = data.id;
+        tile.dataset.videoUrl = data.video_url;
+        tile.innerHTML = `
+            <img src="${data.thumb}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;">
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+                <div style="width:34px;height:34px;border-radius:50%;background:rgba(212,165,212,0.85);display:flex;align-items:center;justify-content:center;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="#000"><path d="M8 5v14l11-7z"/></svg>
+                </div>
+            </div>
+            <button class="delete-btn" onclick="deletePhoto(${data.id}, this.closest('.photo-tile'))">✕</button>
+            <div class="drag-handle">⠿⠿⠿</div>`;
+        tile.style.opacity = '0'; tile.style.transform = 'scale(.85)';
+        addTiles[0].before(tile);
+        requestAnimationFrame(() => {
+            tile.style.transition = 'opacity .25s, transform .25s';
+            tile.style.opacity = '1'; tile.style.transform = 'scale(1)';
+        });
+        closeVideoModal();
+    };
+
+    document.getElementById('video-modal').addEventListener('click', e => {
+        if (e.target === document.getElementById('video-modal')) closeVideoModal();
+    });
 
     // ── Upload ───────────────────────────────────────────────────
     document.getElementById('photo-file-input').addEventListener('change', async function() {

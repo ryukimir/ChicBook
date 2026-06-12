@@ -7,6 +7,13 @@ require_once 'config/i18n.php';
 
 $is_logged_in = isset($_SESSION['user_id']);
 
+function extractYoutubeId(string $url): ?string {
+    if (preg_match('/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|v\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/', $url, $m)) {
+        return $m[1];
+    }
+    return null;
+}
+
 // ── AJAX handlers ──────────────────────────────────────────────────────────
 if ($is_logged_in && isset($_POST['photo_action'])) {
     require_once 'models/Portfolio.php';
@@ -65,6 +72,24 @@ if ($is_logged_in && isset($_POST['photo_action'])) {
         } else {
             echo json_encode(['ok' => false, 'err' => $_FILES['photo']['error'] ?? 'no file']);
         }
+        exit;
+    }
+
+    if ($_POST['photo_action'] === 'add_video') {
+        $url = trim($_POST['video_url'] ?? '');
+        $yt_id = extractYoutubeId($url);
+        if (!$yt_id) {
+            echo json_encode(['ok' => false, 'err' => 'URL YouTube invalide']);
+            exit;
+        }
+        $clean_url = 'https://www.youtube.com/watch?v=' . $yt_id;
+        $maxPos = $db->prepare("SELECT COALESCE(MAX(position),0)+1 FROM portfolios WHERE user_id=:u");
+        $maxPos->execute([':u' => $_SESSION['user_id']]);
+        $pos = $maxPos->fetchColumn();
+        $stmt = $db->prepare("INSERT INTO portfolios (user_id, video_url, position) VALUES (:u, :url, :pos) RETURNING id");
+        $stmt->execute([':u' => $_SESSION['user_id'], ':url' => $clean_url, ':pos' => $pos]);
+        $new_id = $stmt->fetchColumn();
+        echo json_encode(['ok' => true, 'id' => $new_id, 'video_url' => $clean_url, 'yt_id' => $yt_id, 'thumb' => 'https://img.youtube.com/vi/'.$yt_id.'/hqdefault.jpg']);
         exit;
     }
 }
@@ -566,13 +591,22 @@ function renderActions($is_own_profile, $profile_id = 0, $is_following = false, 
                 <p class="text-[#555]">Aucune photo dans le book pour le moment.</p>
             <?php else: foreach ($photos as $idx => $photo): ?>
                 <div class="profil-masonry-item" style="break-inside:avoid; margin-bottom:12px;">
+                <?php if (!empty($photo['video_url'])): $yt_id = extractYoutubeId($photo['video_url']); ?>
+                    <div class="relative rounded-xl overflow-hidden cursor-pointer hover:scale-[1.01] transition-transform duration-300" style="aspect-ratio:16/9;background:#111;" onclick="openPhotoLightbox(<?= $idx ?>)">
+                        <img src="https://img.youtube.com/vi/<?= $yt_id ?>/hqdefault.jpg" class="w-full h-full object-cover" alt="">
+                        <div class="absolute inset-0 flex items-center justify-center" style="background:rgba(0,0,0,0.25);">
+                            <div style="width:52px;height:52px;border-radius:50%;background:rgba(212,165,212,0.92);display:flex;align-items:center;justify-content:center;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="#000"><path d="M8 5v14l11-7z"/></svg>
+                            </div>
+                        </div>
+                    </div>
+                <?php else: ?>
                     <img src="<?= htmlspecialchars($photo['image_url']) ?>"
                          alt=""
                          class="w-full block rounded-xl hover:scale-[1.01] transition-transform duration-300 cursor-pointer"
                          onclick="openPhotoLightbox(<?= $idx ?>)"
-                         data-photo-idx="<?= $idx ?>"
-                         data-description="<?= htmlspecialchars($photo['description'] ?? '') ?>"
-                         data-tags="<?= htmlspecialchars($photo['tags'] ?? '') ?>">
+                         data-photo-idx="<?= $idx ?>">
+                <?php endif; ?>
                 </div>
             <?php endforeach; endif; ?>
         </div>
@@ -653,17 +687,20 @@ function renderActions($is_own_profile, $profile_id = 0, $is_following = false, 
     <div id="photos-view" class="grid gap-3 profil-editorial-grid" style="grid-template-columns: repeat(3, 1fr);">
         <?php
         $grid_photos = !empty($photos) ? array_slice($photos, 1) : [];
-        foreach ($grid_photos as $idx => $photo): 
-            $real_idx = $idx + 1; // Index réel (premier exclu en éditorial)
+        foreach ($grid_photos as $idx => $photo):
+            $real_idx = $idx + 1;
         ?>
-            <div class="overflow-hidden rounded-xl aspect-square bg-[#111] profil-editorial-item">
-                <img src="<?= htmlspecialchars($photo['image_url']) ?>"
-                     alt=""
-                     class="w-full h-full object-cover hover:scale-[1.04] transition-transform duration-500 cursor-pointer"
-                     onclick="openPhotoLightbox(<?= $real_idx ?>)"
-                     data-photo-idx="<?= $real_idx ?>"
-                     data-description="<?= htmlspecialchars($photo['description'] ?? '') ?>"
-                     data-tags="<?= htmlspecialchars($photo['tags'] ?? '') ?>">
+            <div class="overflow-hidden rounded-xl profil-editorial-item <?= !empty($photo['video_url']) ? '' : 'aspect-square' ?> bg-[#111] relative cursor-pointer" <?= !empty($photo['video_url']) ? 'style="aspect-ratio:16/9;"' : '' ?> onclick="openPhotoLightbox(<?= $real_idx ?>)">
+                <?php if (!empty($photo['video_url'])): $yt_id = extractYoutubeId($photo['video_url']); ?>
+                    <img src="https://img.youtube.com/vi/<?= $yt_id ?>/hqdefault.jpg" class="w-full h-full object-cover hover:scale-[1.04] transition-transform duration-500" alt="">
+                    <div class="absolute inset-0 flex items-center justify-center" style="background:rgba(0,0,0,0.25);">
+                        <div style="width:44px;height:44px;border-radius:50%;background:rgba(212,165,212,0.92);display:flex;align-items:center;justify-content:center;">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="#000"><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+                    </div>
+                <?php else: ?>
+                    <img src="<?= htmlspecialchars($photo['image_url']) ?>" alt="" class="w-full h-full object-cover hover:scale-[1.04] transition-transform duration-500">
+                <?php endif; ?>
             </div>
         <?php endforeach; ?>
         <?php if (empty($grid_photos) && empty($photos)): ?>
@@ -740,14 +777,17 @@ function renderActions($is_own_profile, $profile_id = 0, $is_following = false, 
         <?php if (empty($photos)): ?>
             <p class="text-[#555] col-span-2 text-center">Aucune photo dans le book pour le moment.</p>
         <?php else: foreach ($photos as $idx => $photo): ?>
-            <div class="overflow-hidden rounded-2xl bg-[#0e0e0e] profil-luxe-item <?= $idx === 0 ? 'col-span-2 aspect-video profil-luxe-banner' : 'aspect-square' ?>">
-                <img src="<?= htmlspecialchars($photo['image_url']) ?>"
-                     alt=""
-                     class="w-full h-full object-cover hover:scale-[1.03] transition-transform duration-500 cursor-pointer"
-                     onclick="openPhotoLightbox(<?= $idx ?>)"
-                     data-photo-idx="<?= $idx ?>"
-                     data-description="<?= htmlspecialchars($photo['description'] ?? '') ?>"
-                     data-tags="<?= htmlspecialchars($photo['tags'] ?? '') ?>">
+            <div class="overflow-hidden rounded-2xl bg-[#0e0e0e] profil-luxe-item relative cursor-pointer <?= $idx === 0 ? 'col-span-2 aspect-video profil-luxe-banner' : (!empty($photo['video_url']) ? 'col-span-2' : 'aspect-square') ?>" <?= (!empty($photo['video_url']) && $idx !== 0) ? 'style="aspect-ratio:16/9;"' : '' ?> onclick="openPhotoLightbox(<?= $idx ?>)">
+                <?php if (!empty($photo['video_url'])): $yt_id = extractYoutubeId($photo['video_url']); ?>
+                    <img src="https://img.youtube.com/vi/<?= $yt_id ?>/hqdefault.jpg" alt="" class="w-full h-full object-cover hover:scale-[1.03] transition-transform duration-500">
+                    <div class="absolute inset-0 flex items-center justify-center" style="background:rgba(0,0,0,0.25);">
+                        <div style="width:52px;height:52px;border-radius:50%;background:rgba(212,165,212,0.92);display:flex;align-items:center;justify-content:center;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="#000"><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+                    </div>
+                <?php else: ?>
+                    <img src="<?= htmlspecialchars($photo['image_url']) ?>" alt="" class="w-full h-full object-cover hover:scale-[1.03] transition-transform duration-500">
+                <?php endif; ?>
             </div>
         <?php endforeach; endif; ?>
     </div>
@@ -930,9 +970,14 @@ if (!empty($measurements['ethnicity_name']))  $meas_modal_items[] = ['Origine', 
         <!-- Bouton fermer -->
         <button onclick="closePhotoLightbox()" class="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-[#1e1e1e] hover:bg-[#2a2a2a] text-[#888] hover:text-white transition-colors text-xl leading-none z-10">✕</button>
         
-        <!-- Image principale -->
+        <!-- Image / Vidéo principale -->
         <div class="flex-grow flex items-center justify-center min-h-0 relative">
             <img id="lightbox-image" src="" alt="" class="max-w-full max-h-full object-contain">
+            <div id="lightbox-video-container" class="hidden w-full h-full flex items-center justify-content:center p-4">
+                <div style="width:100%;max-width:900px;margin:auto;aspect-ratio:16/9;">
+                    <iframe id="lightbox-iframe" src="" style="width:100%;height:100%;border-radius:12px;border:none;" allowfullscreen></iframe>
+                </div>
+            </div>
             
             <!-- Flèche gauche -->
             <button onclick="prevPhoto()" class="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full bg-[#1e1e1e] hover:bg-[#2a2a2a] text-white transition-all hover:scale-110">
@@ -1032,6 +1077,7 @@ function openPhotoLightbox(idx) {
 
 function closePhotoLightbox() {
     document.getElementById('photo-lightbox').classList.add('hidden');
+    document.getElementById('lightbox-iframe').src = '';
     document.body.style.overflow = '';
 }
 
@@ -1050,8 +1096,26 @@ function prevPhoto() {
 function updateLightbox() {
     const photo = allPhotos[currentPhotoIdx];
     if (!photo) return;
-    
-    document.getElementById('lightbox-image').src = photo.image_url;
+
+    const img = document.getElementById('lightbox-image');
+    const videoContainer = document.getElementById('lightbox-video-container');
+    const iframe = document.getElementById('lightbox-iframe');
+    const likeBtn = document.getElementById('lightbox-like-btn');
+
+    if (photo.video_url) {
+        const ytId = photo.video_url.match(/[?&]v=([a-zA-Z0-9_-]{11})/)?.[1] || '';
+        iframe.src = 'https://www.youtube.com/embed/' + ytId + '?autoplay=1&rel=0';
+        img.classList.add('hidden');
+        img.src = '';
+        videoContainer.classList.remove('hidden');
+        if (likeBtn) likeBtn.style.display = 'none';
+    } else {
+        iframe.src = '';
+        videoContainer.classList.add('hidden');
+        img.classList.remove('hidden');
+        img.src = photo.image_url;
+        if (likeBtn) likeBtn.style.display = '';
+    }
     document.getElementById('lightbox-counter').textContent = (currentPhotoIdx + 1) + ' / ' + allPhotos.length;
     
     // Description

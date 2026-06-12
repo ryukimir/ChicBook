@@ -442,3 +442,4 @@ CREATE TABLE IF NOT EXISTS photo_likes (
     UNIQUE(user_id, photo_id)
 );
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_url VARCHAR(255);
+ALTER TABLE portfolios ADD COLUMN IF NOT EXISTS video_url VARCHAR(255);
