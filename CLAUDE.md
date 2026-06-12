@@ -493,10 +493,10 @@ Accessible at `/admin/`. Protected by `auth_guard.php` which checks `$_SESSION['
 
 - `login.php` — standalone login page, checks `users.is_admin = TRUE`
 - `index.php` — dashboard: 8 stat cards (users, castings, projets, événements, signalements non lus, portfolios, métiers, nouveaux 30j). Quand des signalements non lus existent, ils remplacent le widget castings dans la 2e colonne.
-- `utilisateurs.php` — paginated user list, search by name/email/profession, actions: **Contacter** (modal email → `mail()`), suspend/reactivate, toggle admin, delete
+- `utilisateurs.php` — paginated user list, search by name/email/profession, actions: **Contacter** (modal email → `mail()`), suspend/reactivate, toggle admin, **delete** (modale raison obligatoire → email utilisateur avant DELETE)
 - `castings.php` — paginated casting list, search, delete
 - `projets.php` — paginated project list (titre, auteur, type, nb profils, date prévue), search, delete
-- `portfolios.php` — photo grid (5-col), hover-reveal delete with `unlink()`
+- `portfolios.php` — photo grid (5-col), hover-reveal **delete** (modale raison obligatoire → email utilisateur avant DELETE + `unlink()`)
 - `evenements.php` — event list, search, delete
 - `signalements.php` — tabs Signalements / Suggestions. Badges non lus. Marquer lu / tout marquer lu / répondre par email (modal) / supprimer.
 - `metiers.php` — gestion catégories (`profession_categories`) + professions (`professions`) + **tags expertise** (`expertise_tags_list`). Catégories et tags dans la colonne gauche (flex-col gap-6), métiers dans la colonne droite. Modals ajouter/modifier pour chaque entité. Toggle "a des mensurations" par profession. Tags classés alphabétiquement.
@@ -506,41 +506,68 @@ To grant admin to a user: `UPDATE users SET is_admin = TRUE WHERE email = 'xxx';
 
 ### Tags expertise
 
-Les tags sont stockés dans `expertise_tags_list` (table DB) et gérés depuis `admin/metiers.php`. 60 tags seedés par défaut. `inscription.php` et `edit_profil.php` chargent les tags via `SELECT name FROM expertise_tags_list ORDER BY name ASC` — plus de tableau hardcodé. Le select pays dans `inscription.php` utilise une **liste statique de 196 pays** dans `assets/js/script.js` (plus d'appel à l'API restcountries qui était instable).
+Les tags sont stockés dans `expertise_tags_list` (table DB) et gérés depuis `admin/metiers.php`. 60 tags seedés par défaut. `inscription.php` et `edit_profil.php` chargent les tags via `SELECT name FROM expertise_tags_list ORDER BY name ASC` — plus de tableau hardcodé.
+
+**Liste pays `inscription.php` :** 196 `<option>` générées directement en PHP dans le HTML — **pas de JS**. La liste est un tableau PHP inline dans `inscription.php`. Ne pas revenir à une approche JS (causait des bugs selon l'ordre d'exécution des scripts).
 
 ### Suppression de compte
 
 Dans `edit_profil.php` onglet Sécurité — bouton "Supprimer mon compte" ouvre une **modale** avec double saisie du mot de passe. Côté PHP : vérifie que les deux mots de passe correspondent + `password_verify` contre le hash DB. Si OK : supprime les fichiers disque (photos book + avatar), `DELETE FROM users` (CASCADE supprime le reste), `session_destroy()`, redirect `index.php`.
 
+### Internationalisation (i18n)
+
+**Fichier :** `config/i18n.php` — chargé automatiquement par `includes/header.php` via `if (!function_exists('t')) require_once`. Toutes les pages principales ajoutent aussi `require_once 'config/i18n.php'` en haut pour avoir `t()` disponible avant le header.
+
+**Langues supportées :** Français (`fr`), Anglais (`en`), Espagnol (`es`). Défaut : `fr`.
+
+**Persistance :** cookie `chicbook_lang` (1 an). Changé depuis `preferences.php` (POST `set_lang` → reload).
+
+**Utilisation :** `<?= t('nav.home') ?>` dans le HTML, `t('key')` dans les attributs PHP (`placeholder="<?= t('auth.email') ?>"`).
+
+**Structure des clés :** préfixées par domaine — `nav.*`, `auth.*`, `register.*`, `feed.*`, `profile.*`, `castings.*`, `events.*`, `prefs.*`, `common.*`, `talents.*`. Voir `config/i18n.php` pour la liste complète (~90 clés).
+
+**Ajouter une clé :** ajouter à la fin de la section appropriée dans `config/i18n.php` avec les 3 langues : `'my.key' => ['fr'=>'...', 'en'=>'...', 'es'=>'...'],`
+
+### Système de likes photos
+
+**Table :** `photo_likes` (`user_id`, `photo_id`, UNIQUE) — référence `portfolios(id)` ON DELETE CASCADE.
+
+**Feed (`index.php`) :** chaque carte post a un bouton like avec `data-photo-id`, `data-liked`, `data-require-login`. Toggle via AJAX POST `action=toggle_like` → retourne `{ok, liked, count}`. Mise à jour optimiste + rollback en cas d'erreur. Redirige vers `connexion.php` si non connecté.
+
+**Lightbox profil (`profil.php`) :** bouton like `#lightbox-like-btn` dans le footer du lightbox. Même logique AJAX via `PROFILE_PAGE_URL` + handler `toggle_photo_like`. `allPhotos` JS enrichi avec `likes_count` + `user_liked`.
+
+### Sécurité — correctifs appliqués (audit 2026-06-12)
+
+**Corrigé (critique/haute) :**
+- `verifier_code.php` + `admin/login.php` : `session_regenerate_id(true)` après authentification
+- `connexion.php` : validation email via `filter_var(FILTER_VALIDATE_EMAIL)` avant `mail()`
+- `messagerie.php` : XSS corrigé — escape `&` en premier, puis `<>`, via `.replace()` en JS avant injection `innerHTML`
+- `profil.php` + `edit_profil.php` : validation MIME uploads via `getimagesize()` + whitelist `['image/jpeg','image/png','image/gif','image/webp']`
+- `profil.php` + `edit_profil.php` : noms de fichiers imprévisibles via `bin2hex(random_bytes(12))`
+- `edit_profil.php` : CSRF token sur `delete_account` + `update_password` (`$_SESSION['csrf_token']`, vérification avec `goto skip_post` en cas d'échec)
+- `controllers/AuthController.php` : vérification âge minimum 16 ans côté PHP (`DateTime::diff`)
+- `includes/header.php` : remember-me token stocké en SHA256 en DB (`hash('sha256', $token)`), cookie conserve le token brut
+
+**Corrigé (moyenne/faible) :**
+- `config/database.php` : `die($e->getMessage())` remplacé par `error_log` + message générique
+- `.htaccess` : headers sécurité `X-Frame-Options SAMEORIGIN`, `X-Content-Type-Options nosniff`, `Referrer-Policy`, `Permissions-Policy`, `ServerSignature Off`
+
+**Restant :**
+- Pas de CSRF sur la majorité des autres formulaires POST
+- Pas de rate limiting sur login / 2FA / reset mot de passe
+- Pas de Content-Security-Policy
+
+### Back office — suppressions avec raison obligatoire
+
+`admin/portfolios.php` et `admin/utilisateurs.php` : la suppression ouvre une modale (`#modal-delete-photo` / `#modal-delete-user`) avec un textarea `required`. Si une raison est saisie, un email est envoyé à l'utilisateur avant le DELETE. Format : `From: admin@chicbook.fr`.
+
 ### External APIs used
 
-- ~~**Countries list:** `https://restcountries.com/v3.1/all`~~ — **remplacé par liste statique** dans `assets/js/script.js` (tableau `PAYS`, 196 pays en français, France en tête alphabétique)
 - **City autocomplete:** `https://geocoding-api.open-meteo.com/v1/search` — debounced 300ms, min 3 chars
 
 ### File uploads
 
-Uploaded files go to `uploads/` (gitignored). Path relative to webroot stored in DB (e.g. `uploads/portfolio_1_1234567890.jpg`).
-
-### Sécurité — failles connues et à corriger
-
-Audit réalisé le 2026-06-12. Points à corriger par priorité :
-
-**Critique/Haute :**
-- **XSS messagerie** — `messagerie.php` : messages injectés via `.innerHTML` sans `htmlspecialchars()`. Corriger avec `.textContent` côté JS ou encoder côté PHP avant `json_encode`.
-- **Pas de CSRF tokens** — aucun formulaire POST n'a de token CSRF (`edit_profil.php`, `creer_casting.php`, `evenements.php`, etc.). Ajouter `$_SESSION['csrf_token']` + vérification sur chaque POST sensible.
-- **Pas de `session_regenerate_id()`** — manquant dans `verifier_code.php` après 2FA réussi et dans `admin/login.php`. Risque de fixation de session.
-- **Validation MIME uploads** — seule l'extension est vérifiée, pas le vrai type MIME. Ajouter `getimagesize()` ou `finfo_file()` avant `move_uploaded_file()`.
-- **Email header injection** — `$email` non validé via `filter_var(FILTER_VALIDATE_EMAIL)` avant `mail()` dans `connexion.php`, `mot_de_passe_oublie.php`.
-- **Vérification âge minimum uniquement côté JS** — `inscription.php` ne vérifie pas `birth_date >= 16 ans` côté PHP.
-
-**Moyenne :**
-- **Erreurs DB exposées** — `config/database.php` : `die($e->getMessage())` affiche la version PG et détails de connexion. Remplacer par `error_log` + message générique.
-- **Noms de fichiers uploads prévisibles** — `portfolio_{user_id}_{time()}` est devinable. Utiliser `bin2hex(random_bytes(8))`.
-- **Pas de headers HTTP de sécurité** — aucun `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`.
-
-**Faible :**
-- **Token remember me en clair en DB** — stocker un hash `password_hash()` plutôt que le token brut.
-- **Pas de rate limiting** sur login, 2FA, reset mot de passe.
+Uploaded files go to `uploads/` (gitignored). Path relative to webroot stored in DB. Filename format: `bin2hex(random_bytes(12)) . '.' . $ext` (imprévisible). Validation : extension whitelist + `getimagesize()` MIME check avant `move_uploaded_file()`.
 
 ---
 
@@ -548,8 +575,9 @@ Audit réalisé le 2026-06-12. Points à corriger par priorité :
 
 | File | Purpose |
 |---|---|
-| `index.php` | Homepage: feed + dropdown filter + right column 3 blocs + first-visit popup |
-| `inscription.php` | Registration: prenom+nom, birth_date (max = il y a 16 ans, bloqué JS), clickable tag pills, conditional mensurations |
+| `index.php` | Homepage: feed + dropdown filter + right column 3 blocs + first-visit popup. **Likes photos AJAX** (table `photo_likes`, toggle optimiste, count par photo) |
+| `inscription.php` | Registration: prenom+nom, birth_date (max = il y a 16 ans, bloqué JS **et PHP**), clickable tag pills, conditional mensurations. **Liste pays en PHP** (196 `<option>` inline, pas de JS) |
+| `config/i18n.php` | Système de traduction FR/EN/ES. Fonction `t(string $key)`. Cookie `chicbook_lang`. ~90 clés réparties par domaine |
 | `connexion.php` | Login step 1 (email + password) + lien "Mot de passe oublié ?" |
 | `verifier_code.php` | Login step 2 (2FA code entry) |
 | `mot_de_passe_oublie.php` | Formulaire email → envoi lien reset (token 1h) |
@@ -565,7 +593,7 @@ Audit réalisé le 2026-06-12. Points à corriger par priorité :
 | `messagerie.php` | Messagerie temps réel — liste conversations (style iMessage) à gauche/plein écran mobile, chat à droite/slide-over mobile, polling AJAX 2.5s, `?with=USER_ID` ouvre/crée une conv |
 | `evenements.php` | Events: tabs, card grid, right filters, AJAX registration toggle, modal — login required |
 | `creer_evenement.php` | Create event: title, type, organizer, city/country, date, price, capacity, description, tags, image |
-| `preferences.php` | Plus : toggle thème + signaler un problème (`reports`) + suggérer une amélioration (`suggestions`) + déconnexion |
+| `preferences.php` | Plus : toggle thème + **sélecteur de langue FR/EN/ES** (cookie `chicbook_lang`) + signaler un problème (`reports`) + suggérer une amélioration (`suggestions`) + déconnexion |
 | `apropos.php` | Page À propos **standalone** (sans sidebar, sans `header.php`) — ouverte en `target="_blank"`. Hero animé, marquee métiers, stats compteurs, 3 sections piliers avec scroll-reveal, bouton "Revenir sur ChicBook" en bas |
 | `logout.php` | Destroys session, redirects to index |
 | `admin/` | Back office: dashboard, users, castings, projets, portfolios, events, signalements, métiers — requires `is_admin`. Lien discret dans sidebar front (desktop + admin only). |
