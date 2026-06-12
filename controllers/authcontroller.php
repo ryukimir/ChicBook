@@ -1,6 +1,6 @@
 <?php
 
-require_once 'config/Database.php';
+require_once 'config/database.php';
 require_once 'models/User.php';
 
 class AuthController {
@@ -15,19 +15,34 @@ class AuthController {
     public function handleRegistration($postData) {
         $errors = [];
 
-        $required_fields = ['nom_complet', 'email', 'password', 'password_confirm', 'ville', 'pays', 'metier'];
+        $required_fields = ['prenom', 'nom', 'email', 'password', 'password_confirm', 'ville', 'pays', 'metier'];
         foreach ($required_fields as $field) {
-            if (empty(trim($postData[$field]))) {
+            if (empty(trim($postData[$field] ?? ''))) {
                 $errors[] = "Veuillez remplir tous les champs.";
-                break; 
-
+                break;
             }
+        }
+
+        if (!isset($postData['gender']) || empty($postData['gender'])) {
+            $errors[] = "Veuillez sélectionner votre genre.";
         }
 
         if (!empty($errors)) return $errors;
 
         if (!filter_var($postData['email'], FILTER_VALIDATE_EMAIL)) {
             $errors[] = "Le format de l'adresse email est invalide.";
+        }
+
+        // Vérification âge minimum 16 ans côté serveur
+        $birth_date = $postData['birth_date'] ?? '';
+        if (!empty($birth_date)) {
+            $birth = DateTime::createFromFormat('Y-m-d', $birth_date);
+            $today = new DateTime();
+            if (!$birth || $today->diff($birth)->y < 16) {
+                $errors[] = "Vous devez avoir au moins 16 ans pour vous inscrire.";
+            }
+        } else {
+            $errors[] = "La date de naissance est requise.";
         }
 
         if ($this->userModel->emailExists($postData['email'])) {
@@ -38,15 +53,20 @@ class AuthController {
             $errors[] = "Les mots de passe ne correspondent pas.";
         }
 
-        if (!preg_match('/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$/', $postData['password'])) {
-            $errors[] = "Le mot de passe doit contenir au moins 8 caractères, une lettre et un chiffre.";
+        if (strlen($postData['password']) < 8) {
+            $errors[] = "Le mot de passe doit contenir au moins 8 caractères.";
+        } elseif (!preg_match('/[A-Za-z]/', $postData['password']) || !preg_match('/\d/', $postData['password'])) {
+            $errors[] = "Le mot de passe doit contenir au moins une lettre et un chiffre.";
         }
 
         if (empty($errors)) {
-            if ($this->userModel->create($postData)) {
-                return ['success' => true];
-            } else {
+            try {
+                if ($this->userModel->create($postData)) {
+                    return ['success' => true];
+                }
                 $errors[] = "Une erreur est survenue lors de la création de votre compte.";
+            } catch (\PDOException $e) {
+                $errors[] = "Erreur BDD : " . $e->getMessage();
             }
         }
 

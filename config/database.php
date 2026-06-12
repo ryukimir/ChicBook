@@ -19,7 +19,8 @@ class Database {
             );
             $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         } catch(PDOException $e) {
-            die("Erreur de connexion : " . $e->getMessage());
+            error_log("DB connection error: " . $e->getMessage());
+            die("Une erreur technique est survenue. Veuillez réessayer plus tard.");
         }
     }
 

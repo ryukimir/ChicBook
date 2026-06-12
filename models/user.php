@@ -67,12 +67,24 @@ class User
 
     public function updateExpertise($user_id, $profession, $tags)
     {
-        $query = "UPDATE " . $this->table_name . " SET specific_profession = :prof, expertise_tags = :tags WHERE id = :id";
-        $stmt = $this->conn->prepare($query);
+        $stmt = $this->conn->prepare("UPDATE " . $this->table_name . " SET specific_profession = :prof, expertise_tags = :tags WHERE id = :id");
         $stmt->bindParam(":prof", $profession);
         $stmt->bindParam(":tags", $tags);
         $stmt->bindParam(":id", $user_id);
-        return $stmt->execute();
+        $ok = $stmt->execute();
+
+        // Sync user_professions avec la nouvelle profession
+        if ($ok && !empty($profession)) {
+            $stmtP = $this->conn->prepare("SELECT id FROM professions WHERE name = :name LIMIT 1");
+            $stmtP->execute([':name' => $profession]);
+            $prof = $stmtP->fetch(PDO::FETCH_ASSOC);
+            if ($prof) {
+                $this->conn->prepare("DELETE FROM user_professions WHERE user_id = :uid")->execute([':uid' => $user_id]);
+                $this->conn->prepare("INSERT INTO user_professions (user_id, profession_id) VALUES (:uid, :pid)")->execute([':uid' => $user_id, ':pid' => $prof['id']]);
+            }
+        }
+
+        return $ok;
     }
     public function updateProfilePicture($user_id, $image_url)
     {
@@ -85,10 +97,11 @@ class User
     public function getUserProfile($user_id)
     {
 
-        $query = "SELECT u.id, u.full_name, u.email, u.specific_profession, u.expertise_tags, u.city, u.country, u.bio, u.profile_picture_url, p.name as profession_name
+        $query = "SELECT u.id, u.full_name, u.email, u.specific_profession, u.expertise_tags, u.city, u.country, u.bio, u.profile_picture_url, u.birth_date, u.profile_theme, u.show_age, u.gender, p.name as profession_name, p.has_measurements
                   FROM " . $this->table_name . " u
                   LEFT JOIN user_professions up ON u.id = up.user_id
                   LEFT JOIN professions p ON up.profession_id = p.id
+                  LEFT JOIN measurements m ON u.id = m.user_id
                   WHERE u.id = :id LIMIT 1";
 
         $stmt = $this->conn->prepare($query);
@@ -97,6 +110,13 @@ class User
 
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
+    public function updateTheme($user_id, $theme) {
+        $allowed = ['classique', 'editorial', 'luxe'];
+        $theme = in_array($theme, $allowed) ? $theme : 'classique';
+        $stmt = $this->conn->prepare("UPDATE users SET profile_theme = :theme WHERE id = :id");
+        return $stmt->execute(['theme' => $theme, 'id' => $user_id]);
+    }
+
     public function updateInfo($user_id, $bio, $profile_picture = null)
     {
         $sql = "UPDATE users SET bio = :bio";
@@ -114,15 +134,53 @@ class User
         return $stmt->execute();
     }
 
-    public function updateGeneralInfo($user_id, $full_name, $city, $country)
+    public function updateGeneralInfo($user_id, $full_name, $city, $country, $show_age = false, $gender = '', $birth_date = null)
     {
-        $query = "UPDATE " . $this->table_name . " SET full_name = :name, city = :city, country = :country WHERE id = :id";
+        $query = "UPDATE " . $this->table_name . " SET full_name = :name, city = :city, country = :country, show_age = :show_age, gender = :gender, birth_date = :birth_date WHERE id = :id";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(":name", $full_name);
         $stmt->bindParam(":city", $city);
         $stmt->bindParam(":country", $country);
+        $stmt->bindParam(":show_age", $show_age, PDO::PARAM_BOOL);
+        $stmt->bindParam(":gender", $gender);
+        $stmt->bindParam(":birth_date", $birth_date);
         $stmt->bindParam(":id", $user_id);
         return $stmt->execute();
+    }
+
+    public function getMeasurements($user_id)
+    {
+        $stmt = $this->conn->prepare("SELECT * FROM measurements WHERE user_id = :id LIMIT 1");
+        $stmt->execute(['id' => $user_id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    public function upsertMeasurements($user_id, $data)
+    {
+        $check = $this->conn->prepare("SELECT user_id FROM measurements WHERE user_id = :id");
+        $check->execute(['id' => $user_id]);
+        if ($check->rowCount() > 0) {
+            $stmt = $this->conn->prepare(
+                "UPDATE measurements SET height=:height, chest_size=:chest, waist_size=:waist, hip_size=:hip,
+                 shoe_size=:shoe, eye_color_id=:eye, hair_color_id=:hair, ethnicity_id=:eth WHERE user_id=:id"
+            );
+        } else {
+            $stmt = $this->conn->prepare(
+                "INSERT INTO measurements (user_id, height, chest_size, waist_size, hip_size, shoe_size, eye_color_id, hair_color_id, ethnicity_id)
+                 VALUES (:id, :height, :chest, :waist, :hip, :shoe, :eye, :hair, :eth)"
+            );
+        }
+        return $stmt->execute([
+            'id'     => $user_id,
+            'height' => $data['height'] ?: null,
+            'chest'  => $data['chest_size'] ?: null,
+            'waist'  => $data['waist_size'] ?: null,
+            'hip'    => $data['hip_size'] ?: null,
+            'shoe'   => $data['shoe_size'] ?: null,
+            'eye'    => $data['eye_color_id'] ?: null,
+            'hair'   => $data['hair_color_id'] ?: null,
+            'eth'    => $data['ethnicity_id'] ?: null,
+        ]);
     }
 
     public function updatePassword($user_id, $current_password, $new_password)
@@ -148,32 +206,44 @@ class User
     public function create($data)
     {
         try {
-
             $this->conn->beginTransaction();
 
-            $query = "INSERT INTO " . $this->table_name . " 
-                      (role, gender, full_name, email, password_hash, city, country) 
+            // 1. On retire birth_date d'ici, ça n'existe pas dans 'users' !
+            $query = "INSERT INTO " . $this->table_name . "
+                      (role, gender, full_name, email, password_hash, city, country)
                       VALUES ('talent', :gender, :full_name, :email, :password_hash, :city, :country)";
 
             $stmt = $this->conn->prepare($query);
             $hashed_password = password_hash($data['password'], PASSWORD_DEFAULT);
 
             $stmt->bindParam(":gender", $data['gender']);
-            $stmt->bindParam(":full_name", $data['nom_complet']);
+            
+            // Petite sécurité au cas où tu utilises prenom+nom OU nom_complet
+            $full_name = '';
+            if (isset($data['prenom']) && isset($data['nom'])) {
+                $full_name = trim($data['prenom']) . ' ' . trim($data['nom']);
+            } else {
+                $full_name = trim($data['nom_complet'] ?? 'Talent');
+            }
+            
+            $stmt->bindParam(":full_name", $full_name);
             $stmt->bindParam(":email", $data['email']);
             $stmt->bindParam(":password_hash", $hashed_password);
             $stmt->bindParam(":city", $data['ville']);
             $stmt->bindParam(":country", $data['pays']);
             $stmt->execute();
 
+            // On récupère l'ID de ce nouvel utilisateur fraîchement créé
             $user_id = $this->conn->lastInsertId();
 
+            // 2. On ajoute son métier
             $query_prof = "INSERT INTO user_professions (user_id, profession_id) VALUES (:user_id, :profession_id)";
             $stmt_prof = $this->conn->prepare($query_prof);
             $stmt_prof->bindParam(":user_id", $user_id);
             $stmt_prof->bindParam(":profession_id", $data['metier']);
             $stmt_prof->execute();
 
+            // 3. On ajoute sa langue
             if (!empty($data['langues'])) {
                 $query_lang = "INSERT INTO user_languages (user_id, language_id) VALUES (:user_id, :language_id)";
                 $stmt_lang = $this->conn->prepare($query_lang);
@@ -182,8 +252,8 @@ class User
                 $stmt_lang->execute();
             }
 
+            // 4. C'EST LÀ QUE VA LA DATE DE NAISSANCE ! (Dans la table measurements)
             if (isset($data['has_measurements']) && $data['has_measurements'] == "1") {
-
                 $query_meas = "INSERT INTO measurements 
                               (user_id, birth_date, height, chest_size, waist_size, hip_size, shoe_size, eye_color_id, hair_color_id, ethnicity_id) 
                               VALUES (:user_id, :birth_date, :height, :chest_size, :waist_size, :hip_size, :shoe_size, :eye_color_id, :hair_color_id, :ethnicity_id)";
@@ -208,7 +278,6 @@ class User
                 $stmt_meas->bindParam(":waist_size", $waist);
                 $stmt_meas->bindParam(":hip_size", $hip);
                 $stmt_meas->bindParam(":shoe_size", $shoe);
-
                 $stmt_meas->bindParam(":eye_color_id", $eye_color_id);
                 $stmt_meas->bindParam(":hair_color_id", $hair_color_id);
                 $stmt_meas->bindParam(":ethnicity_id", $ethnicity_id);
@@ -218,11 +287,10 @@ class User
 
             $this->conn->commit();
             return true;
+            
         } catch (PDOException $e) {
-
             $this->conn->rollBack();
-
-            return false;
+            throw $e;
         }
     }
 }

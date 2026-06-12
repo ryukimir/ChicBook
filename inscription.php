@@ -2,6 +2,7 @@
 
 require_once 'controllers/AuthController.php';
 require_once 'models/Profession.php';
+require_once 'config/i18n.php';
 
 $db = Database::getInstance()->getConnection();
 $professionModel = new Profession($db);
@@ -14,6 +15,7 @@ $eye_colors = $db->query("SELECT * FROM eye_colors ORDER BY name ASC")->fetchAll
 $hair_colors = $db->query("SELECT * FROM hair_colors ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
 $ethnicities = $db->query("SELECT * FROM ethnicities ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
 $languages = $db->query("SELECT * FROM languages ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
+$all_tags_db = $db->query("SELECT name FROM expertise_tags_list ORDER BY name ASC")->fetchAll(PDO::FETCH_COLUMN);
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
   $authController = new AuthController();
@@ -21,6 +23,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
   if (isset($result['success']) && $result['success'] === true) {
     $successMessage = "Votre compte a été créé avec succès !";
+    $triggerRedirect = true;
   } else {
     $errors = $result;
   }
@@ -32,182 +35,217 @@ function get_post_value($key)
 }
 ?>
 <!doctype html>
-<html lang="fr">
-
+<html lang="fr" <?php if((($_COOKIE['chicbook_theme']??'dark')==='light'))echo' class="light"';?>>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Inscription Talent - ChicBook</title>
-  <link rel="stylesheet" href="src/style.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { colors: { brand: '#d4a5d4', dark: '#1a1a1a' } } }
+    }
+  </script>
+  <link rel="stylesheet" href="assets/css/custom.css" />
+  <style>
+    .input-field {
+      width: 100%; padding: 15px 20px; border-radius: 8px; border: none;
+      background-color: #ffffff; font-size: 15px; font-family: inherit;
+      color: #1a1a1a; outline: none;
+    }
+    .input-field::placeholder { color: #999; }
+    select.input-field {
+      cursor: pointer; appearance: none;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231a1a1a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-repeat: no-repeat; background-position: right 15px center; background-size: 15px;
+    }
+    @media (max-width:768px) { #mobile-topbar { display:none !important; } }
+  </style>
 </head>
-
-<body>
+<body class="bg-black text-white font-['Arial',sans-serif]">
   <?php include 'includes/header.php'; ?>
 
-  <main class="auth-main">
-    <div class="auth-header-text">
-      <h1>Rejoindre ChicBook</h1>
-      <h2>Créez votre profil talent et rejoignez le réseau</h2>
-      <p>Commencez simplement avec vos informations essentielles.</p>
+  <main class="pt-16 pb-20 min-h-screen flex flex-col items-center bg-black">
+    <div class="text-center mb-10 text-white">
+      <h1 class="text-5xl mb-3 font-bold"><?= t('register.title') ?></h1>
+      <h2 class="text-lg font-normal mb-2.5"><?= t('register.subtitle') ?></h2>
+      <p class="text-sm text-[#aaa]">Commencez simplement avec vos informations essentielles.</p>
     </div>
 
-    <div class="auth-card">
-      <h3>Inscription Talent</h3>
+    <div class="bg-[#1a1a1a] w-full max-w-[620px] rounded-xl p-10 shadow-[0_10px_30px_rgba(0,0,0,0.1)]">
+      <h3 class="text-white text-center text-xl mb-8 font-medium">Inscription Talent</h3>
 
       <?php if (!empty($errors)): ?>
-        <div class="alert alert-error">
-          <?php foreach ($errors as $error) echo $error . "<br>"; ?>
+        <div class="bg-[#ffebee] text-[#c62828] border border-[#ef9a9a] p-4 mb-5 rounded-lg text-sm text-center">
+          <?php foreach ($errors as $error) echo htmlspecialchars($error) . "<br>"; ?>
         </div>
       <?php endif; ?>
 
       <?php if (!empty($successMessage)): ?>
-        <div class="alert alert-success"><?php echo $successMessage; ?></div>
+        <div class="bg-[#e8f5e9] text-[#2e7d32] border border-[#a5d6a7] p-4 mb-5 rounded-lg text-sm text-center"><?= $successMessage ?></div>
+      <?php if (isset($triggerRedirect) && $triggerRedirect === true): ?>
+          <script>
+            setTimeout(function() {
+              window.location.href = 'connexion.php';
+            }, 2000);
+          </script>
+        <?php endif; ?>
+
       <?php else: ?>
 
+        <form class="flex flex-col gap-5" action="inscription.php" method="POST" id="inscription-form">
 
-
-        <form class="auth-form" action="inscription.php" method="POST" id="inscription-form">
-          <div class="form-group">
-            <label class="form-label">Genre</label>
-            <div class="gender-radio-group">
-              <label class="gender-radio">
-                <input type="radio" name="gender" value="femme" <?php echo get_post_value('gender') == 'femme' ? 'checked' : ''; ?> required>
-                <span>Femme</span>
-              </label>
-              <label class="gender-radio">
-                <input type="radio" name="gender" value="homme" <?php echo get_post_value('gender') == 'homme' ? 'checked' : ''; ?>>
-                <span>Homme</span>
-              </label>
-              <label class="gender-radio">
-                <input type="radio" name="gender" value="non_binaire" <?php echo get_post_value('gender') == 'non_binaire' ? 'checked' : ''; ?>>
-                <span>Non-binaire</span>
-              </label>
+          <!-- Genre -->
+          <div>
+            <label class="block text-white mb-2.5 text-sm"><?= t('register.gender') ?></label>
+            <div class="flex gap-2.5 mb-4">
+              <?php foreach (['femme' => t('register.female'), 'homme' => t('register.male'), 'non_binaire' => t('register.nonbinary')] as $val => $label): ?>
+                <label class="gender-radio flex-1 cursor-pointer">
+                  <input type="radio" name="gender" value="<?= $val ?>" <?= get_post_value('gender') == $val ? 'checked' : '' ?> <?= $val === 'femme' ? 'required' : '' ?> class="hidden">
+                  <span class="block bg-white text-[#1a1a1a] py-3 text-center rounded-lg text-sm border-2 border-transparent hover:bg-[#f0f0f0] transition-all duration-300"><?= $label ?></span>
+                </label>
+              <?php endforeach; ?>
             </div>
           </div>
 
-          <div class="form-group">
-            <input type="text" name="nom_complet" placeholder="Nom complet" value="<?php echo get_post_value('nom_complet'); ?>" required>
+          <!-- Prénom / Nom -->
+          <div class="flex gap-4">
+            <div class="flex-1">
+              <input type="text" name="prenom" placeholder="<?= t('register.firstname') ?>" value="<?= get_post_value('prenom') ?>" required class="input-field">
+            </div>
+            <div class="flex-1">
+              <input type="text" name="nom" placeholder="<?= t('register.lastname') ?>" value="<?= get_post_value('nom') ?>" required class="input-field">
+            </div>
           </div>
 
-          <div class="form-group">
-            <select name="langues" required>
-              <option value="" disabled <?php echo empty(get_post_value('langues')) ? 'selected' : ''; ?>>Langues parlées</option>
+          <!-- Date de naissance -->
+          <div>
+            <label class="block text-white mb-2 text-sm"><?= t('register.birthdate') ?></label>
+            <input type="date" name="birth_date" value="<?= get_post_value('birth_date') ?>" required class="input-field">
+          </div>
+
+          <!-- Langues -->
+          <div>
+            <select name="langues" required class="input-field">
+              <option value="" disabled <?= empty(get_post_value('langues')) ? 'selected' : '' ?>><?= t('register.language') ?></option>
               <?php foreach ($languages as $lang): ?>
-                <option value="<?= $lang['id'] ?>" <?php echo get_post_value('langues') == $lang['id'] ? 'selected' : ''; ?>>
-                  <?= htmlspecialchars($lang['name']) ?>
-                </option>
+                <option value="<?= $lang['id'] ?>" <?= get_post_value('langues') == $lang['id'] ? 'selected' : '' ?>><?= htmlspecialchars($lang['name']) ?></option>
               <?php endforeach; ?>
             </select>
           </div>
 
-          <div class="form-group">
-            <input type="email" name="email" placeholder="Email" value="<?php echo get_post_value('email'); ?>" required>
+          <!-- Email -->
+          <div>
+            <input type="email" name="email" placeholder="<?= t('auth.email') ?>" value="<?= get_post_value('email') ?>" required class="input-field">
           </div>
 
-          <div class="form-group">
-            <input type="password" name="password" placeholder="Mot de passe (8 caractères minimum)" required>
+          <!-- Mot de passe -->
+          <div>
+            <input type="password" name="password" placeholder="Mot de passe (8 caractères minimum)" required class="input-field">
+          </div>
+          <div>
+            <input type="password" name="password_confirm" placeholder="Confirmer le mot de passe" required class="input-field">
           </div>
 
-          <div class="form-group">
-            <input type="password" name="password_confirm" placeholder="Confirmer le mot de passe" required>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group half autocomplete-wrapper">
-              <input type="text" name="ville" id="ville-input" placeholder="Ville" value="<?php echo get_post_value('ville'); ?>" autocomplete="off" required>
-              <ul id="ville-suggestions" class="suggestions-list"></ul>
+          <!-- Ville / Pays -->
+          <div class="flex gap-4">
+            <div class="flex-1 relative">
+              <input type="text" name="ville" id="ville-input" placeholder="<?= t('register.city') ?>" value="<?= get_post_value('ville') ?>" autocomplete="off" required class="input-field">
+              <ul id="ville-suggestions" class="absolute top-full left-0 right-0 bg-white rounded-lg shadow-[0_5px_15px_rgba(0,0,0,0.2)] list-none mt-1 p-0 max-h-[200px] overflow-y-auto z-[1000] hidden">
+              </ul>
             </div>
-            <div class="form-group half">
-              <select name="pays" id="pays-select" required>
+            <div class="flex-1">
+              <?php
+              $pays_list = ["Afghanistan","Afrique du Sud","Albanie","Algérie","Allemagne","Andorre","Angola","Antigua-et-Barbuda","Arabie Saoudite","Argentine","Arménie","Australie","Autriche","Azerbaïdjan","Bahamas","Bahreïn","Bangladesh","Barbade","Belgique","Belize","Bénin","Bhoutan","Biélorussie","Bolivie","Bosnie-Herzégovine","Botswana","Brésil","Brunei","Bulgarie","Burkina Faso","Burundi","Cabo Verde","Cambodge","Cameroun","Canada","Centrafrique","Chili","Chine","Chypre","Colombie","Comores","Congo","Costa Rica","Côte d'Ivoire","Croatie","Cuba","Danemark","Djibouti","Dominique","Égypte","Émirats Arabes Unis","Équateur","Érythrée","Espagne","Estonie","Eswatini","États-Unis","Éthiopie","Fidji","Finlande","France","Gabon","Gambie","Géorgie","Ghana","Grèce","Grenade","Guatemala","Guinée","Guinée-Bissau","Guinée Équatoriale","Guyana","Haïti","Honduras","Hongrie","Îles Marshall","Îles Salomon","Inde","Indonésie","Irak","Iran","Irlande","Islande","Israël","Italie","Jamaïque","Japon","Jordanie","Kazakhstan","Kenya","Kirghizistan","Kiribati","Koweït","Laos","Lesotho","Lettonie","Liban","Liberia","Libye","Liechtenstein","Lituanie","Luxembourg","Macédoine du Nord","Madagascar","Malaisie","Malawi","Maldives","Mali","Malte","Maroc","Maurice","Mauritanie","Mexique","Micronésie","Moldavie","Monaco","Mongolie","Monténégro","Mozambique","Myanmar","Namibie","Nauru","Népal","Nicaragua","Niger","Nigeria","Norvège","Nouvelle-Zélande","Oman","Ouganda","Ouzbékistan","Pakistan","Palaos","Palestine","Panama","Papouasie-Nouvelle-Guinée","Paraguay","Pays-Bas","Pérou","Philippines","Pologne","Portugal","Qatar","République Démocratique du Congo","République Dominicaine","République Tchèque","Roumanie","Royaume-Uni","Russie","Rwanda","Saint-Kitts-et-Nevis","Saint-Vincent-et-les-Grenadines","Sainte-Lucie","Salvador","Samoa","Sao Tomé-et-Principe","Sénégal","Serbie","Seychelles","Sierra Leone","Singapour","Slovaquie","Slovénie","Somalie","Soudan","Soudan du Sud","Sri Lanka","Suède","Suisse","Suriname","Syrie","Tadjikistan","Tanzanie","Tchad","Thaïlande","Timor oriental","Togo","Tonga","Trinité-et-Tobago","Tunisie","Turkménistan","Turquie","Tuvalu","Ukraine","Uruguay","Vanuatu","Vatican","Venezuela","Vietnam","Yémen","Zambie","Zimbabwe"];
+              $saved_pays = get_post_value('pays');
+              ?>
+              <select name="pays" id="pays-select" required class="input-field">
+                <option value="">Sélectionnez un pays</option>
+                <?php foreach ($pays_list as $p): ?>
+                <option value="<?= htmlspecialchars($p) ?>"<?= $saved_pays === $p ? ' selected' : '' ?>><?= htmlspecialchars($p) ?></option>
+                <?php endforeach; ?>
                 <option value="" disabled selected>Pays</option>
               </select>
             </div>
           </div>
 
-          <div class="form-group">
-            <select name="metier" id="metier-select" required>
-              <option value="" disabled <?php echo empty(get_post_value('metier')) ? 'selected' : ''; ?>>Votre métier</option>
+          <!-- Métier -->
+          <div>
+            <select name="metier" id="metier-select" required class="input-field">
+              <option value="" disabled <?= empty(get_post_value('metier')) ? 'selected' : '' ?>><?= t('register.job') ?></option>
               <?php
-              $metiers_physiques = ['Mannequin', 'Comédien', 'Danseur'];
               foreach ($professions as $metier):
-                $requires_measurements = in_array($metier['name'], $metiers_physiques) ? 'true' : 'false';
+                $requires_measurements = !empty($metier['has_measurements']) ? 'true' : 'false';
               ?>
-                <option value="<?php echo $metier['id']; ?>" data-measurements="<?php echo $requires_measurements; ?>" <?php echo get_post_value('metier') == $metier['id'] ? 'selected' : ''; ?>>
-                  <?php echo htmlspecialchars($metier['name']); ?>
+                <option value="<?= $metier['id'] ?>" data-measurements="<?= $requires_measurements ?>" <?= get_post_value('metier') == $metier['id'] ? 'selected' : '' ?>>
+                  <?= htmlspecialchars($metier['name']) ?>
                 </option>
               <?php endforeach; ?>
             </select>
           </div>
 
-          <div id="mensurations-bloc" style="display: none; background-color: #2a2a2a; padding: 20px; border-radius: 8px; margin-top: 10px;">
-            <h4 style="color: #d4a5d4; margin-bottom: 15px; font-weight: 500;">Vos mensurations</h4>
-
-            <div class="form-group" style="margin-bottom: 15px;">
-              <input type="date" name="birth_date" title="Date de naissance">
+          <!-- Tags expertise -->
+          <div>
+            <label class="block text-white mb-2.5 text-sm"><?= t('register.tags_label') ?> <span class="text-[#666]"><?= t('register.tags_hint') ?></span></label>
+            <div id="tags-container" class="flex flex-wrap gap-2">
+              <?php
+              $selected_tags = array_filter(array_map('trim', explode(',', get_post_value('expertise_tags'))));
+              foreach ($all_tags_db as $tag): $sel = in_array($tag, $selected_tags); ?>
+              <button type="button" onclick="toggleTag(this)"
+                data-tag="<?= htmlspecialchars($tag) ?>"
+                class="tag-pill px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150 cursor-pointer <?= $sel ? 'bg-[#d4a5d4] text-black border-[#d4a5d4]' : 'bg-transparent text-[#888] border-[#333] hover:border-[#d4a5d4] hover:text-[#d4a5d4]' ?>">
+                <?= htmlspecialchars($tag) ?>
+              </button>
+              <?php endforeach; ?>
             </div>
+            <input type="hidden" name="expertise_tags" id="expertise_tags_input" value="<?= get_post_value('expertise_tags') ?>">
+          </div>
 
-            <div class="form-row" style="margin-bottom: 15px;">
-              <div class="form-group half">
-                <select name="eye_color_id">
+          <!-- Bloc mensurations (affiché seulement pour Mannequin/Comédien/Danseur) -->
+          <div id="mensurations-bloc" style="display: none;" class="bg-[#2a2a2a] p-5 rounded-lg mt-2.5">
+            <h4 class="text-[#d4a5d4] mb-4 font-medium"><?= t('register.measurements') ?></h4>
+
+            <div class="flex gap-4 mb-4">
+              <div class="flex-1">
+                <select name="eye_color_id" class="input-field">
                   <option value="" selected disabled>Couleur des yeux</option>
-                  <?php foreach ($eye_colors as $eye): ?>
-                    <option value="<?= $eye['id'] ?>"><?= htmlspecialchars($eye['name']) ?></option>
-                  <?php endforeach; ?>
+                  <?php foreach ($eye_colors as $eye): ?><option value="<?= $eye['id'] ?>"><?= htmlspecialchars($eye['name']) ?></option><?php endforeach; ?>
                 </select>
               </div>
-              <div class="form-group half">
-                <select name="hair_color_id">
+              <div class="flex-1">
+                <select name="hair_color_id" class="input-field">
                   <option value="" selected disabled>Couleur des cheveux</option>
-                  <?php foreach ($hair_colors as $hair): ?>
-                    <option value="<?= $hair['id'] ?>"><?= htmlspecialchars($hair['name']) ?></option>
-                  <?php endforeach; ?>
+                  <?php foreach ($hair_colors as $hair): ?><option value="<?= $hair['id'] ?>"><?= htmlspecialchars($hair['name']) ?></option><?php endforeach; ?>
                 </select>
               </div>
             </div>
 
-            <div class="form-group" style="margin-bottom: 15px;">
-              <select name="ethnicity_id">
+            <div class="mb-4">
+              <select name="ethnicity_id" class="input-field">
                 <option value="" selected disabled>Origine / Ethnie</option>
-                <?php foreach ($ethnicities as $eth): ?>
-                  <option value="<?= $eth['id'] ?>"><?= htmlspecialchars($eth['name']) ?></option>
-                <?php endforeach; ?>
+                <?php foreach ($ethnicities as $eth): ?><option value="<?= $eth['id'] ?>"><?= htmlspecialchars($eth['name']) ?></option><?php endforeach; ?>
               </select>
             </div>
 
-            <div class="form-row" style="margin-bottom: 15px;">
-              <div class="form-group half">
-                <input type="number" name="height" placeholder="Taille (hauteur en cm)">
-              </div>
-              <div class="form-group half">
-                <input type="text" name="shoe_size" placeholder="Pointure (Ex. 39)">
-              </div>
+            <div class="flex gap-4 mb-4">
+              <div class="flex-1"><input type="number" name="height" placeholder="Taille (hauteur en cm)" class="input-field"></div>
+              <div class="flex-1"><input type="text" name="shoe_size" placeholder="Pointure (Ex. 39)" class="input-field"></div>
             </div>
-
-            <div class="form-row" style="margin-bottom: 15px;">
-              <div class="form-group half">
-                <input type="text" name="waist_size" placeholder="Tour de taille (Ex. 64 cm)">
-
-              </div>
-              <div class="form-group half">
-                <input type="text" name="hip_size" placeholder="Tour de hanches (Ex. 92 cm)">
-              </div>
+            <div class="flex gap-4 mb-4">
+              <div class="flex-1"><input type="text" name="waist_size" placeholder="Tour de taille (Ex. 64 cm)" class="input-field"></div>
+              <div class="flex-1"><input type="text" name="hip_size" placeholder="Tour de hanches (Ex. 92 cm)" class="input-field"></div>
             </div>
-
-            <div class="form-row" style="margin-bottom: 15px;">
-              <div class="form-group half">
-                <input type="text" name="chest_size" placeholder="Tour de poitrine (Ex. 85)" value="<?php echo get_post_value('chest_size'); ?>">
-              </div>
-              <div class="form-group half">
-                <input type="text" name="cup_size" placeholder="Bonnet (Ex. B, C...)" value="<?php echo get_post_value('cup_size'); ?>">
-              </div>
+            <div class="flex gap-4">
+              <div class="flex-1"><input type="text" name="chest_size" placeholder="Tour de poitrine (Ex. 85)" value="<?= get_post_value('chest_size') ?>" class="input-field"></div>
+              <div class="flex-1"><input type="text" name="cup_size" placeholder="Bonnet (Ex. B, C...)" value="<?= get_post_value('cup_size') ?>" class="input-field"></div>
             </div>
 
             <input type="hidden" name="has_measurements" id="has_measurements" value="0">
           </div>
 
-          <button type="submit" class="btn-submit-auth">Créer mon compte</button>
-          <p class="auth-footer-link">
-            Déjà un compte ? <a href="connexion.php">Se connecter</a>
+          <button type="submit" class="bg-[#d4a5d4] text-[#1a1a1a] py-4 rounded-full text-base font-bold mt-2.5 hover:opacity-90 transition-opacity cursor-pointer border-none"><?= t('register.btn') ?></button>
+          <p class="text-center text-[#888] text-sm mt-4">
+            <?= t('register.already') ?> <a href="connexion.php" class="text-[#888] underline hover:text-[#d4a5d4] transition-colors"><?= t('auth.login_btn') ?></a>
           </p>
         </form>
 
@@ -215,7 +253,54 @@ function get_post_value($key)
     </div>
   </main>
 
-  <script src="script.js"></script>
-</body>
+  <style>
+    #ville-suggestions li { padding: 12px 20px; cursor: pointer; color: #333; font-size: 14px; border-bottom: 1px solid #f0f0f0; transition: background-color 0.2s; }
+    #ville-suggestions li:last-child { border-bottom: none; }
+    #ville-suggestions li:hover { background-color: #f0f0f0; color: #d4a5d4; font-weight: bold; }
+  </style>
+  <script src="assets/js/script.js"></script>
+  <script>
+  function toggleTag(btn) {
+      const active = btn.dataset.selected === '1';
+      if (active) {
+          btn.dataset.selected = '0';
+          btn.style.background = '';
+          btn.style.color = '#888';
+          btn.style.borderColor = '#333';
+      } else {
+          btn.dataset.selected = '1';
+          btn.style.background = '#d4a5d4';
+          btn.style.color = '#000';
+          btn.style.borderColor = '#d4a5d4';
+      }
+      const selected = [...document.querySelectorAll('.tag-pill[data-selected="1"]')].map(b => b.dataset.tag);
+      document.getElementById('expertise_tags_input').value = selected.join(',');
+  }
+  // Init état des pills déjà sélectionnées (re-POST après erreur)
+  document.querySelectorAll('.tag-pill').forEach(btn => {
+      if (btn.classList.contains('bg-[#d4a5d4]')) {
+          btn.dataset.selected = '1';
+          btn.style.background = '#d4a5d4';
+          btn.style.color = '#000';
+          btn.style.borderColor = '#d4a5d4';
+          btn.classList.remove('bg-[#d4a5d4]','text-black','border-[#d4a5d4]');
+      } else {
+          btn.dataset.selected = '0';
+      }
+  });
 
+  // Calcul de la date d'il y a 18 ans
+  const today = new Date();
+  const minDate = new Date(today.getFullYear() - 16, today.getMonth(), today.getDate());
+  
+  // Formatage en YYYY-MM-DD
+  const yyyy = minDate.getFullYear();
+  const mm = String(minDate.getMonth() + 1).padStart(2, '0');
+  const dd = String(minDate.getDate()).padStart(2, '0');
+  
+  // Application de l'attribut max
+  document.querySelector('input[name="birth_date"]').setAttribute('max', `${yyyy}-${mm}-${dd}`);
+  </script>
+</body>
 </html>
+

@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  # Base de données PostgreSQL
+  db:
+    image: postgres:15-alpine
+    container_name: chicbook_db
+    restart: always
+    environment:
+      POSTGRES_USER: chicuser
+      POSTGRES_PASSWORD: chicpassword
+      POSTGRES_DB: chicbook
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  adminer:
+    image: adminer
+    container_name: chicbook_adminer
+    restart: always
+    ports:
+      - "5050:8080"
+    depends_on:
+      - db
+
+  # Serveur Web Apache + PHP
+  web:
+    build: .
+    container_name: chicbook_web
+    restart: always
+    ports:
+      - "8080:80"
+    volumes:
+      - ./:/var/www/html
+    depends_on:
+      - db
+
+  mailpit:
+    image: axllent/mailpit
+    container_name: chicbook_mailpit
+    restart: always
+    ports:
+      - "8025:8025" 
+      - "1025:1025"
+
+volumes:
+  db_data:
